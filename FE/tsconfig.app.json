@@ -10,6 +10,7 @@
     "resolveJsonModule": true,
     "paths": {
       "@shared/*": ["./src/shared/*"],
+      "@data": ["./src/data/index.ts"],
       "@data/*": ["./src/data/*"],
       "@game/*": ["./src/game/*"]
     },
