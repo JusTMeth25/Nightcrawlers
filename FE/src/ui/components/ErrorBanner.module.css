@@ -1,0 +1,11 @@
+.banner {
+  padding: 0.75rem 1rem;
+  border-left: 4px solid var(--nc-magenta);
+  background: rgb(255 42 109 / 12%);
+  color: var(--nc-text);
+}
+
+.info {
+  border-left-color: var(--nc-cyan);
+  background: rgb(82 224 196 / 10%);
+}

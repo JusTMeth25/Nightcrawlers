@@ -1,0 +1,144 @@
+// All UI texts (Italian). Placeholders use {name} and are filled by t().
+export const it = {
+  'app.title': 'NIGHTCRAWLERS',
+  'app.tagline': 'Sopravvivi alla notte di Night City',
+  'app.loading': 'Connessione in corso…',
+  'app.disclaimer':
+    'Gioco fan non ufficiale e non commerciale, non affiliato a CD Projekt né a Studio Trigger. Cyberpunk, Cyberpunk: Edgerunners e i relativi personaggi appartengono ai rispettivi proprietari.',
+  'app.privacy': 'Privacy',
+  'app.back': 'Indietro',
+  'app.retry': 'Riprova',
+  'app.home': 'Menu principale',
+  'app.comingSoon': 'Questa schermata arriverà presto.',
+  'app.sessionExpired': 'Sessione scaduta: accedi di nuovo.',
+  'app.notFound': 'Pagina non trovata.',
+
+  'menu.play': 'Gioca',
+  'menu.login': 'Accedi',
+  'menu.account': 'Account',
+  'menu.ripperdoc': 'Ripperdoc',
+  'menu.codex': 'Codex',
+  'menu.options': 'Opzioni',
+  'menu.greeting': 'Connesso come {username}',
+  'menu.guest': 'Modalità ospite: i progressi non vengono salvati',
+
+  'screen.select': 'Selezione personaggio',
+  'screen.play': 'Partita',
+  'screen.gameOver': 'Fine run',
+  'screen.ripperdoc': 'Ripperdoc',
+  'screen.codex': 'Codex',
+  'screen.options': 'Opzioni',
+  'screen.account': 'Account',
+  'screen.privacy': 'Privacy',
+
+  'form.username': 'Username',
+  'form.email': 'Email',
+  'form.login': 'Username o email',
+  'form.password': 'Password',
+  'form.newPassword': 'Nuova password',
+  'form.confirmPassword': 'Conferma password',
+  'form.required': 'Campo obbligatorio',
+  'form.submit': 'Invia',
+  'form.sending': 'Invio in corso…',
+
+  'validation.username': 'Da 3 a 20 caratteri: lettere, numeri o _',
+  'validation.email': 'Indirizzo email non valido',
+  'validation.passwordLength': 'La password deve avere tra 12 e 128 caratteri',
+  'validation.passwordUsername': 'La password non può contenere lo username',
+  'validation.passwordMismatch': 'Le password non coincidono',
+
+  'error.network': 'Impossibile contattare il server. Controlla la connessione e riprova.',
+  'error.generic': 'Qualcosa è andato storto. Riprova.',
+  'error.rateLimited': 'Troppi tentativi, riprova tra {seconds} secondi',
+  'error.rateLimitedShort': 'Troppi tentativi, riprova più tardi',
+
+  'login.title': 'Accedi',
+  'login.submit': 'Accedi',
+  'login.invalid': 'Credenziali non valide',
+  'login.locked': 'Account bloccato temporaneamente, riprova tra {seconds} secondi',
+  'login.lockedShort': 'Account bloccato temporaneamente, riprova più tardi',
+  'login.forgot': 'Password dimenticata?',
+  'login.register': 'Non hai un account? Registrati',
+  'login.guest': 'Gioca come ospite',
+
+  'register.title': 'Registrati',
+  'register.submit': 'Crea account',
+  'register.usernameTaken': 'Username già in uso',
+  'register.checkEmail': 'Controlla la tua email',
+  'register.checkEmailBody':
+    'Se i dati sono corretti riceverai un link per verificare l’indirizzo. Il link scade dopo 30 minuti.',
+  'register.hasAccount': 'Hai già un account? Accedi',
+  'register.passwordHint': 'Almeno 12 caratteri, senza lo username.',
+
+  'verify.title': 'Verifica email',
+  'verify.checking': 'Verifica in corso…',
+  'verify.success': 'Email verificata! Ora le tue run vengono salvate.',
+  'verify.invalid': 'Link non valido o scaduto',
+  'verify.resend': 'Reinvia email di verifica',
+  'verify.resent': 'Email inviata. Controlla la tua casella.',
+  'verify.loginToResend': 'Accedi per ricevere un nuovo link.',
+
+  'forgot.title': 'Password dimenticata',
+  'forgot.intro': 'Inserisci la tua email: se esiste un account riceverai un link per reimpostare la password.',
+  'forgot.submit': 'Invia link',
+  'forgot.done': 'Se l’indirizzo è registrato riceverai a breve un’email con le istruzioni.',
+
+  'reset.title': 'Nuova password',
+  'reset.submit': 'Imposta password',
+  'reset.done': 'Password aggiornata. Tutte le sessioni sono state chiuse: accedi di nuovo.',
+  'reset.invalid': 'Link non valido o scaduto',
+  'reset.missingToken': 'Link incompleto: apri il link ricevuto via email.',
+
+  'hud.hp': 'PV',
+  'hud.xp': 'XP',
+  'hud.level': 'Liv. {level}',
+  'hud.psychosis': 'Psicosi',
+  'hud.cyberpsychosis': 'CYBERPSICOSI',
+  'hud.kills': 'Uccisioni',
+  'hud.eurodollars': '€$',
+  'hud.weapons': 'Armi',
+  'hud.cyberware': 'Cyberware',
+  'hud.boss': 'Cyberpsicopatico',
+  'hud.maxtac': 'ALLERTA MAXTAC',
+  'hud.fps': '{fps} FPS',
+  'hud.pause': 'Pausa',
+  'hud.skill': 'Abilità',
+  'hud.skillReady': 'Pronta',
+  'hud.skillHint': 'Spazio / A',
+  'hud.time': 'Tempo',
+
+  'card.level': 'Livello {level}',
+  'card.newWeapon': 'Nuova arma',
+  'card.newCyberware': 'Nuovo cyberware',
+  'card.heal': 'Kit medico',
+  'card.healAmount': '+{amount} PV',
+  'card.eurodollars': 'Sacca di €$',
+  'card.eurodollarsAmount': '+{amount} €$',
+
+  'levelup.title': 'Level up!',
+  'levelup.subtitle': 'Scegli un potenziamento',
+  'levelup.hint': 'Frecce o stick per scegliere, Invio o A per confermare, tasti 1–{count}',
+
+  'chest.title': 'Baule aperto',
+  'chest.evolution': 'Evoluzione',
+  'chest.evolutionText': '{weapon} si evolve in {into}',
+  'chest.rewards': 'Ricompense',
+  'chest.continue': 'Continua',
+
+  'pause.title': 'Pausa',
+  'pause.resume': 'Riprendi',
+  'pause.options': 'Opzioni',
+  'pause.quit': 'Abbandona',
+  'pause.quitConfirm': 'Abbandonare la run? I progressi di questa run verranno conteggiati fino a ora.',
+  'pause.quitYes': 'Sì, abbandona',
+  'pause.quitNo': 'No, continua',
+  'pause.optionsSoon': 'Le opzioni saranno disponibili a breve.',
+} as const
+
+export type TextKey = keyof typeof it
+
+export function t(key: TextKey, vars?: Record<string, string | number>): string {
+  const text: string = it[key]
+  if (!vars) return text
+  return text.replace(/\{(\w+)\}/g, (match, name: string) => (name in vars ? String(vars[name]) : match))
+}

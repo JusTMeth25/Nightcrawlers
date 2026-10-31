@@ -1,0 +1,40 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.label {
+  color: var(--nc-cyan);
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.input {
+  min-height: 44px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgb(82 224 196 / 50%);
+  border-radius: 0;
+  background: rgb(5 1 13 / 80%);
+  color: var(--nc-text);
+  font: inherit;
+}
+
+.input:focus-visible {
+  border-color: var(--nc-yellow);
+}
+
+.invalid {
+  border-color: var(--nc-magenta);
+}
+
+.hint {
+  color: var(--nc-muted);
+  font-size: 0.8rem;
+}
+
+.error {
+  color: var(--nc-magenta);
+  font-size: 0.85rem;
+}
