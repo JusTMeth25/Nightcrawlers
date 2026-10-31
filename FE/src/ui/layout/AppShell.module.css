@@ -1,0 +1,43 @@
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem 1rem;
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem 1rem;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid rgb(123 44 255 / 35%);
+  color: var(--nc-muted);
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+.disclaimer {
+  margin: 0;
+  max-width: 60rem;
+}
+
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}

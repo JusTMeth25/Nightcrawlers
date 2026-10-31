@@ -1,3 +1,19 @@
+:root {
+  --nc-yellow: #f5e663;
+  --nc-cyan: #52e0c4;
+  --nc-magenta: #ff2a6d;
+  --nc-violet: #7b2cff;
+  --nc-bg: #05010d;
+  --nc-bg-raised: #0e0620;
+  --nc-text: #e8e8f0;
+  --nc-muted: #9b95b3;
+  --nc-font: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', Menlo, Consolas, monospace;
+  --nc-glow-cyan: 0 0 6px rgb(82 224 196 / 70%), 0 0 18px rgb(82 224 196 / 35%);
+  --nc-glow-magenta: 0 0 6px rgb(255 42 109 / 70%), 0 0 18px rgb(255 42 109 / 35%);
+  --nc-glow-yellow: 0 0 6px rgb(245 230 99 / 70%), 0 0 18px rgb(245 230 99 / 35%);
+  color-scheme: dark;
+}
+
 *,
 *::before,
 *::after {
@@ -12,7 +28,74 @@ body,
 }
 
 body {
-  background: #05010d;
-  color: #e8e8f0;
-  font-family: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', Menlo, Consolas, monospace;
+  background: var(--nc-bg);
+  color: var(--nc-text);
+  font-family: var(--nc-font);
+  line-height: 1.5;
+}
+
+/* light CRT scanlines over the whole UI */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1000;
+  background: repeating-linear-gradient(to bottom, rgb(255 255 255 / 3%) 0 1px, transparent 1px 3px);
+  animation: nc-flicker 6s infinite steps(1);
+}
+
+@keyframes nc-flicker {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  48% {
+    opacity: 0.85;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+a {
+  color: var(--nc-cyan);
+}
+
+h1,
+h2,
+h3 {
+  margin: 0 0 0.5em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+:focus-visible {
+  outline: 2px solid var(--nc-yellow);
+  outline-offset: 3px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  body::after {
+    animation: none;
+  }
 }

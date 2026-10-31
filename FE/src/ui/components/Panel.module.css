@@ -1,0 +1,26 @@
+.panel {
+  position: relative;
+  width: min(100%, 34rem);
+  margin: 0 auto;
+  padding: 1.5rem;
+  border: 1px solid rgb(123 44 255 / 60%);
+  background: linear-gradient(160deg, rgb(123 44 255 / 12%), rgb(5 1 13 / 92%) 45%);
+  box-shadow:
+    0 0 0 1px rgb(82 224 196 / 15%) inset,
+    0 0 24px rgb(123 44 255 / 25%);
+  clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px));
+}
+
+.wide {
+  width: min(100%, 60rem);
+}
+
+.title {
+  color: var(--nc-cyan);
+  text-shadow: var(--nc-glow-cyan);
+  font-size: 1.4rem;
+}
+
+.body > * + * {
+  margin-top: 1rem;
+}
