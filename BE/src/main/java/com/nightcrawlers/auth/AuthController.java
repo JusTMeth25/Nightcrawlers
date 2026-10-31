@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.nightcrawlers.auth.dto.AuthResponse;
+import com.nightcrawlers.auth.dto.ForgotPasswordRequest;
+import com.nightcrawlers.auth.dto.ResetPasswordRequest;
 import com.nightcrawlers.auth.dto.LoginRequest;
 import com.nightcrawlers.auth.dto.MessageResponse;
 import com.nightcrawlers.auth.dto.RegisterRequest;
@@ -28,6 +30,7 @@ import jakarta.validation.Valid;
 @RequestMapping("/api/auth")
 public class AuthController {
 
+    static final MessageResponse FORGOT = new MessageResponse("Se l'indirizzo è registrato, riceverai un'email.");
     static final MessageResponse REGISTERED = new MessageResponse(
             "Registrazione ricevuta: controlla la tua email per confermare l'account.");
 
@@ -82,6 +85,26 @@ public class AuthController {
         auth.logoutAll(CurrentUser.id(authentication), http);
         cookies.clear(response);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/forgot-password")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public MessageResponse forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        auth.forgotPassword(request.email());
+        return FORGOT;
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest request,
+            HttpServletRequest http) {
+        auth.resetPassword(request.token(), request.newPassword(), http);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/resend-verification")
+    public ResponseEntity<Void> resendVerification(Authentication authentication) {
+        auth.resendVerification(CurrentUser.id(authentication));
+        return ResponseEntity.accepted().build();
     }
 
     private AuthResponse respond(AuthService.Session session, HttpServletResponse response) {

@@ -40,6 +40,18 @@ public class EmailTokenService {
         return token;
     }
 
+    /** Returns the user of a valid (unused, unexpired) token without consuming it. */
+    @Transactional(readOnly = true)
+    public User peek(String token, EmailToken.Purpose purpose) {
+        if (token == null || token.isBlank()) {
+            throw invalid();
+        }
+        EmailToken stored = tokens.findByTokenHashAndPurpose(SecureTokens.sha256Hex(token), purpose)
+                .filter(t -> t.getUsedAt() == null && t.getExpiresAt().isAfter(clock.instant()))
+                .orElseThrow(EmailTokenService::invalid);
+        return users.findById(stored.getUserId()).orElseThrow(EmailTokenService::invalid);
+    }
+
     /** Marks the token used and returns its user; 400 if unknown, used or expired. */
     @Transactional
     public User consume(String token, EmailToken.Purpose purpose) {

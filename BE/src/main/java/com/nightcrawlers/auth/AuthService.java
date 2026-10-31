@@ -145,6 +145,41 @@ public class AuthService {
         return new Session(user, jwt.issueAccess(user), refresh);
     }
 
+    /** Sends a reset link only if the account exists; the caller always answers the same. */
+    @Transactional
+    public void forgotPassword(String normalizedEmail) {
+        users.findByEmail(normalizedEmail).ifPresent(user -> {
+            String token = emailTokens.issue(user, EmailToken.Purpose.RESET, EMAIL_TOKEN_TTL);
+            String html = templates.render("reset-password", Map.of(
+                    "username", user.getUsername(),
+                    "link", props.frontendUrl() + "/reset-password?token=" + token));
+            mail.send(user.getEmail(), "Reimposta la password - Nightcrawlers", html);
+        });
+    }
+
+    /**
+     * The policy is checked before the token is consumed, so a rejected password does not burn
+     * the link. Proving control of the mailbox also verifies it and lifts any login lock.
+     */
+    @Transactional
+    public void resetPassword(String token, String newPassword, HttpServletRequest http) {
+        User user = emailTokens.peek(token, EmailToken.Purpose.RESET);
+        requireValidPassword(newPassword, user.getUsername(), user.getEmail());
+        User consumed = emailTokens.consume(token, EmailToken.Purpose.RESET);
+        consumed.setPasswordHash(passwordEncoder.encode(newPassword));
+        consumed.setEmailVerified(true);
+        consumed.setFailedLogins(0);
+        consumed.setLockedUntil(null);
+        users.save(consumed);
+        refreshTokens.revokeAllForUser(consumed.getId());
+        audit.record(AuditEvent.PASSWORD_RESET, consumed.getId(), http);
+    }
+
+    @Transactional
+    public void resendVerification(UUID userId) {
+        users.findById(userId).filter(u -> !u.isEmailVerified()).ifPresent(this::sendVerification);
+    }
+
     public Session refresh(String presentedToken, String userAgent, HttpServletRequest http) {
         RefreshTokenService.Rotation rotation = refreshTokens.rotate(presentedToken, userAgent, http);
         return new Session(rotation.user(), jwt.issueAccess(rotation.user()), rotation.next());
