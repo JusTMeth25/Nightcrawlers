@@ -42,6 +42,9 @@ public final class GameData {
     private final Set<String> characterIds;
     private final Set<String> enemyIds;
     private final Set<String> weaponIds;
+    private final List<String> characterOrder;
+    private final List<String> enemyOrder;
+    private final List<String> weaponOrder;
     private final List<UnlockDef> unlocks;
     private final Map<String, RipperdocDef> ripperdoc;
     private final Balance balance;
@@ -52,6 +55,9 @@ public final class GameData {
         this.characterIds = ids(characters, CharacterDef::id, "characters");
         this.enemyIds = ids(enemies, EnemyDef::id, "enemies");
         this.weaponIds = ids(weapons, WeaponDef::id, "weapons");
+        this.characterOrder = characters.stream().map(CharacterDef::id).toList();
+        this.enemyOrder = enemies.stream().map(EnemyDef::id).toList();
+        this.weaponOrder = weapons.stream().map(WeaponDef::id).toList();
         this.unlocks = List.copyOf(unlocks);
         Map<String, RipperdocDef> byId = new LinkedHashMap<>();
         for (RipperdocDef def : ripperdoc) {
@@ -86,6 +92,19 @@ public final class GameData {
 
     public boolean isWeapon(String id) {
         return id != null && weaponIds.contains(id);
+    }
+
+    /** Character ids in data-file order (the order shown by the client). */
+    public List<String> characterIds() {
+        return characterOrder;
+    }
+
+    public List<String> enemyIds() {
+        return enemyOrder;
+    }
+
+    public List<String> weaponIds() {
+        return weaponOrder;
     }
 
     public List<String> starters() {
