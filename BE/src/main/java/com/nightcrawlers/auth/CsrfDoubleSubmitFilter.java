@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.nightcrawlers.common.ProblemResponses;
+import com.nightcrawlers.common.RequestPaths;
 import com.nightcrawlers.common.SecureTokens;
 
 import jakarta.servlet.FilterChain;
@@ -32,7 +33,7 @@ public class CsrfDoubleSubmitFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return !("POST".equals(request.getMethod()) && PROTECTED.contains(request.getRequestURI()));
+        return !("POST".equals(request.getMethod()) && PROTECTED.contains(RequestPaths.path(request)));
     }
 
     @Override

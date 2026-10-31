@@ -23,6 +23,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import com.nightcrawlers.auth.RateLimitProperties.Limit;
 import com.nightcrawlers.common.ClientIp;
 import com.nightcrawlers.common.ProblemResponses;
+import com.nightcrawlers.common.RequestPaths;
 import com.nightcrawlers.user.Emails;
 
 import io.github.bucket4j.Bandwidth;
@@ -69,13 +70,13 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return !"POST".equals(request.getMethod()) || !request.getRequestURI().startsWith("/api/auth/");
+        return !"POST".equals(request.getMethod()) || !RequestPaths.path(request).startsWith("/api/auth/");
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-        String path = request.getRequestURI();
+        String path = RequestPaths.path(request);
         String ip = ClientIp.resolve(request);
         HttpServletRequest forward = request;
         List<String[]> checks = new ArrayList<>(); // {key, limitName}

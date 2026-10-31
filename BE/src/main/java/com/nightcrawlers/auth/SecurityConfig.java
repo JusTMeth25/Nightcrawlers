@@ -23,6 +23,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import com.nightcrawlers.common.AppProperties;
 import com.nightcrawlers.common.ProblemResponses;
+import com.nightcrawlers.common.RequestPaths;
 
 @Configuration(proxyBeanMethods = false)
 public class SecurityConfig {
@@ -80,7 +81,7 @@ public class SecurityConfig {
 
     static BearerTokenResolver bearerTokenResolver() {
         DefaultBearerTokenResolver delegate = new DefaultBearerTokenResolver();
-        return request -> PUBLIC_AUTH.contains(request.getRequestURI()) ? null : delegate.resolve(request);
+        return request -> PUBLIC_AUTH.contains(RequestPaths.path(request)) ? null : delegate.resolve(request);
     }
 
     @Bean
