@@ -1,0 +1,11 @@
+{
+  "name": "nightcrawlers-tools",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "sync-gamedata": "node sync-gamedata.mjs",
+    "check-gamedata": "node sync-gamedata.mjs --check",
+    "sprites": "node sprites/build.mjs"
+  }
+}
