@@ -22,6 +22,7 @@ import { OWNER_ENEMY, ProjectilePool } from '../entities/ProjectilePool'
 import { DamageNumbers } from '../fx/DamageNumbers'
 import { InputManager } from '../input/InputManager'
 import { alertMultipliers, Director, type SpawnOrder } from '../systems/director'
+import { PauseState } from '../run/PauseState'
 import { RunFlow } from '../run/RunFlow'
 import { computeDamage, healAmount } from '../systems/combat'
 import { createInventory, type Inventory } from '../systems/inventory'
@@ -49,8 +50,6 @@ const ENEMY_SHOT_RADIUS = 4
 const ENEMY_SHOT_COLOR = 0xff3355
 const ENEMY_SHOT_LIFE_SEC = 3
 const PICKUP_CAP = 600
-
-export type PauseReason = 'menu' | 'levelup' | 'chest'
 
 const FALLBACK_RUN: RunConfig = {
   mode: 'guest',
@@ -88,12 +87,11 @@ export class RunScene extends Phaser.Scene implements CombatHost {
   level = 1
   xp = 0
   eurodollars = 0
-  readonly pauseReasons = new Set<PauseReason>()
+  pauseState!: PauseState
   protected frame = 0
   protected floor!: CityFloor
   protected readonly inView = new Phaser.Geom.Rectangle()
   protected readonly contacts: number[] = []
-  protected readonly busOff: (() => void)[] = []
   private fps = 0
 
   constructor() {
@@ -112,7 +110,6 @@ export class RunScene extends Phaser.Scene implements CombatHost {
     for (const k of Object.keys(this.killsByEnemy) as EnemyId[]) delete this.killsByEnemy[k]
     this.enemiesSeen.clear()
     this.weaponsSeen.clear()
-    this.pauseReasons.clear()
     this.psychosis = createPsychosis()
   }
 
@@ -136,21 +133,18 @@ export class RunScene extends Phaser.Scene implements CombatHost {
     this.syncWeapons()
     this.pickups = new PickupPool(this, PICKUP_CAP)
     this.chests = new Chests(this)
+    this.pauseState = new PauseState(gameBus, () => this.flow.busy)
     this.flow = new RunFlow(gameBus, {
       rng: this.rng,
       getInventory: () => this.inventory,
       setInventory: (inv) => this.setInventory(inv),
       luck: () => this.stats.luck,
-      pause: (reason) => this.pauseFor(reason),
-      resume: (reason) => this.resumeFrom(reason),
+      pause: (reason) => this.pauseState.pause(reason),
+      resume: (reason) => this.pauseState.resume(reason),
       onCard: (card) => this.onCard(card),
       weaponPool: implementedWeapons(),
     })
     this.controls = new InputManager(this)
-    this.busOff.push(
-      gameBus.on('pause', () => this.pauseFor('menu')),
-      gameBus.on('resume', () => this.resumeFrom('menu')),
-    )
 
     const cam = this.cameras.main
     cam.startFollow(this.player.sprite, true)
@@ -177,18 +171,7 @@ export class RunScene extends Phaser.Scene implements CombatHost {
   }
 
   get paused(): boolean {
-    return this.pauseReasons.size > 0 || this.player.dead
-  }
-
-  pauseFor(reason: PauseReason): void {
-    if (this.pauseReasons.has(reason)) return
-    this.pauseReasons.add(reason)
-    gameBus.emit('game:paused', { reason })
-  }
-
-  resumeFrom(reason: PauseReason): void {
-    if (!this.pauseReasons.delete(reason)) return
-    if (this.pauseReasons.size === 0) gameBus.emit('game:resumed', undefined)
+    return this.pauseState.paused || this.player.dead
   }
 
   /** Inventory changes (cards, chests, evolutions) refresh stats, player and weapons. */
@@ -215,7 +198,8 @@ export class RunScene extends Phaser.Scene implements CombatHost {
     const screenX = (this.player.x - cam.worldView.x) * cam.zoom
     const screenY = (this.player.bodyY - cam.worldView.y) * cam.zoom
     const input = this.controls.update(screenX, screenY, this.run.options.autoAim)
-    if (input.pause) this.onPauseInput()
+    // ignored while a level-up or chest is open (PauseState)
+    if (input.pause) this.pauseState.toggleMenu()
     if (this.paused) return
 
     this.frame++
@@ -339,12 +323,6 @@ export class RunScene extends Phaser.Scene implements CombatHost {
     this.cameras.main.flash(200, 209, 247, 255)
   }
 
-  /** Esc / Start / touch pause button. */
-  protected onPauseInput(): void {
-    if (this.pauseReasons.has('menu')) this.resumeFrom('menu')
-    else this.pauseFor('menu')
-  }
-
   private spawnStep(dt: number): void {
     const stress = this.dev.stress ?? 0
     if (stress > 0) {
@@ -430,8 +408,7 @@ export class RunScene extends Phaser.Scene implements CombatHost {
     this.controls?.destroy()
     this.weapons?.destroy()
     this.flow?.dispose()
-    for (const off of this.busOff) off()
-    this.busOff.length = 0
+    this.pauseState?.dispose()
     this.scene.stop(TOUCH_SCENE_KEY)
   }
 
