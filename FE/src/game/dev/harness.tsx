@@ -1,7 +1,7 @@
 // Dev harness: runs the game without the UI. Open /game-dev.html with:
 //   ?c=<characterId>  ?seed=<n>  ?fps=1 (FPS counter)  ?stress=<n> (keep n enemies alive)
 //   ?weapons=all (first 6 weapons at level 8) or ?weapons=drone,heavy_rifle  ?evolved=1 (evolved)
-//   ?auto=1 (pick the first card and close chests automatically)
+//   ?auto=1 (pick the first card and close chests automatically)  ?frenzy=1 (start in cyberpsychosis)
 // Until plan Task 15 wires GameCanvas, the harness mounts the Phaser game directly.
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -34,6 +34,7 @@ const dev: DevOptions = {
   stress: Number.isFinite(stress) && stress > 0 ? Math.min(stress, 400) : 0,
   weapons: devWeapons,
   evolved: params.get('evolved') === '1',
+  frenzy: params.get('frenzy') === '1',
 }
 
 createRoot(document.getElementById('root')!).render(

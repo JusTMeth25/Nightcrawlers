@@ -21,6 +21,7 @@ const SEPARATION_RADIUS = ENEMY_RADIUS * 1.6
 const SEPARATION_PUSH = 110
 const MAX_NEIGHBOURS = 6
 const ELITE_TINT = 0x8a2be2
+const STUN_TINT = 0x2a7fff
 /** grid queries grow by this so the biggest hit circle is never missed */
 const QUERY_PAD = ENEMY_RADIUS * MAX_BODY_SCALE
 
@@ -68,6 +69,7 @@ export class EnemyPool {
   private readonly cdx: Float32Array
   private readonly cdy: Float32Array
   private readonly flash: Float32Array
+  private readonly stunLeft: Float32Array
   private readonly pendingDt: Float32Array
   private readonly dmgMult: Float32Array
   private readonly tables: (AnimTable | null)[]
@@ -95,6 +97,7 @@ export class EnemyPool {
     this.cdx = new Float32Array(cap)
     this.cdy = new Float32Array(cap)
     this.flash = new Float32Array(cap)
+    this.stunLeft = new Float32Array(cap)
     this.pendingDt = new Float32Array(cap)
     this.dmgMult = new Float32Array(cap)
     this.tables = enemyDefs.map((d) => animTable(available, d.spriteKey))
@@ -168,6 +171,7 @@ export class EnemyPool {
     this.state[i] = WALK
     this.timer[i] = def.behavior === 'charger' ? CHARGE_EVERY_SEC : (def.ranged?.cooldownSec ?? 0)
     this.flash[i] = 0
+    this.stunLeft[i] = 0
     this.pendingDt[i] = 0
     const s = this.sprites[i]
     const table = this.tables[di]
@@ -196,8 +200,34 @@ export class EnemyPool {
     this.hp[i] -= amount
     this.kbx[i] += kx
     this.kby[i] += ky
-    this.flash[i] = HIT_FLASH_SEC
+    if (this.flash[i] <= 0) {
+      this.flash[i] = HIT_FLASH_SEC
+      this.applyTint(i)
+    } else {
+      this.flash[i] = HIT_FLASH_SEC
+    }
     return this.hp[i] <= 0
+  }
+
+  /** Stuns enemy i for `sec` (no movement, no attacks; knockback still applies). */
+  stun(i: number, sec: number): void {
+    if (sec <= this.stunLeft[i]) return
+    const was = this.stunLeft[i] > 0
+    this.stunLeft[i] = sec
+    if (!was) this.applyTint(i)
+  }
+
+  stunned(i: number): boolean {
+    return this.stunLeft[i] > 0
+  }
+
+  /** Tint by priority: hit flash, stun, elite, none. */
+  private applyTint(i: number): void {
+    const s = this.sprites[i]
+    if (this.flash[i] > 0) s.setTint(0xffffff).setTintMode(Phaser.TintModes.FILL)
+    else if (this.stunLeft[i] > 0) s.setTint(STUN_TINT).setTintMode(Phaser.TintModes.ADD)
+    else if (this.elite[i]) s.setTint(ELITE_TINT).setTintMode(Phaser.TintModes.ADD)
+    else s.setTint(0xffffff).setTintMode(Phaser.TintModes.MULTIPLY)
   }
 
   /**
@@ -216,19 +246,21 @@ export class EnemyPool {
     for (let i = 0; i < this.cap; i++) {
       if (!this.active[i]) continue
       const s = this.sprites[i]
-      // hit flash runs every frame so it stays visible
+      // hit flash and stun run every frame so they stay visible
       if (this.flash[i] > 0) {
         this.flash[i] -= dt
-        if (this.flash[i] > 0) s.setTint(0xffffff).setTintMode(Phaser.TintModes.FILL)
-        else if (this.elite[i]) s.setTint(ELITE_TINT).setTintMode(Phaser.TintModes.ADD)
-        else s.setTint(0xffffff).setTintMode(Phaser.TintModes.MULTIPLY)
+        if (this.flash[i] <= 0) this.applyTint(i)
+      }
+      if (this.stunLeft[i] > 0) {
+        this.stunLeft[i] -= dt
+        if (this.stunLeft[i] <= 0) this.applyTint(i)
       }
       this.pendingDt[i] += dt
       const onScreen = inView.contains(this.x[i], this.y[i])
       if (!onScreen && (i + frame) % 3 !== 0) continue
       const step = Math.min(this.pendingDt[i], 0.3) * this.slow
       this.pendingDt[i] = 0
-      this.think(i, step, px, py, shoot)
+      if (this.stunLeft[i] <= 0) this.think(i, step, px, py, shoot)
       if (onScreen) this.separate(i, step, grid)
       // knockback decays exponentially
       this.x[i] += this.kbx[i] * step

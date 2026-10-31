@@ -13,6 +13,8 @@ import { actorDepth } from '../render/depth'
 
 const REVIVE_INVULN_SEC = 2
 const BLINK_HZ = 16
+const DASH_SEC = 0.15
+const SKILL_POSE_SEC = 0.4
 
 export type HurtResult = 'none' | 'hit' | 'revived' | 'dead'
 
@@ -30,6 +32,10 @@ export class Player {
   revivals: number
   private stats: Stats
   private invulnLeft = 0
+  private dashLeft = 0
+  private dashVX = 0
+  private dashVY = 0
+  private poseLeft = 0
   private dir: Dir = 'down'
   private readonly anims: AnimTable | null
 
@@ -63,13 +69,39 @@ export class Player {
     this.hp = Math.max(1, Math.min(this.maxHp, this.maxHp - missing))
   }
 
+  /** Dash `distance` along the unit vector (dx, dy), invulnerable while it lasts. */
+  dash(dx: number, dy: number, distance: number): void {
+    this.dashLeft = DASH_SEC
+    this.dashVX = (dx * distance) / DASH_SEC
+    this.dashVY = (dy * distance) / DASH_SEC
+    this.grantInvulnerability(DASH_SEC + 0.1)
+  }
+
+  get dashing(): boolean {
+    return this.dashLeft > 0
+  }
+
+  grantInvulnerability(sec: number): void {
+    this.invulnLeft = Math.max(this.invulnLeft, sec)
+  }
+
+  /** Signature skill pose (the `skill` animation, or the nearest one that exists). */
+  skillPose(): void {
+    this.poseLeft = SKILL_POSE_SEC
+  }
+
   update(dt: number, input: InputState, inverted: boolean): void {
     if (this.dead) return
     const sign = inverted ? -1 : 1
     const mx = input.moveX * sign
     const my = input.moveY * sign
     this.moving = mx !== 0 || my !== 0
-    if (this.moving) {
+    if (this.dashLeft > 0) {
+      const step = Math.min(dt, this.dashLeft)
+      this.dashLeft -= step
+      this.x += this.dashVX * step
+      this.y += this.dashVY * step
+    } else if (this.moving) {
       this.x += mx * this.stats.speed * dt
       this.y += my * this.stats.speed * dt
       const len = Math.hypot(mx, my)
@@ -81,7 +113,12 @@ export class Player {
     const fy = input.aimActive ? input.aimY : this.faceY
     this.dir = dirOf(fx, fy)
     this.sprite.setFlipX(this.dir === 'side' && fx < 0)
-    this.play(this.moving ? 'walk' : 'idle')
+    if (this.poseLeft > 0) {
+      this.poseLeft -= dt
+      this.play('skill')
+    } else {
+      this.play(this.moving ? 'walk' : 'idle')
+    }
 
     if (this.stats.regen > 0) this.heal(this.stats.regen * dt)
     if (this.invulnLeft > 0) {
@@ -116,7 +153,7 @@ export class Player {
     return 'dead'
   }
 
-  private play(action: 'idle' | 'walk' | 'death'): void {
+  private play(action: 'idle' | 'walk' | 'skill' | 'death'): void {
     const key = this.anims?.[this.dir][action]
     if (key && this.sprite.anims.currentAnim?.key !== key) this.sprite.play(key)
   }

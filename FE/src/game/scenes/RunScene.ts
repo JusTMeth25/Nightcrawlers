@@ -1,9 +1,17 @@
 // The run: game clock, player, enemies, weapons, director and city. Pure rules live in systems/.
 // Game time only advances while no pause reason is active (menu, level-up, chest).
 import Phaser from 'phaser'
-import { balance, getCharacter, getEnemy, waves } from '@data/index'
+import { balance, getCharacter, getEnemy, getSkill, waves } from '@data/index'
 import { gameBus } from '@shared/events'
-import { DEFAULT_OPTIONS, type EnemyId, type LevelUpCard, type RunConfig, type Stats, type WeaponId } from '@shared/types'
+import {
+  DEFAULT_OPTIONS,
+  type EnemyId,
+  type LevelUpCard,
+  type OwnedWeapon,
+  type RunConfig,
+  type Stats,
+  type WeaponId,
+} from '@shared/types'
 import { DEV_OPTIONS_KEY, RUN_CONFIG_KEY, type DevOptions } from '../config'
 import { Chests } from '../entities/Chest'
 import { formationPositions, scatterPoint, type Point } from '../entities/formations'
@@ -22,6 +30,7 @@ import { OWNER_ENEMY, ProjectilePool } from '../entities/ProjectilePool'
 import type { SfxId } from '../audio/sfxIds'
 import { Grenades } from '../entities/Grenades'
 import { DamageNumbers } from '../fx/DamageNumbers'
+import { FrenzyOverlay } from '../fx/FrenzyOverlay'
 import { FxPool } from '../fx/FxPool'
 import { ScreenFx } from '../fx/ScreenFx'
 import { InputManager } from '../input/InputManager'
@@ -40,7 +49,9 @@ import { collectModifiers, computeStats } from '../systems/stats'
 import { addXp, xpToNext } from '../systems/xp'
 import { implementedWeapons } from '../weapons/offerPool'
 import { WeaponSystem } from '../weapons/WeaponSystem'
-import type { CombatHost } from '../weapons/types'
+import { SkillSystem } from '../skills/SkillSystem'
+import type { SkillHost } from '../skills/types'
+import { aimDirection, type Vec } from '../weapons/targeting'
 import { CityFloor } from '../world/CityFloor'
 import { computeZoom, GRID_CELL, PLAYER_RADIUS } from '../world/view'
 import { ANIMS_KEY } from './PreloadScene'
@@ -57,6 +68,7 @@ const ENEMY_SHOT_COLOR = 0xff3355
 const ENEMY_SHOT_LIFE_SEC = 3
 const PICKUP_CAP = 600
 const PICKUP_RADIUS = balance.player.pickupRadius + PLAYER_RADIUS
+const AIM_NEAREST_RANGE = 420
 
 const FALLBACK_RUN: RunConfig = {
   mode: 'guest',
@@ -67,7 +79,7 @@ const FALLBACK_RUN: RunConfig = {
   options: DEFAULT_OPTIONS,
 }
 
-export class RunScene extends Phaser.Scene implements CombatHost {
+export class RunScene extends Phaser.Scene implements SkillHost {
   run!: RunConfig
   dev: DevOptions = {}
   rng!: Rng
@@ -95,7 +107,10 @@ export class RunScene extends Phaser.Scene implements CombatHost {
   xp = 0
   eurodollars = 0
   pauseState!: PauseState
-  fx!: ScreenFx
+  screen!: ScreenFx
+  frenzyOverlay!: FrenzyOverlay
+  skills!: SkillSystem
+  characterColor = 0xffffff
   vfx!: FxPool
   grenades!: Grenades
   /** sound output (Task 14b); null until the audio system exists */
@@ -107,6 +122,9 @@ export class RunScene extends Phaser.Scene implements CombatHost {
   private fps = 0
   private readonly scratch: Point = { x: 0, y: 0 }
   private input0: InputState = emptyInput()
+  private readonly aimFrom: Vec = { x: 0, y: 0 }
+  private readonly aimFace: Vec = { x: 1, y: 0 }
+  private readonly aimNearest: Vec = { x: 0, y: 0 }
 
   constructor() {
     super(RUN_SCENE_KEY)
@@ -138,19 +156,24 @@ export class RunScene extends Phaser.Scene implements CombatHost {
       this.inventory = { ...this.inventory, weapons: this.dev.weapons.slice(0, 6).map((id) => ({ id, level: 8, evolved })) }
     }
     this.stats = this.computeRunStats()
+    if (this.dev.frenzy) this.psychosis = { value: 0, frenzyLeftSec: balance.psychosis.frenzyDurationSec }
     this.director = new Director(waves, this.rng)
     this.floor = new CityFloor(this, this.run.seed)
     // cosmetic randomness has its own stream: options never change the run
-    this.fx = new ScreenFx(this, createRng(this.run.seed ^ 0x51ab1e))
-    this.fx.shakeEnabled = this.run.options.screenShake
+    const cosmetic = createRng(this.run.seed ^ 0x51ab1e)
+    this.screen = new ScreenFx(this, cosmetic)
+    this.frenzyOverlay = new FrenzyOverlay(this, cosmetic)
+    this.screen.shakeEnabled = this.run.options.screenShake
     this.player = new Player(this, character, this.stats, available)
     this.enemies = new EnemyPool(this, waves.enemyCap, available)
     this.projectiles = new ProjectilePool(this, PROJECTILE_CAP)
     this.damageNumbers = new DamageNumbers(this)
     this.vfx = new FxPool(this)
     this.grenades = new Grenades(this)
+    this.characterColor = Number.parseInt(character.color.replace('#', ''), 16) || 0xffffff
     this.weapons = new WeaponSystem(this, character.color)
     this.syncWeapons()
+    this.skills = new SkillSystem(this, getSkill(character.skill))
     this.pickups = new PickupPool(this, PICKUP_CAP)
     this.chests = new Chests(this)
     this.pauseState = new PauseState(gameBus, () => this.flow.busy)
@@ -201,10 +224,39 @@ export class RunScene extends Phaser.Scene implements CombatHost {
     this.stats = this.computeRunStats()
     this.player.setStats(this.stats)
     this.syncWeapons()
+    this.skills?.setStats(this.stats)
+  }
+
+  get inputState(): InputState {
+    return this.input0
+  }
+
+  inventoryWeapon(id: WeaponId): OwnedWeapon | undefined {
+    return this.inventory.weapons.find((w) => w.id === id)
+  }
+
+  heal(amount: number): void {
+    this.player.heal(healAmount(amount, this.psychosis.value))
+  }
+
+  aim(out: Vec): Vec {
+    const p = this.player
+    this.aimFrom.x = p.x
+    this.aimFrom.y = p.bodyY
+    this.aimFace.x = p.faceX
+    this.aimFace.y = p.faceY
+    const i = this.grid.nearest(p.x, p.bodyY, AIM_NEAREST_RANGE)
+    let nearest: Vec | null = null
+    if (i >= 0) {
+      this.aimNearest.x = this.enemies.x[i]
+      this.aimNearest.y = this.enemies.bodyY(i)
+      nearest = this.aimNearest
+    }
+    return aimDirection('aim', this.input0, this.aimFrom, nearest, this.aimFace, out) ?? out
   }
 
   private onCard(card: LevelUpCard): void {
-    if (card.kind === 'heal') this.player.heal(healAmount(card.amount, this.psychosis.value))
+    if (card.kind === 'heal') this.heal(card.amount)
     else if (card.kind === 'eurodollars') this.eurodollars += card.amount
   }
 
@@ -252,6 +304,7 @@ export class RunScene extends Phaser.Scene implements CombatHost {
   private simulate(dt: number): void {
     const cam = this.cameras.main
     this.player.update(dt, this.input0, isFrenzy(this.psychosis))
+    this.skills.update(dt, this.input0.skill)
     this.floor.update(cam)
     this.spawnStep(dt)
     const v = cam.worldView
@@ -265,8 +318,9 @@ export class RunScene extends Phaser.Scene implements CombatHost {
     this.grenades.update(dt, this)
     this.vfx.update(dt)
     this.damageNumbers.update(dt)
-    this.fx.update(dt)
+    this.screen.update(dt)
     this.psychosis = tickPsychosis(this.psychosis, dt)
+    this.frenzyOverlay.update(dt, isFrenzy(this.psychosis))
     // these two can open a level-up or a chest: stepFrame then skips player damage
     this.pickups.update(dt, this.player.x, this.player.y, this.stats.magnet, PICKUP_RADIUS, this.collect)
     this.chests.update(dt, this.player.x, this.player.y, this.openChest)
@@ -373,7 +427,7 @@ export class RunScene extends Phaser.Scene implements CombatHost {
     for (let i = 0; i < e.cap; i++) {
       if (e.active[i] && !e.boss[i] && v.contains(e.x[i], e.y[i])) this.onEnemyKilled(i)
     }
-    this.fx.flash(0.2, 0xd1f7ff)
+    this.screen.flash(0.2, 0xd1f7ff)
   }
 
   private spawnStep(dt: number): void {
@@ -434,11 +488,11 @@ export class RunScene extends Phaser.Scene implements CombatHost {
   protected onPlayerHurt(result: 'hit' | 'revived' | 'dead'): void {
     if (result === 'revived') {
       this.enemies.pushAway(this.player.x, this.player.y, REVIVE_RADIUS, REVIVE_FORCE)
-      this.fx.flash(0.25, 0x05d9e8)
+      this.screen.flash(0.25, 0x05d9e8)
     } else if (result === 'dead') {
       this.onPlayerDeath()
     } else {
-      this.fx.shake(0.08, 4)
+      this.screen.shake(0.08, 4)
     }
   }
 
@@ -464,6 +518,7 @@ export class RunScene extends Phaser.Scene implements CombatHost {
     this.scale.off(Phaser.Scale.Events.RESIZE, this.applyZoom, this)
     this.controls?.destroy()
     this.weapons?.destroy()
+    this.skills?.destroy()
     // on game destroy the scene manager is tearing every scene down already
     if (!destroying) {
       this.freezeCosmetics(false)

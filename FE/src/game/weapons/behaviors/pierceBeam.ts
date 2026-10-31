@@ -12,7 +12,7 @@ const HALF_WIDTH = 6
 const KNOCK = 80
 const angles: number[] = []
 
-/** Fires one beam and draws it; shared with the snipe skill. */
+/** Fires one beam and draws it (`maxHits` 0 = draw only); shared with the snipe skill. */
 export function fireBeam(
   host: CombatHost,
   x: number,
@@ -27,7 +27,7 @@ export function fireBeam(
 ): void {
   const dx = Math.cos(angle)
   const dy = Math.sin(angle)
-  damageBeam(host, x, y, dx, dy, length, halfWidth, maxHits, damage, KNOCK)
+  if (maxHits > 0) damageBeam(host, x, y, dx, dy, length, halfWidth, maxHits, damage, KNOCK)
   host.vfx.show(TEX_BEAM, undefined, x, y, angle, length / TEX_BEAM_LENGTH, (halfWidth * 2) / 8, color, visibleSec, {
     originX: 0,
     originY: 0.5,

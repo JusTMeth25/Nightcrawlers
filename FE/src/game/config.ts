@@ -17,6 +17,8 @@ export interface DevOptions {
   weapons?: WeaponId[]
   /** start them evolved */
   evolved?: boolean
+  /** start in cyberpsychosis */
+  frenzy?: boolean
 }
 
 export function createGameConfig(parent: HTMLElement, run?: RunConfig, dev?: DevOptions): Phaser.Types.Core.GameConfig {
