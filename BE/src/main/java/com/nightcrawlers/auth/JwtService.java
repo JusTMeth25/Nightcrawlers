@@ -38,6 +38,9 @@ public class JwtService {
     private final NimbusJwtDecoder decoder;
 
     public JwtService(AppProperties props, Clock clock) {
+        if (props.jwt().secret().toUpperCase(java.util.Locale.ROOT).startsWith("CHANGE_ME")) {
+            throw new IllegalStateException("app.jwt.secret is still the example placeholder: set JWT_SECRET");
+        }
         byte[] secret = props.jwt().secret().getBytes(StandardCharsets.UTF_8);
         if (secret.length < MIN_SECRET_BYTES) {
             throw new IllegalStateException("app.jwt.secret must be at least " + MIN_SECRET_BYTES + " bytes");

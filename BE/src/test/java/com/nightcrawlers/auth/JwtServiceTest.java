@@ -59,6 +59,15 @@ class JwtServiceTest {
     }
 
     @Test
+    void examplePlaceholderSecretIsRefused() {
+        assertThatThrownBy(() -> at(now, "CHANGE_ME_AT_LEAST_32_BYTES_RANDOM_SECRET"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("placeholder");
+        assertThatThrownBy(() -> at(now, "change_me_but_long_enough_to_pass_the_length_rule"))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
     void shortSecretIsRefused() {
         assertThatThrownBy(() -> at(now, "too-short")).isInstanceOf(IllegalStateException.class);
     }
