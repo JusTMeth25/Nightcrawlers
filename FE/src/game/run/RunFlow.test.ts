@@ -93,6 +93,16 @@ describe('RunFlow chests', () => {
     expect(offers).toHaveLength(2)
   })
 
+  it('pauses for the chest before releasing the level-up pause (no resume between modals)', () => {
+    const { bus, deps, flow } = setup()
+    flow.onLevels(1)
+    flow.onChestOpened()
+    bus.emit('levelup:choose', { index: 0 })
+    const pauseChest = deps.pause.mock.invocationCallOrder[deps.pause.mock.calls.findIndex((c) => c[0] === 'chest')]
+    const resumeLevel = deps.resume.mock.invocationCallOrder[deps.resume.mock.calls.findIndex((c) => c[0] === 'levelup')]
+    expect(pauseChest).toBeLessThan(resumeLevel)
+  })
+
   it('removes its listeners on dispose', () => {
     const { bus, deps, flow } = setup(ready)
     flow.onChestOpened()

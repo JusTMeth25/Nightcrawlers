@@ -78,9 +78,11 @@ export class RunFlow {
 
   private switchTo(next: FlowPause | null): void {
     if (this.current === next) return
-    if (this.current) this.deps.resume(this.current)
+    const previous = this.current
     this.current = next
+    // pause for the next modal first, so the game never looks resumed between two modals
     if (next) this.deps.pause(next)
+    if (previous) this.deps.resume(previous)
   }
 
   private advance(): void {
