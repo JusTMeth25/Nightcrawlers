@@ -20,6 +20,7 @@ import {
 } from '../entities/PickupPool'
 import { OWNER_ENEMY, ProjectilePool } from '../entities/ProjectilePool'
 import { DamageNumbers } from '../fx/DamageNumbers'
+import { ScreenFx } from '../fx/ScreenFx'
 import { InputManager } from '../input/InputManager'
 import { emptyInput, type InputState } from '../input/InputState'
 import { alertMultipliers, Director, type SpawnOrder } from '../systems/director'
@@ -90,6 +91,7 @@ export class RunScene extends Phaser.Scene implements CombatHost {
   xp = 0
   eurodollars = 0
   pauseState!: PauseState
+  fx!: ScreenFx
   protected frame = 0
   protected floor!: CityFloor
   protected readonly inView = new Phaser.Geom.Rectangle()
@@ -129,6 +131,9 @@ export class RunScene extends Phaser.Scene implements CombatHost {
     this.stats = this.computeRunStats()
     this.director = new Director(waves, this.rng)
     this.floor = new CityFloor(this, this.run.seed)
+    // cosmetic randomness has its own stream: options never change the run
+    this.fx = new ScreenFx(this, createRng(this.run.seed ^ 0x51ab1e))
+    this.fx.shakeEnabled = this.run.options.screenShake
     this.player = new Player(this, character, this.stats, available)
     this.enemies = new EnemyPool(this, waves.enemyCap, available)
     this.projectiles = new ProjectilePool(this, PROJECTILE_CAP)
@@ -138,6 +143,7 @@ export class RunScene extends Phaser.Scene implements CombatHost {
     this.pickups = new PickupPool(this, PICKUP_CAP)
     this.chests = new Chests(this)
     this.pauseState = new PauseState(gameBus, () => this.flow.busy)
+    this.pauseState.onChange((paused) => this.freezeCosmetics(paused))
     this.flow = new RunFlow(gameBus, {
       rng: this.rng,
       getInventory: () => this.inventory,
@@ -191,6 +197,18 @@ export class RunScene extends Phaser.Scene implements CombatHost {
     else if (card.kind === 'eurodollars') this.eurodollars += card.amount
   }
 
+  /** Sprite animations, tweens and timers stop with the game (menu, level-up, chest). */
+  private freezeCosmetics(paused: boolean): void {
+    if (paused) {
+      this.anims.pauseAll()
+      this.tweens.pauseAll()
+    } else {
+      this.anims.resumeAll()
+      this.tweens.resumeAll()
+    }
+    this.time.paused = paused
+  }
+
   private applyZoom(): void {
     this.cameras.main.setZoom(computeZoom(this.scale.width, this.scale.height))
   }
@@ -234,6 +252,7 @@ export class RunScene extends Phaser.Scene implements CombatHost {
     this.projectiles.update(dt, this.enemies.slow)
     this.weapons.update(dt, this.input0)
     this.damageNumbers.update(dt)
+    this.fx.update(dt)
     this.psychosis = tickPsychosis(this.psychosis, dt)
     // these two can open a level-up or a chest: stepFrame then skips player damage
     this.pickups.update(dt, this.player.x, this.player.y, this.stats.magnet, PICKUP_RADIUS, this.collect)
@@ -337,7 +356,7 @@ export class RunScene extends Phaser.Scene implements CombatHost {
     for (let i = 0; i < e.cap; i++) {
       if (e.active[i] && !e.boss[i] && v.contains(e.x[i], e.y[i])) this.onEnemyKilled(i)
     }
-    this.cameras.main.flash(200, 209, 247, 255)
+    this.fx.flash(0.2, 0xd1f7ff)
   }
 
   private spawnStep(dt: number): void {
@@ -398,11 +417,11 @@ export class RunScene extends Phaser.Scene implements CombatHost {
   protected onPlayerHurt(result: 'hit' | 'revived' | 'dead'): void {
     if (result === 'revived') {
       this.enemies.pushAway(this.player.x, this.player.y, REVIVE_RADIUS, REVIVE_FORCE)
-      this.cameras.main.flash(250, 5, 217, 232)
+      this.fx.flash(0.25, 0x05d9e8)
     } else if (result === 'dead') {
       this.onPlayerDeath()
-    } else if (this.run.options.screenShake) {
-      this.cameras.main.shake(80, 0.004)
+    } else {
+      this.fx.shake(0.08, 4)
     }
   }
 
@@ -429,6 +448,9 @@ export class RunScene extends Phaser.Scene implements CombatHost {
     this.controls?.destroy()
     this.weapons?.destroy()
     // on game destroy the scene manager is tearing every scene down already
-    if (!destroying) this.scene.stop(TOUCH_SCENE_KEY)
+    if (!destroying) {
+      this.freezeCosmetics(false)
+      this.scene.stop(TOUCH_SCENE_KEY)
+    }
   }
 }

@@ -64,4 +64,17 @@ describe('PauseState', () => {
     bus.emit('pause', undefined)
     expect(events).toEqual(['paused:menu', 'resumed'])
   })
+
+  it('reports freeze changes once when the first reason starts and the last one ends', () => {
+    const { bus, pause, flow } = setup()
+    const changes: boolean[] = []
+    const off = pause.onChange((p) => changes.push(p))
+    flow.onLevels(1)
+    flow.onChestOpened()
+    bus.emit('levelup:choose', { index: 0 })
+    bus.emit('chest:close', undefined)
+    off()
+    pause.pause('menu')
+    expect(changes).toEqual([true, false])
+  })
 })
