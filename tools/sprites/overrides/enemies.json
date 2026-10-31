@@ -1,0 +1,31 @@
+{
+  "maskAlpha": 180,
+  "minArea": 300,
+  "mergeGap": 4,
+  "rows": [
+    { "band": [0, 85], "spriteKey": "maelstrom", "dir": "down", "cuts": [1328],
+      "actions": { "idle": [0, 1, 2], "walk": [3, 4, 5], "shoot": [6, 7], "hurt": [13], "death": [14], "fx": [15] } },
+    { "band": [85, 170], "spriteKey": "maelstrom", "dir": "side", "cuts": [1225, 1330],
+      "actions": { "idle": [0, 1, 2], "walk": [3, 4, 5], "shoot": [6, 7], "hurt": [9, 10], "death": [11, 12], "fx": [13] } },
+    { "band": [170, 258], "spriteKey": "maelstrom", "dir": "up", "cuts": [433, 1240],
+      "actions": { "idle": [0, 1, 2], "walk": [3, 4, 5], "shoot": [6, 7], "hurt": [11, 12], "death": [13, 14] } },
+    { "band": [258, 340], "spriteKey": "arasaka", "dir": "down", "cuts": [1150, 1225, 1310],
+      "actions": { "idle": [0, 1, 2], "walk": [3, 4, 5], "shoot": [6, 7], "death": [11], "fx": [12] } },
+    { "band": [340, 420], "spriteKey": "arasaka", "dir": "side", "cuts": [1140, 1215, 1290],
+      "actions": { "idle": [0, 1, 2], "walk": [3, 4, 5], "shoot": [6, 7, 8], "hurt": [10, 11], "death": [12, 13], "fx": [14] } },
+    { "band": [420, 500], "spriteKey": "arasaka", "dir": "up", "cuts": [1225],
+      "actions": { "idle": [0, 1, 2], "walk": [3, 4, 5], "shoot": [6, 7, 8], "hurt": [11, 12], "death": [13], "fx": [14] } },
+    { "band": [500, 585], "spriteKey": "maxtac", "dir": "down",
+      "actions": { "idle": [0, 1, 2], "walk": [3, 4, 5], "shoot": [6] } },
+    { "band": [585, 665], "spriteKey": "maxtac", "dir": "side", "cuts": [1215, 1290],
+      "actions": { "idle": [0, 1, 2], "walk": [3, 4, 5], "shoot": [6], "death": [8, 9], "fx": [10] } },
+    { "band": [665, 750], "spriteKey": "maxtac", "dir": "up", "cuts": [440, 1100],
+      "actions": { "idle": [0, 1, 2], "walk": [3, 4, 5], "shoot": [6], "hurt": [8], "death": [9], "fx": [10] } },
+    { "band": [750, 858], "spriteKey": "cyberpsycho", "dir": "down", "cuts": [600, 855, 1030, 1270],
+      "actions": { "idle": [0, 1], "walk": [2, 3], "shoot": [4], "skill": [5, 6], "fx": [7] } },
+    { "band": [858, 965], "spriteKey": "cyberpsycho", "dir": "side", "cuts": [425, 600, 735, 865, 1190],
+      "actions": { "idle": [0, 1], "walk": [2, 3], "shoot": [4], "skill": [5, 6], "death": [7], "fx": [8] } },
+    { "band": [965, 1086], "spriteKey": "cyberpsycho", "dir": "up", "cuts": [425, 565, 1045, 1160],
+      "actions": { "idle": [0, 1], "walk": [2, 3], "shoot": [4], "hurt": [5], "death": [6] } }
+  ]
+}

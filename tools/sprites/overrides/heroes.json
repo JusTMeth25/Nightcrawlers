@@ -1,0 +1,29 @@
+{
+  "maskAlpha": 180,
+  "minArea": 300,
+  "mergeGap": 4,
+  "rows": [
+    { "band": [0, 98], "spriteKey": "david", "dir": "down", "cuts": [615],
+      "actions": { "idle": [0, 1, 2], "walk": [3, 4, 5], "shoot": [6, 7, 8], "skill": [9, 10], "hurt": [11, 12], "death": [13, 14], "fx": [15] } },
+    { "band": [98, 197], "spriteKey": "david", "dir": "side",
+      "actions": { "idle": [0, 1, 2], "walk": [3, 4, 5], "shoot": [6, 7, 8], "skill": [9, 10], "hurt": [11, 12], "death": [13, 14], "fx": [15] } },
+    { "band": [197, 296], "spriteKey": "david", "dir": "up",
+      "actions": { "idle": [0, 1, 2], "walk": [3, 4, 5], "shoot": [6, 7, 8], "skill": [9, 10], "hurt": [11, 12], "death": [13, 14] } },
+    { "band": [296, 394], "spriteKey": "lucy", "dir": "down", "cuts": [1300],
+      "actions": { "idle": [0, 1, 2], "walk": [3, 4, 5], "shoot": [6, 7, 8], "skill": [9, 10], "hurt": [11, 12], "death": [13, 14], "fx": [15] } },
+    { "band": [394, 490], "spriteKey": "lucy", "dir": "side", "cuts": [1320],
+      "actions": { "idle": [0, 1, 2], "walk": [3, 4, 5], "shoot": [6, 7, 8], "skill": [9, 10], "hurt": [11, 12], "death": [13, 14], "fx": [15] } },
+    { "band": [490, 575], "spriteKey": "lucy", "dir": "up", "cuts": [1225],
+      "actions": { "idle": [0, 1, 2], "walk": [3, 4, 5], "shoot": [6, 7, 8], "skill": [9, 10], "hurt": [11, 12], "death": [13, 14], "fx": [15] } },
+    { "band": [575, 664], "spriteKey": "rebecca", "dir": "down", "cuts": [1300],
+      "actions": { "idle": [0, 1], "walk": [2, 3, 4], "shoot": [5, 6], "hurt": [8, 9], "death": [10], "fx": [11] } },
+    { "band": [664, 753], "spriteKey": "rebecca", "dir": "side", "cuts": [1225],
+      "actions": { "idle": [0, 1, 2], "walk": [3, 4, 5], "shoot": [6, 7], "skill": [9], "hurt": [10], "death": [11, 12], "fx": [13] } },
+    { "band": [753, 842], "spriteKey": "rebecca", "dir": "up",
+      "actions": { "idle": [0, 1, 2], "walk": [3, 4, 5], "shoot": [6, 7], "hurt": [9, 10], "death": [11], "fx": [12] } },
+    { "band": [842, 957], "spriteKey": "maine", "dir": "down", "cuts": [840, 1150, 1230],
+      "actions": { "idle": [0, 1, 2], "walk": [3, 4, 5], "shoot": [6], "skill": [7], "hurt": [8], "death": [9, 10, 11], "fx": [12] } },
+    { "band": [957, 1086], "spriteKey": "maine", "dir": "up",
+      "actions": { "idle": [0, 1, 2], "walk": [3, 4, 5], "shoot": [6], "skill": [7], "hurt": [8], "death": [9], "fx": [10] } }
+  ]
+}
