@@ -66,6 +66,17 @@ describe('generateOffers', () => {
   })
 })
 
+describe('generateOffers weapon pool', () => {
+  it('does not upgrade an owned weapon outside the pool (behaviour not implemented)', () => {
+    const inv: Inventory = { weapons: [{ id: 'drone', level: 1, evolved: false }], cyberware: [] }
+    for (let seed = 0; seed < 40; seed++) {
+      for (const c of generateOffers(inv, createRng(seed), 1, 3, ['pistol'])) {
+        expect(c.kind === 'weapon_up' && c.id === 'drone').toBe(false)
+      }
+    }
+  })
+})
+
 describe('LevelUpQueue', () => {
   it('hands out queued levels one at a time', () => {
     const q = new LevelUpQueue()

@@ -13,8 +13,8 @@ export const FALLBACK_CARDS: readonly LevelUpCard[] = [
 const ALL_WEAPONS: readonly WeaponId[] = weapons.map((w) => w.id)
 
 /**
- * `weaponPool` limits which weapons can be offered as new (the scene passes the weapons
- * whose behavior is implemented); owned weapons can always be upgraded.
+ * `weaponPool` limits which weapons can be offered, new or upgraded (the scene passes the
+ * weapons whose behavior is implemented).
  */
 export function generateOffers(
   inv: Inventory,
@@ -25,7 +25,7 @@ export function generateOffers(
 ): LevelUpCard[] {
   const pool: { item: LevelUpCard; weight: number }[] = []
   for (const w of inv.weapons) {
-    if (!w.evolved && w.level < MAX_WEAPON_LEVEL) {
+    if (!w.evolved && w.level < MAX_WEAPON_LEVEL && weaponPool.includes(w.id)) {
       pool.push({ item: { kind: 'weapon_up', id: w.id, level: w.level + 1 }, weight: UPGRADE_WEIGHT })
     }
   }
