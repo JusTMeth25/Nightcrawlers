@@ -1,0 +1,558 @@
+openapi: 3.1.0
+info:
+  title: Nightcrawlers API
+  version: 1.0.0
+  description: >
+    REST API for accounts, saves, runs and Ripperdoc upgrades.
+    All errors use application/problem+json (RFC 9457).
+  license:
+    name: Proprietary (non-commercial fan project)
+    identifier: LicenseRef-Proprietary
+servers:
+  - url: /
+security:
+  - bearerAuth: []
+tags:
+  - name: auth
+    description: Registration, login, sessions, password recovery
+  - name: account
+    description: Profile, data export, account deletion
+  - name: save
+    description: Persistent player progress
+  - name: runs
+    description: Run lifecycle, checkpoints, rewards
+  - name: ripperdoc
+    description: Permanent upgrades shop
+
+paths:
+  /api/auth/register:
+    post:
+      tags: [auth]
+      operationId: register
+      summary: Create an account and send the verification email
+      description: >
+        Always answers 202 with the same body, also when the email is already
+        registered (an informational email goes to the existing address).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterRequest' }
+      responses:
+        '202': { $ref: '#/components/responses/Message' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /api/auth/verify-email:
+    post:
+      tags: [auth]
+      operationId: verifyEmail
+      summary: Confirm the email address with the token from the email
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VerifyEmailRequest' }
+      responses:
+        '204': { description: Email verified }
+        '400': { $ref: '#/components/responses/Problem' }
+
+  /api/auth/resend-verification:
+    post:
+      tags: [auth]
+      operationId: resendVerification
+      summary: Send the verification email again
+      responses:
+        '202': { description: Accepted (no email if already verified) }
+        '401': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /api/auth/login:
+    post:
+      tags: [auth]
+      operationId: login
+      summary: Log in with username or email
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Auth' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '423': { $ref: '#/components/responses/Locked' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /api/auth/refresh:
+    post:
+      tags: [auth]
+      operationId: refresh
+      summary: Rotate the refresh token and get a new access token
+      description: >
+        Reusing an already used refresh token revokes the whole session family.
+      security:
+        - refreshCookie: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '200': { $ref: '#/components/responses/Auth' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /api/auth/logout:
+    post:
+      tags: [auth]
+      operationId: logout
+      summary: Revoke the current session
+      security:
+        - refreshCookie: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '204': { description: 'Logged out, cookies cleared' }
+        '403': { $ref: '#/components/responses/Problem' }
+
+  /api/auth/logout-all:
+    post:
+      tags: [auth]
+      operationId: logoutAll
+      summary: Revoke every session of the user
+      responses:
+        '204': { description: All sessions revoked }
+        '401': { $ref: '#/components/responses/Problem' }
+
+  /api/auth/forgot-password:
+    post:
+      tags: [auth]
+      operationId: forgotPassword
+      summary: Send a password reset link (always the same answer)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ForgotPasswordRequest' }
+      responses:
+        '202': { $ref: '#/components/responses/Message' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /api/auth/reset-password:
+    post:
+      tags: [auth]
+      operationId: resetPassword
+      summary: Set a new password with the reset token; revokes all sessions
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ResetPasswordRequest' }
+      responses:
+        '204': { description: Password changed }
+        '400': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /api/me:
+    get:
+      tags: [account]
+      operationId: getMe
+      summary: Current user profile
+      responses:
+        '200':
+          description: Profile
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserDto' }
+        '401': { $ref: '#/components/responses/Problem' }
+    delete:
+      tags: [account]
+      operationId: deleteMe
+      summary: Delete the account and all its data
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DeleteAccountRequest' }
+      responses:
+        '204': { description: 'Account deleted, cookies cleared' }
+        '401': { $ref: '#/components/responses/Problem' }
+
+  /api/me/export:
+    get:
+      tags: [account]
+      operationId: exportMe
+      summary: Export all personal data as JSON (GDPR)
+      responses:
+        '200':
+          description: Export file
+          headers:
+            Content-Disposition:
+              schema: { type: string }
+              description: attachment; filename="nightcrawlers-export.json"
+          content:
+            application/json:
+              schema: { type: object }
+        '401': { $ref: '#/components/responses/Problem' }
+
+  /api/save:
+    get:
+      tags: [save]
+      operationId: getSave
+      summary: Full player save
+      responses:
+        '200':
+          description: Save
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SaveDto' }
+        '401': { $ref: '#/components/responses/Problem' }
+
+  /api/runs/start:
+    post:
+      tags: [runs]
+      operationId: startRun
+      summary: Start a run; any ACTIVE run of the user becomes ABANDONED
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StartRunRequest' }
+      responses:
+        '201':
+          description: Run started
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StartRunResponse' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+
+  /api/runs/{id}/checkpoint:
+    post:
+      tags: [runs]
+      operationId: checkpointRun
+      summary: Record intermediate progress (every 60 s of game time)
+      parameters:
+        - $ref: '#/components/parameters/RunId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RunCheckpoint' }
+      responses:
+        '204': { description: Checkpoint stored }
+        '401': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+
+  /api/runs/{id}/end:
+    post:
+      tags: [runs]
+      operationId: endRun
+      summary: End the run; rewards are computed by the server
+      parameters:
+        - $ref: '#/components/parameters/RunId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EndRunRequest' }
+      responses:
+        '200':
+          description: Run ended (also when flagged)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EndRunResponse' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+
+  /api/runs/best:
+    get:
+      tags: [runs]
+      operationId: bestRuns
+      summary: Best 10 personal runs by duration, descending
+      responses:
+        '200':
+          description: Best runs
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 10
+                items: { $ref: '#/components/schemas/BestRunDto' }
+        '401': { $ref: '#/components/responses/Problem' }
+
+  /api/ripperdoc/{upgradeId}/buy:
+    post:
+      tags: [ripperdoc]
+      operationId: buyRipperdoc
+      summary: Buy the next rank of a permanent upgrade
+      parameters:
+        - name: upgradeId
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/RipperdocUpgradeId' }
+      responses:
+        '200':
+          description: Updated save
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SaveDto' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Access token, 15 minutes, kept in memory by the client.
+    refreshCookie:
+      type: apiKey
+      in: cookie
+      name: refresh_token
+      description: >
+        Opaque refresh token, HttpOnly; Secure; SameSite=Strict; Path=/api/auth; 30 days.
+        Rotated on every use. Requests using it must send the X-CSRF-Token header equal
+        to the XSRF-TOKEN cookie (Secure; SameSite=Strict; Path=/; readable by JS).
+
+  parameters:
+    CsrfHeader:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      schema: { type: string }
+    RunId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+  responses:
+    Problem:
+      description: Error
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetail' }
+    TooManyRequests:
+      description: Rate limit exceeded
+      headers:
+        Retry-After:
+          schema: { type: integer }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetail' }
+    Locked:
+      description: Account temporarily locked after repeated failures
+      headers:
+        Retry-After:
+          schema: { type: integer }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetail' }
+    Message:
+      description: Accepted
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/MessageResponse' }
+    Auth:
+      description: Authenticated; sets refresh_token and XSRF-TOKEN cookies
+      headers:
+        Set-Cookie:
+          schema: { type: string }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/AuthResponse' }
+
+  schemas:
+    CharacterId:
+      type: string
+      enum: [david, lucy, rebecca, maine, kiwi, pilar, dorio, falco]
+    WeaponId:
+      type: string
+      enum: [pistol, shotgun, minigun, monowire, smart_pistol, grenade_launcher, mantis_blades, drone, heavy_rifle]
+    EnemyId:
+      type: string
+      enum: [maelstrom, arasaka, maxtac, cyberpsycho]
+    RipperdocUpgradeId:
+      type: string
+      enum: [max_hp, armor, regen, might, speed, area, cooldown, magnet, luck, growth, revival, greed]
+
+    UserDto:
+      type: object
+      required: [id, username, email, emailVerified, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        username: { type: string }
+        email: { type: string, format: email }
+        emailVerified: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    AuthResponse:
+      type: object
+      required: [accessToken, expiresInSec, user]
+      properties:
+        accessToken: { type: string }
+        expiresInSec: { type: integer, example: 900 }
+        user: { $ref: '#/components/schemas/UserDto' }
+    RegisterRequest:
+      type: object
+      required: [username, email, password]
+      properties:
+        username: { type: string, pattern: '^[a-zA-Z0-9_]{3,20}$' }
+        email: { type: string, format: email, maxLength: 254 }
+        password: { type: string, minLength: 12, maxLength: 128 }
+    LoginRequest:
+      type: object
+      required: [login, password]
+      properties:
+        login: { type: string, description: Username or email, maxLength: 254 }
+        password: { type: string, maxLength: 128 }
+    VerifyEmailRequest:
+      type: object
+      required: [token]
+      properties:
+        token: { type: string }
+    ForgotPasswordRequest:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+    ResetPasswordRequest:
+      type: object
+      required: [token, newPassword]
+      properties:
+        token: { type: string }
+        newPassword: { type: string, minLength: 12, maxLength: 128 }
+    DeleteAccountRequest:
+      type: object
+      required: [password]
+      properties:
+        password: { type: string, maxLength: 128 }
+    MessageResponse:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+    CharacterStatDto:
+      type: object
+      required: [bestTimeSec, runs]
+      properties:
+        bestTimeSec: { type: integer }
+        runs: { type: integer }
+    SaveDto:
+      type: object
+      required:
+        [eurodollars, totalEurodollarsEarned, totalKills, bestTimeSec, unlockedCharacters, ripperdoc, killStats, characterStats, codex]
+      properties:
+        eurodollars: { type: integer, format: int64 }
+        totalEurodollarsEarned: { type: integer, format: int64 }
+        totalKills: { type: integer, format: int64 }
+        bestTimeSec: { type: integer }
+        unlockedCharacters:
+          type: array
+          items: { $ref: '#/components/schemas/CharacterId' }
+        ripperdoc:
+          type: object
+          description: Upgrade id -> current rank
+          additionalProperties: { type: integer }
+        killStats:
+          type: object
+          description: Enemy id -> total kills
+          additionalProperties: { type: integer, format: int64 }
+        characterStats:
+          type: object
+          description: Character id -> stats
+          additionalProperties: { $ref: '#/components/schemas/CharacterStatDto' }
+        codex:
+          type: object
+          required: [enemies, weapons]
+          properties:
+            enemies:
+              type: array
+              items: { $ref: '#/components/schemas/EnemyId' }
+            weapons:
+              type: array
+              items: { $ref: '#/components/schemas/WeaponId' }
+    StartRunRequest:
+      type: object
+      required: [characterId]
+      properties:
+        characterId: { $ref: '#/components/schemas/CharacterId' }
+    StartRunResponse:
+      type: object
+      required: [runId, seed, startedAt]
+      properties:
+        runId: { type: string, format: uuid }
+        seed: { type: integer, minimum: 0, maximum: 2147483646 }
+        startedAt: { type: string, format: date-time }
+    RunCheckpoint:
+      type: object
+      required: [elapsedSec, kills, level, eurodollars]
+      properties:
+        elapsedSec: { type: number, minimum: 0 }
+        kills: { type: integer, minimum: 0 }
+        level: { type: integer, minimum: 1 }
+        eurodollars: { type: integer, minimum: 0 }
+    EndRunRequest:
+      type: object
+      required: [characterId, durationSec, kills, killsByEnemy, level, eurodollarsCollected, weaponsSeen, enemiesSeen]
+      properties:
+        characterId: { $ref: '#/components/schemas/CharacterId' }
+        durationSec: { type: number, minimum: 0 }
+        kills: { type: integer, minimum: 0 }
+        killsByEnemy:
+          type: object
+          description: Enemy id -> kills in this run
+          additionalProperties: { type: integer, minimum: 0 }
+        level: { type: integer, minimum: 1 }
+        eurodollarsCollected: { type: integer, minimum: 0 }
+        weaponsSeen:
+          type: array
+          items: { $ref: '#/components/schemas/WeaponId' }
+        enemiesSeen:
+          type: array
+          items: { $ref: '#/components/schemas/EnemyId' }
+    EndRunResponse:
+      type: object
+      required: [eurodollarsAwarded, newUnlocks, flagged, save]
+      properties:
+        eurodollarsAwarded: { type: integer, format: int64 }
+        newUnlocks:
+          type: array
+          items: { $ref: '#/components/schemas/CharacterId' }
+        flagged: { type: boolean }
+        save: { $ref: '#/components/schemas/SaveDto' }
+    BestRunDto:
+      type: object
+      required: [id, characterId, durationSec, kills, level, endedAt]
+      properties:
+        id: { type: string, format: uuid }
+        characterId: { $ref: '#/components/schemas/CharacterId' }
+        durationSec: { type: integer }
+        kills: { type: integer }
+        level: { type: integer }
+        endedAt: { type: string, format: date-time }
+    ProblemDetail:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        errors:
+          type: object
+          description: Field name -> validation message
+          additionalProperties: { type: string }
