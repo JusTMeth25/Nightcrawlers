@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -142,6 +143,23 @@ public class AuthService {
         IssuedRefresh refresh = refreshTokens.issue(user, null, userAgent);
         audit.record(AuditEvent.LOGIN_SUCCESS, user.getId(), http);
         return new Session(user, jwt.issueAccess(user), refresh);
+    }
+
+    public Session refresh(String presentedToken, String userAgent, HttpServletRequest http) {
+        RefreshTokenService.Rotation rotation = refreshTokens.rotate(presentedToken, userAgent, http);
+        return new Session(rotation.user(), jwt.issueAccess(rotation.user()), rotation.next());
+    }
+
+    /** Revokes the session (refresh family) of the presented cookie; unknown tokens are ignored. */
+    public void logout(String presentedToken, HttpServletRequest http) {
+        refreshTokens.revokeFamilyOf(presentedToken)
+                .ifPresent(userId -> audit.record(AuditEvent.LOGOUT, userId, http));
+    }
+
+    @Transactional
+    public void logoutAll(UUID userId, HttpServletRequest http) {
+        refreshTokens.revokeAllForUser(userId);
+        audit.record(AuditEvent.LOGOUT_ALL, userId, http);
     }
 
     /** Progressive lock (spec 4.5): 1 minute at the 5th failure, 5 minutes up to the 10th, then 15. */

@@ -3,6 +3,8 @@ package com.nightcrawlers.auth;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -57,6 +59,29 @@ public class AuthController {
             HttpServletResponse response) {
         AuthService.Session session = auth.login(request, http.getHeader(HttpHeaders.USER_AGENT), http);
         return respond(session, response);
+    }
+
+    @PostMapping("/refresh")
+    public AuthResponse refresh(@CookieValue(name = AuthCookies.REFRESH, required = false) String refreshToken,
+            HttpServletRequest http, HttpServletResponse response) {
+        AuthService.Session session = auth.refresh(refreshToken, http.getHeader(HttpHeaders.USER_AGENT), http);
+        return respond(session, response);
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(@CookieValue(name = AuthCookies.REFRESH, required = false) String refreshToken,
+            HttpServletRequest http, HttpServletResponse response) {
+        auth.logout(refreshToken, http);
+        cookies.clear(response);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/logout-all")
+    public ResponseEntity<Void> logoutAll(Authentication authentication, HttpServletRequest http,
+            HttpServletResponse response) {
+        auth.logoutAll(CurrentUser.id(authentication), http);
+        cookies.clear(response);
+        return ResponseEntity.noContent().build();
     }
 
     private AuthResponse respond(AuthService.Session session, HttpServletResponse response) {
