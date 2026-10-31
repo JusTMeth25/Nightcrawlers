@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 
 import com.nightcrawlers.common.SecureTokens;
@@ -105,20 +106,23 @@ class RefreshIT {
         Session session = api.loginSession(api.register());
         CountDownLatch start = new CountDownLatch(1);
 
-        List<CompletableFuture<Integer>> calls = List.of(1, 2).stream()
+        List<CompletableFuture<MvcResult>> calls = List.of(1, 2).stream()
                 .map(i -> CompletableFuture.supplyAsync(() -> {
                     try {
                         start.await();
-                        return refresh(session).andReturn().getResponse().getStatus();
+                        return refresh(session).andReturn();
                     } catch (Exception e) {
                         throw new IllegalStateException(e);
                     }
                 }))
                 .toList();
         start.countDown();
-        List<Integer> statuses = calls.stream().map(CompletableFuture::join).toList();
+        List<MvcResult> results = calls.stream().map(CompletableFuture::join).toList();
 
-        assertThat(statuses).containsExactlyInAnyOrder(200, 401);
+        assertThat(results).extracting(r -> r.getResponse().getStatus()).containsExactlyInAnyOrder(200, 401);
+        // the loser is treated as reuse: the winner's new token belongs to a revoked family
+        MvcResult winner = results.stream().filter(r -> r.getResponse().getStatus() == 200).findFirst().orElseThrow();
+        refresh(TestApi.session(winner)).andExpect(status().isUnauthorized());
     }
 
     @Test
