@@ -164,7 +164,7 @@ Multiplayer, classifica globale, mappe multiple, modalità sfida, audio personal
 
 ### 3.1 Stack
 
-React 19, TypeScript, Vite, Phaser 3, zustand, react-router, Vitest, Playwright, ESLint.
+React 19, TypeScript, Vite, Phaser 4 (4.2+), zustand, react-router, Vitest, Playwright, ESLint.
 
 ### 3.2 Struttura e proprietà
 
@@ -219,27 +219,27 @@ Il modulo `game/input/` produce ogni frame un `InputState { moveX, moveY, aimX, 
 
 ### 3.5 Rendering e prestazioni
 
-- Phaser WebGL, `Scale.RESIZE`, zoom calcolato per mostrare un'area di gioco costante su ogni schermo.
+- Phaser 4 WebGL, `Scale.RESIZE`, zoom calcolato per mostrare un'area di gioco costante su ogni schermo.
 - Pool di oggetti per nemici, proiettili e pickup; nessuna allocazione nel loop di gioco.
 - Collisioni con griglia spaziale; nemici fuori schermo aggiornati a frequenza ridotta.
 - Su smartphone in verticale: invito a ruotare. Pulsante fullscreen.
 
 ### 3.6 Pipeline sprite
 
-- Sorgenti in `FE/public/assets/sprites/`:
+- Sorgenti in `assets-src/sprites/` (spostati da `FE/public/assets/sprites/`, quindi mai serviti dal web server):
   - `edgerunners.png` (1448×1086, RGBA con alpha sporca): David, Lucy, Rebecca (3 direzioni ciascuno), Maine (2 direzioni).
   - `edgerunners_enemies.png` (1448×1086, RGB, sfondo nero): Maelstrom, Arasaka, MaxTac, Cyberpsicopatico.
   - `Scheda Pixel Art Cyberpunk Edgerunners geschniegelt.png`: solo riferimento di design, non usato nel gioco.
 - Script `tools/sprites/` (Node + sharp): pulizia alpha, chroma-key del nero, rilevamento dei frame per bounding box, file di correzione manuale dei rettangoli, output atlas Phaser in `FE/public/assets/atlas/heroes.{png,json}` e `enemies.{png,json}`.
 - Nomi animazione: `<id>_<down|side|up>_<idle|walk|shoot|skill|hurt|death>`; la direzione sinistra è la destra specchiata. Dove manca una direzione (Maine), si usa la più vicina.
 - Personaggi o nemici senza sprite: placeholder neon generato a runtime (forma + colore + glow), sostituibile senza modifiche alla logica tramite la chiave sprite nel file dati.
-- I file sorgente utente non sono serviti in produzione.
+- Docker Desktop è richiesto in locale per Testcontainers e per provare Docker Compose.
 
 ## 4. Backend
 
 ### 4.1 Stack
 
-Spring Boot 4.1.1, Java 25, Spring Web MVC, Spring Data JPA, Spring Security, OAuth2 Resource Server (JWT HS256 con Nimbus), Bean Validation, Flyway, PostgreSQL 17, Bucket4j, Spring Mail, Lombok, BouncyCastle (Argon2). Rimossa la dipendenza WebSocket. Package base `com.nightcrawlers`.
+Spring Boot 4.1.1, Java 25, Spring Web MVC, Spring Data JPA, Spring Security, OAuth2 Resource Server (JWT HS256 con Nimbus), Bean Validation, Flyway, PostgreSQL 18, Bucket4j, Spring Mail, Lombok, BouncyCastle (Argon2). Rimossa la dipendenza WebSocket. Package base `com.nightcrawlers`.
 
 ### 4.2 Struttura
 
@@ -344,7 +344,7 @@ Il gioco gira nel client, quindi il server non può verificare ogni azione. Miti
 - **Docker Compose** con servizi:
   - `caddy`: HTTPS automatico Let's Encrypt, serve il build FE, reverse proxy `/api` verso `backend`, header di sicurezza.
   - `backend`: immagine Spring Boot su `eclipse-temurin:25-jre`, utente non root.
-  - `db`: `postgres:17`, volume persistente, nessuna porta esposta.
+  - `db`: `postgres:18`, volume persistente, nessuna porta esposta.
   - `duckdns`: aggiornamento dell'IP del dominio DuckDNS.
 - **Brevo SMTP** per le email transazionali.
 - Firewall: Security List Oracle e firewall della VM con solo 80, 443 e 22 aperte; SSH solo con chiave; fail2ban.
@@ -359,7 +359,7 @@ Il gioco gira nel client, quindi il server non può verificare ogni azione. Miti
 
 | Proprietario | File |
 |---|---|
-| Coordinatore | `FE/src/shared/**`, `FE/src/data/**`, `FE/package.json`, `FE/package-lock.json`, `FE/vite.config.ts`, `FE/tsconfig*.json`, `FE/eslint.config.js`, `FE/game-dev.html`, `FE/public/assets/**`, `tools/**`, `e2e/**`, `docs/**`, `docker-compose*.yml`, `Caddyfile`, `BE/Dockerfile`, `.github/**`, file nella root |
+| Coordinatore | `FE/src/shared/**`, `FE/src/data/**`, `assets-src/**`, `FE/package.json`, `FE/package-lock.json`, `FE/vite.config.ts`, `FE/tsconfig*.json`, `FE/eslint.config.js`, `FE/game-dev.html`, `FE/public/assets/**`, `tools/**`, `e2e/**`, `docs/**`, `docker-compose*.yml`, `Caddyfile`, `BE/Dockerfile`, `.github/**`, file nella root |
 | Agente Engine | `FE/src/game/**` |
 | Agente UI/Meta | `FE/src/ui/**`, `FE/src/api/**`, `FE/src/App.tsx`, `FE/src/main.tsx`, `FE/src/index.css` |
 | Agente Backend | `BE/**` tranne `BE/Dockerfile` e `BE/src/main/resources/gamedata/**` (generati dallo script di sync) |
@@ -370,7 +370,7 @@ Il gioco gira nel client, quindi il server non può verificare ogni azione. Miti
 
 ### 7.2 Fasi
 
-- **Fase 0 — fondamenta (coordinatore)**: spec e piano approvati; OpenAPI e contratti `shared/`; dati di gioco; pipeline sprite con verifica visiva dell'utente; dipendenze e config FE; stub `GameCanvas`; harness `game-dev.html`; config BE di base (package, dipendenze, profili). Commit su `main`.
+- **Fase 0 — fondamenta (coordinatore)**: spec e piano approvati; OpenAPI e contratti `shared/`; dati di gioco; pipeline sprite con verifica visiva dell'utente; dipendenze e config FE; stub `GameCanvas`; harness `game-dev.html`; sorgenti sprite spostati in `assets-src/`. Commit su `main`. La config BE di base (package, dipendenze, profili) è il primo task dell'agente Backend.
 - **Fase 1 — M1 fetta giocabile (parallelo)**: Engine — David, Maelstrom, Pistola + Shotgun + Monowire, level-up, input completo, nell'harness. UI — schermate, HUD, modale level-up, partita ospite, API mock. Backend — auth completa, email, save, Flyway, test.
 - **Fase 1 — M2 contenuto (parallelo)**: Engine — 4 eroi, 4 nemici, élite, boss, bauli, evoluzioni, Psicosi, scalata infinita, placeholder neon. UI — selezione personaggi con requisiti, Ripperdoc, Codex, opzioni, privacy, account. Backend — run, checkpoint, integrità, sblocchi, Ripperdoc, export e cancellazione account.
 - **Fase 2 — M3 integrazione (coordinatore)**: merge, client API reale, e2e, test su telefono e controller; i bug tornano all'agente proprietario.
