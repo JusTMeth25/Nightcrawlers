@@ -3,8 +3,8 @@ package com.nightcrawlers.common;
 import jakarta.servlet.http.HttpServletRequest;
 
 /**
- * Client address. {@code server.forward-headers-strategy=framework} has already replaced the
- * remote address with the one from the trusted proxy headers.
+ * Client address. Tomcat's RemoteIpValve ({@code server.forward-headers-strategy=native}) has
+ * already replaced it with the X-Forwarded-For value, but only for requests from a trusted proxy.
  */
 public final class ClientIp {
 
