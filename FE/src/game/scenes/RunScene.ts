@@ -22,6 +22,7 @@ import { OWNER_ENEMY, ProjectilePool } from '../entities/ProjectilePool'
 import { DamageNumbers } from '../fx/DamageNumbers'
 import { InputManager } from '../input/InputManager'
 import { alertMultipliers, Director, type SpawnOrder } from '../systems/director'
+import { bindSceneEnd } from '../run/lifecycle'
 import { PauseState } from '../run/PauseState'
 import { RunFlow } from '../run/RunFlow'
 import { computeDamage, healAmount } from '../systems/combat'
@@ -151,7 +152,7 @@ export class RunScene extends Phaser.Scene implements CombatHost {
     this.applyZoom()
     this.scale.on(Phaser.Scale.Events.RESIZE, this.applyZoom, this)
     this.scene.launch(TOUCH_SCENE_KEY, { touch: this.controls.touch, debug: () => this.debugLine() })
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.teardown())
+    bindSceneEnd(this.events, (destroying) => this.teardown(destroying))
   }
 
   /** Stats from character, Ripperdoc and the cyberware owned now. */
@@ -403,13 +404,15 @@ export class RunScene extends Phaser.Scene implements CombatHost {
     return `${fps}${time}  Lv ${this.level} (${Math.floor(this.xp)}/${xpToNext(this.level)})  €$ ${this.eurodollars}  HP ${Math.ceil(p?.hp ?? 0)}/${Math.round(p?.maxHp ?? 0)}  enemies ${this.enemies?.alive ?? 0}  kills ${this.kills}${this.paused ? '  [paused]' : ''}`
   }
 
-  protected teardown(): void {
+  /** Runs once, on scene shutdown or on game destroy (see bindSceneEnd). */
+  protected teardown(destroying: boolean): void {
+    // bus listeners first: they must go even if a later step throws
+    this.flow?.dispose()
+    this.pauseState?.dispose()
     this.scale.off(Phaser.Scale.Events.RESIZE, this.applyZoom, this)
     this.controls?.destroy()
     this.weapons?.destroy()
-    this.flow?.dispose()
-    this.pauseState?.dispose()
-    this.scene.stop(TOUCH_SCENE_KEY)
+    // on game destroy the scene manager is tearing every scene down already
+    if (!destroying) this.scene.stop(TOUCH_SCENE_KEY)
   }
-
 }
