@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router'
 import { characters, getCharacter, getSkill, getWeapon } from '@data'
 import type { CharacterId } from '@shared/types'
 import { CharacterCard } from '../components/CharacterCard'
+import { ErrorBanner } from '../components/ErrorBanner'
 import { NeonButton, NeonLink } from '../components/NeonButton'
 import { Panel } from '../components/Panel'
+import { ResendVerification } from '../components/ResendVerification'
 import { t } from '../i18n/it'
 import { characterState, formatModifier, progressText, unlockFor, unlockProgress } from '../meta/unlockProgress'
 import { useGamepadNav } from '../nav/useGamepadNav'
@@ -19,7 +21,11 @@ export default function CharacterSelectScreen() {
   const save = useSession((s) => s.save)
   const previous = useRun((s) => s.characterId)
   const select = useRun((s) => s.select)
+  const start = useRun((s) => s.start)
+  const startGuest = useRun((s) => s.startGuest)
+  const startError = useRun((s) => s.startError)
   const [selectedId, setSelectedId] = useState<CharacterId>(previous ?? 'david')
+  const [phase, setPhase] = useState<'idle' | 'starting' | 'needs_verification' | 'error'>('idle')
 
   const guest = status !== 'authenticated'
   const ownSave = guest ? null : save
@@ -28,10 +34,22 @@ export default function CharacterSelectScreen() {
   const unlock = unlockFor(selected.id)
   const progress = unlock && ownSave ? unlockProgress(unlock.rule, ownSave) : null
 
-  const onStart = () => {
-    if (state !== 'available') return
+  const onStart = async () => {
+    if (state !== 'available' || phase === 'starting') return
     select(selected.id)
-    navigate('/play')
+    setPhase('starting')
+    const res = await start()
+    if (res === 'started') navigate('/play')
+    else setPhase(res)
+  }
+
+  const onGuestRun = () => {
+    if (startGuest() === 'started') navigate('/play')
+  }
+
+  const pick = (id: CharacterId) => {
+    setSelectedId(id)
+    if (phase !== 'starting') setPhase('idle')
   }
 
   return (
@@ -44,7 +62,7 @@ export default function CharacterSelectScreen() {
               character={c}
               state={characterState(c, ownSave)}
               selected={c.id === selectedId}
-              onSelect={() => setSelectedId(c.id)}
+              onSelect={() => pick(c.id)}
             />
           ))}
         </div>
@@ -94,9 +112,26 @@ export default function CharacterSelectScreen() {
           {state === 'locked' && guest && <p className={styles.muted}>{t('select.guestLocked')}</p>}
         </section>
 
+        {phase === 'needs_verification' && (
+          <div className={styles.details} role="status">
+            <p>{t('select.needsVerification')}</p>
+            <div className={styles.actions}>
+              <NeonButton variant="primary" onClick={onGuestRun} disabled={!selected.starter}>
+                {t('select.playAsGuest')}
+              </NeonButton>
+              <ResendVerification />
+            </div>
+          </div>
+        )}
+        {phase === 'error' && startError && <ErrorBanner>{startError}</ErrorBanner>}
+
         <div className={styles.actions}>
-          <NeonButton variant="primary" onClick={onStart} disabled={state !== 'available'}>
-            {t('select.start')}
+          <NeonButton
+            variant="primary"
+            onClick={() => void onStart()}
+            disabled={state !== 'available' || phase === 'starting'}
+          >
+            {phase === 'starting' ? t('select.starting') : t('select.start')}
           </NeonButton>
           <NeonLink to="/">{t('app.back')}</NeonLink>
         </div>

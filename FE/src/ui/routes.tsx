@@ -7,7 +7,9 @@ import RegisterScreen from './screens/auth/RegisterScreen'
 import ResetPasswordScreen from './screens/auth/ResetPasswordScreen'
 import VerifyEmailScreen from './screens/auth/VerifyEmailScreen'
 import CharacterSelectScreen from './screens/CharacterSelectScreen'
+import GameOverScreen from './screens/GameOverScreen'
 import PlaceholderScreen from './screens/PlaceholderScreen'
+import PlayScreen from './screens/PlayScreen'
 import TitleScreen from './screens/TitleScreen'
 
 export const routes: RouteObject[] = [
@@ -21,8 +23,8 @@ export const routes: RouteObject[] = [
       { path: '/forgot-password', element: <ForgotPasswordScreen /> },
       { path: '/reset-password', element: <ResetPasswordScreen /> },
       { path: '/select', element: <CharacterSelectScreen /> },
-      { path: '/play', element: <PlaceholderScreen title={t('screen.play')} /> },
-      { path: '/game-over', element: <PlaceholderScreen title={t('screen.gameOver')} /> },
+      { path: '/play', element: <PlayScreen /> },
+      { path: '/game-over', element: <GameOverScreen /> },
       { path: '/codex', element: <PlaceholderScreen title={t('screen.codex')} /> },
       { path: '/options', element: <PlaceholderScreen title={t('screen.options')} /> },
       { path: '/privacy', element: <PlaceholderScreen title={t('screen.privacy')} /> },

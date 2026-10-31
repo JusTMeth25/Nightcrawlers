@@ -11,11 +11,15 @@ export function AppShell() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
 
+  // during a run (and on its result) the expiry waits: the run ends first and the game-over
+  // screen asks to log in again, keeping the result for a retry
+  const runScreen = pathname === '/play' || pathname === '/game-over'
+
   useEffect(() => {
-    if (!sessionExpired) return
+    if (!sessionExpired || runScreen) return
     clearExpired()
     navigate('/login', { replace: true, state: { expired: true } })
-  }, [sessionExpired, clearExpired, navigate])
+  }, [sessionExpired, runScreen, clearExpired, navigate])
 
   const inGame = pathname === '/play'
   return (

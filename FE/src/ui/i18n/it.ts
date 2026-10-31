@@ -166,6 +166,33 @@ export const it = {
   'select.needsVerification':
     'Verifica la tua email per salvare le run online. Puoi reinviare l’email o giocare subito come ospite (la run non verrà salvata).',
   'select.playAsGuest': 'Gioca come ospite',
+
+  'play.fullscreen': 'Schermo intero',
+  'play.exitFullscreen': 'Esci da schermo intero',
+  'play.rotateTitle': 'Ruota il dispositivo',
+  'play.rotateBody': 'Nightcrawlers si gioca in orizzontale. Ruota lo schermo per continuare.',
+
+  'gameOver.title': 'Flatline',
+  'gameOver.time': 'Tempo',
+  'gameOver.kills': 'Uccisioni',
+  'gameOver.level': 'Livello',
+  'gameOver.collected': '€$ raccolti',
+  'gameOver.awarded': '€$ accreditati: {amount}',
+  'gameOver.balance': 'Saldo: {amount} €$',
+  'gameOver.unlocked': '{name} sbloccato',
+  'gameOver.flagged': 'Run segnalata come non plausibile: nessuna ricompensa assegnata.',
+  'gameOver.guest': 'I progressi degli ospiti non vengono salvati.',
+  'gameOver.register': 'Registrati per salvare le run',
+  'gameOver.submitting': 'Invio del risultato…',
+  'gameOver.submitFailed': 'Invio del risultato non riuscito. {reason}',
+  'gameOver.retrySubmit': 'Riprova invio',
+  'gameOver.keptInMemory': 'Il risultato resta in memoria finché questa pagina è aperta.',
+  'gameOver.loginRequired': 'Sessione scaduta durante la run: accedi di nuovo per salvare il risultato.',
+  'gameOver.loginAgain': 'Accedi di nuovo',
+  'gameOver.runClosed': 'Il server ha già chiuso questa run: il risultato non può essere registrato.',
+  'gameOver.playAgain': 'Gioca ancora',
+  'gameOver.changeCharacter': 'Cambia personaggio',
+  'gameOver.noRun': 'Nessuna run conclusa.',
 } as const
 
 export type TextKey = keyof typeof it

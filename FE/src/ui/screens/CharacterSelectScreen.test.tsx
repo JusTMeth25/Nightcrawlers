@@ -38,8 +38,11 @@ beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('offline'))))
 })
 
+const initialRun = useRun.getState()
+
 afterEach(() => {
   vi.unstubAllGlobals()
+  useRun.setState(initialRun, true)
   useSession.setState({ status: 'unknown', user: null, save: null, accessToken: null })
   useRun.getState().reset()
   useRun.setState({ characterId: null })
@@ -84,5 +87,44 @@ describe('CharacterSelectScreen', () => {
     renderSelect()
     expect(screen.getByText('Sandevistan')).toBeInTheDocument()
     expect(screen.getByText('+10% velocità')).toBeInTheDocument()
+  })
+  it('"Avvia" starts the run and opens the game', async () => {
+    useSession.setState({ status: 'guest' })
+    const start = vi.fn(async () => 'started' as const)
+    useRun.setState({ start })
+    const router = renderSelect()
+    const u = userEvent.setup()
+    await u.click(screen.getByRole('button', { name: /Rebecca/ }))
+    await u.click(screen.getByRole('button', { name: 'Avvia' }))
+    expect(useRun.getState().characterId).toBe('rebecca')
+    expect(start).toHaveBeenCalledTimes(1)
+    expect(router.state.location.pathname).toBe('/play')
+  })
+
+  it('unverified email: explains it and offers guest play or a new email', async () => {
+    useSession.setState({ status: 'authenticated', user: { ...user, emailVerified: false }, save })
+    const startGuest = vi.fn(() => 'started' as const)
+    useRun.setState({ start: vi.fn(async () => 'needs_verification' as const), startGuest })
+    const router = renderSelect()
+    const u = userEvent.setup()
+    await u.click(screen.getByRole('button', { name: 'Avvia' }))
+    expect(await screen.findByText(/Verifica la tua email per salvare le run online/)).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Reinvia email di verifica' }).length).toBeGreaterThan(0)
+    await u.click(screen.getByRole('button', { name: 'Gioca come ospite' }))
+    expect(startGuest).toHaveBeenCalledTimes(1)
+    expect(router.state.location.pathname).toBe('/play')
+  })
+
+  it('shows the start error', async () => {
+    useSession.setState({ status: 'authenticated', user, save })
+    useRun.setState({
+      start: vi.fn(async () => {
+        useRun.setState({ startError: 'Impossibile contattare il server.' })
+        return 'error' as const
+      }),
+    })
+    renderSelect()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Avvia' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Impossibile contattare il server.')
   })
 })
