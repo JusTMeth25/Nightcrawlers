@@ -9,7 +9,6 @@ import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.nightcrawlers.common.ClientIp;
@@ -31,10 +30,10 @@ public class AuditService {
     }
 
     /**
-     * Records the event in its own transaction, so a failure audit survives the rollback of the
-     * business transaction that rejected the request.
+     * Joins the caller's transaction (the user row may not be committed yet). Callers that
+     * record a failure must do so outside a transaction that is about to roll back.
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional
     public void record(AuditEvent event, UUID userIdOrNull, HttpServletRequest request) {
         String ipHash = request == null ? null : hashIp(ClientIp.resolve(request));
         repository.save(new AuditLog(userIdOrNull, event, ipHash, clock.instant()));

@@ -13,6 +13,7 @@ public class ApiException extends RuntimeException {
     private final String title;
     private final String detail;
     private final Map<String, String> headers = new LinkedHashMap<>();
+    private final Map<String, String> errors = new LinkedHashMap<>();
 
     public ApiException(HttpStatus status, String title, String detail) {
         super(title);
@@ -29,6 +30,16 @@ public class ApiException extends RuntimeException {
     public ApiException withHeader(String name, String value) {
         headers.put(name, value);
         return this;
+    }
+
+    /** Adds a field error, rendered in the {@code errors} member of the problem. */
+    public ApiException withError(String field, String message) {
+        errors.put(field, message);
+        return this;
+    }
+
+    public Map<String, String> getErrors() {
+        return Collections.unmodifiableMap(errors);
     }
 
     public HttpStatus getStatus() {
