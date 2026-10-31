@@ -22,7 +22,7 @@ import com.nightcrawlers.common.AppProperties;
 import com.nightcrawlers.common.SecureTokens;
 import com.nightcrawlers.common.audit.AuditEvent;
 import com.nightcrawlers.common.audit.AuditService;
-import com.nightcrawlers.mail.MailService;
+import com.nightcrawlers.mail.MailOutbox;
 import com.nightcrawlers.mail.MailTemplates;
 import com.nightcrawlers.save.SaveInitializer;
 import com.nightcrawlers.user.Emails;
@@ -47,7 +47,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final EmailTokenService emailTokens;
     private final SaveInitializer saveInitializer;
-    private final MailService mail;
+    private final MailOutbox mail;
     private final MailTemplates templates;
     private final AuditService audit;
     private final AppProperties props;
@@ -58,7 +58,7 @@ public class AuthService {
     private final String dummyHash;
 
     public AuthService(UserRepository users, PasswordPolicy passwordPolicy, PasswordEncoder passwordEncoder,
-            EmailTokenService emailTokens, SaveInitializer saveInitializer, MailService mail, MailTemplates templates,
+            EmailTokenService emailTokens, SaveInitializer saveInitializer, MailOutbox mail, MailTemplates templates,
             AuditService audit, AppProperties props, Clock clock, JwtService jwt,
             RefreshTokenService refreshTokens) {
         this.users = users;
@@ -153,7 +153,7 @@ public class AuthService {
             String html = templates.render("reset-password", Map.of(
                     "username", user.getUsername(),
                     "link", props.frontendUrl() + "/reset-password?token=" + token));
-            mail.send(user.getEmail(), "Reimposta la password - Nightcrawlers", html);
+            mail.queue(user.getEmail(), "Reimposta la password - Nightcrawlers", html);
         });
     }
 
@@ -233,13 +233,13 @@ public class AuthService {
         String html = templates.render("verify-email", Map.of(
                 "username", user.getUsername(),
                 "link", props.frontendUrl() + "/verify-email?token=" + token));
-        mail.send(user.getEmail(), "Conferma il tuo indirizzo email - Nightcrawlers", html);
+        mail.queue(user.getEmail(), "Conferma il tuo indirizzo email - Nightcrawlers", html);
     }
 
     private void sendAlreadyRegistered(User user) {
         String html = templates.render("already-registered", Map.of(
                 "username", user.getUsername(),
                 "link", props.frontendUrl() + "/forgot-password"));
-        mail.send(user.getEmail(), "Tentativo di registrazione - Nightcrawlers", html);
+        mail.queue(user.getEmail(), "Tentativo di registrazione - Nightcrawlers", html);
     }
 }
