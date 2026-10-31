@@ -21,9 +21,11 @@ import {
 import { OWNER_ENEMY, ProjectilePool } from '../entities/ProjectilePool'
 import { DamageNumbers } from '../fx/DamageNumbers'
 import { InputManager } from '../input/InputManager'
+import { emptyInput, type InputState } from '../input/InputState'
 import { alertMultipliers, Director, type SpawnOrder } from '../systems/director'
 import { bindSceneEnd } from '../run/lifecycle'
 import { PauseState } from '../run/PauseState'
+import { stepFrame, type FrameHost } from '../run/frame'
 import { RunFlow } from '../run/RunFlow'
 import { computeDamage, healAmount } from '../systems/combat'
 import { createInventory, type Inventory } from '../systems/inventory'
@@ -40,8 +42,6 @@ import { ANIMS_KEY } from './PreloadScene'
 import { TOUCH_SCENE_KEY } from './TouchControlsScene'
 
 export const RUN_SCENE_KEY = 'Run'
-/** Longest frame step: a tab back from background must not teleport anything. */
-export const MAX_FRAME_MS = 100
 const VIEW_MARGIN = 96
 const RELOCATE_EVERY_FRAMES = 30
 const REVIVE_RADIUS = 220
@@ -51,6 +51,7 @@ const ENEMY_SHOT_RADIUS = 4
 const ENEMY_SHOT_COLOR = 0xff3355
 const ENEMY_SHOT_LIFE_SEC = 3
 const PICKUP_CAP = 600
+const PICKUP_RADIUS = balance.player.pickupRadius + PLAYER_RADIUS
 
 const FALLBACK_RUN: RunConfig = {
   mode: 'guest',
@@ -94,6 +95,7 @@ export class RunScene extends Phaser.Scene implements CombatHost {
   protected readonly inView = new Phaser.Geom.Rectangle()
   protected readonly contacts: number[] = []
   private fps = 0
+  private input0: InputState = emptyInput()
 
   constructor() {
     super(RUN_SCENE_KEY)
@@ -193,22 +195,35 @@ export class RunScene extends Phaser.Scene implements CombatHost {
   }
 
   update(_time: number, deltaMs: number): void {
-    const dt = Math.min(deltaMs, MAX_FRAME_MS) / 1000
     this.fps = this.game.loop.actualFps
     const cam = this.cameras.main
     const screenX = (this.player.x - cam.worldView.x) * cam.zoom
     const screenY = (this.player.bodyY - cam.worldView.y) * cam.zoom
-    const input = this.controls.update(screenX, screenY, this.run.options.autoAim)
+    this.input0 = this.controls.update(screenX, screenY, this.run.options.autoAim)
     // ignored while a level-up or chest is open (PauseState)
-    if (input.pause) this.pauseState.toggleMenu()
-    if (this.paused) return
+    if (this.input0.pause) this.pauseState.toggleMenu()
+    stepFrame(deltaMs, this.frameHost)
+  }
 
-    this.frame++
-    this.clock += dt
-    this.player.update(dt, input, isFrenzy(this.psychosis))
+  /** The per-frame steps, in order; see run/frame.ts for the pause rules. */
+  private readonly frameHost: FrameHost = {
+    isPaused: () => this.paused,
+    advanceClock: (dt) => {
+      this.frame++
+      this.clock += dt
+    },
+    simulate: (dt) => this.simulate(dt),
+    resolveDamage: () => {
+      this.contactDamage()
+      this.enemyShotHits()
+    },
+  }
+
+  private simulate(dt: number): void {
+    const cam = this.cameras.main
+    this.player.update(dt, this.input0, isFrenzy(this.psychosis))
     this.floor.update(cam)
     this.spawnStep(dt)
-
     const v = cam.worldView
     this.inView.setTo(v.x - VIEW_MARGIN, v.y - VIEW_MARGIN, v.width + VIEW_MARGIN * 2, v.height + VIEW_MARGIN * 2)
     this.enemies.fillGrid(this.grid)
@@ -216,15 +231,15 @@ export class RunScene extends Phaser.Scene implements CombatHost {
     this.enemies.fillGrid(this.grid)
     if (this.frame % RELOCATE_EVERY_FRAMES === 0) this.relocateFarEnemies()
     this.projectiles.update(dt, this.enemies.slow)
-    this.weapons.update(dt, input)
+    this.weapons.update(dt, this.input0)
     this.damageNumbers.update(dt)
-    const pickupRadius = balance.player.pickupRadius + PLAYER_RADIUS
-    this.pickups.update(dt, this.player.x, this.player.y, this.stats.magnet, pickupRadius, this.collect)
-    this.chests.update(dt, this.player.x, this.player.y, () => this.flow.onChestOpened())
     this.psychosis = tickPsychosis(this.psychosis, dt)
-    this.contactDamage()
-    this.enemyShotHits()
+    // these two can open a level-up or a chest: stepFrame then skips player damage
+    this.pickups.update(dt, this.player.x, this.player.y, this.stats.magnet, PICKUP_RADIUS, this.collect)
+    this.chests.update(dt, this.player.x, this.player.y, this.openChest)
   }
+
+  private readonly openChest = (): void => this.flow.onChestOpened()
 
   /** Ranged enemies (kite) fire through the shared projectile pool. */
   protected enemyShot: EnemyShot = (x, y, dx, dy, def, damageMult) => {
