@@ -11,9 +11,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -25,6 +22,9 @@ import com.nightcrawlers.common.ClientIp;
 import com.nightcrawlers.common.ProblemResponses;
 import com.nightcrawlers.common.RequestPaths;
 import com.nightcrawlers.user.Emails;
+
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
@@ -47,25 +47,31 @@ import tools.jackson.databind.json.JsonMapper;
 public class RateLimitFilter extends OncePerRequestFilter {
 
     static final int MAX_INSPECTED_BODY = 16 * 1024;
+    /** Longer values cannot be valid logins or emails (DTO limit): they get no account bucket. */
+    static final int MAX_ACCOUNT_KEY = 254;
+    public static final long DEFAULT_MAX_BUCKETS = 100_000;
     private static final Duration IDLE_EVICTION = Duration.ofHours(2);
-    private static final int CLEANUP_EVERY = 1_000;
-
-    private record Entry(Bucket bucket, AtomicLong lastSeen) {
-    }
 
     private final RateLimitProperties limits;
     private final ProblemResponses problems;
     private final JsonMapper json;
     private final JwtDecoder jwtDecoder;
-    private final Map<String, Entry> buckets = new ConcurrentHashMap<>();
-    private final AtomicLong requests = new AtomicLong();
+    /** Bounded and idle-expiring, so a flood of distinct keys cannot exhaust memory. */
+    private final Cache<String, Bucket> buckets;
 
     public RateLimitFilter(RateLimitProperties limits, ProblemResponses problems, JsonMapper json,
-            JwtDecoder jwtDecoder) {
+            JwtDecoder jwtDecoder, long maxBuckets) {
         this.limits = limits;
         this.problems = problems;
         this.json = json;
         this.jwtDecoder = jwtDecoder;
+        this.buckets = Caffeine.newBuilder().maximumSize(maxBuckets).expireAfterAccess(IDLE_EVICTION).build();
+    }
+
+    /** Number of live buckets (for tests and monitoring). */
+    long bucketCount() {
+        buckets.cleanUp();
+        return buckets.estimatedSize();
     }
 
     @Override
@@ -87,7 +93,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
                 forward = cached;
                 checks.add(new String[] { "login|ip|" + ip, "loginIp" });
                 String login = cached.field(json, "login");
-                if (login != null) {
+                if (login != null && login.length() <= MAX_ACCOUNT_KEY) {
                     checks.add(new String[] { "login|acct|" + normalizeLogin(login), "loginAccount" });
                 }
             }
@@ -97,7 +103,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
                 forward = cached;
                 checks.add(new String[] { "forgot|ip|" + ip, "forgotIp" });
                 String email = cached.field(json, "email");
-                if (email != null) {
+                if (email != null && email.length() <= MAX_ACCOUNT_KEY) {
                     checks.add(new String[] { "forgot|acct|" + Emails.normalize(email), "forgotAccount" });
                 }
             }
@@ -140,17 +146,10 @@ public class RateLimitFilter extends OncePerRequestFilter {
     }
 
     private Bucket bucket(String key, Limit limit) {
-        long now = System.nanoTime();
-        if (requests.incrementAndGet() % CLEANUP_EVERY == 0) {
-            long idle = IDLE_EVICTION.toNanos();
-            buckets.values().removeIf(e -> now - e.lastSeen().get() > idle);
-        }
-        Entry entry = buckets.computeIfAbsent(key, k -> new Entry(Bucket.builder()
+        return buckets.get(key, k -> Bucket.builder()
                 .addLimit(Bandwidth.builder().capacity(limit.capacity())
                         .refillGreedy(limit.capacity(), limit.period()).build())
-                .build(), new AtomicLong(now)));
-        entry.lastSeen().set(now);
-        return entry.bucket();
+                .build());
     }
 
     /** Usernames are case-insensitive and emails are normalized, so both map to one key. */

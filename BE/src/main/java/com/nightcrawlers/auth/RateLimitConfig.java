@@ -33,7 +33,7 @@ public class RateLimitConfig {
     FilterRegistrationBean<RateLimitFilter> rateLimitFilter(RateLimitProperties limits, ProblemResponses problems,
             JsonMapper json, JwtDecoder jwtDecoder) {
         FilterRegistrationBean<RateLimitFilter> registration = new FilterRegistrationBean<>(
-                new RateLimitFilter(limits, problems, json, jwtDecoder));
+                new RateLimitFilter(limits, problems, json, jwtDecoder, RateLimitFilter.DEFAULT_MAX_BUCKETS));
         registration.setOrder(ORDER);
         registration.addUrlPatterns("/*");
         return registration;
