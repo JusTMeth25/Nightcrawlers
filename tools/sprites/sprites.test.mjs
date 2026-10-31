@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import { fileURLToPath } from 'node:url'
 import { chromaBlack, cleanAlpha } from './clean.mjs'
 import { detectFrames } from './detect.mjs'
 
@@ -79,7 +80,7 @@ test('detectInRows splits uniform row bands and columns by projection', async ()
   square(buf, w, 10, 45, 20)
   // faint halo bridging the two top squares must not merge them
   for (let x = 25; x < 50; x++) setPx(buf, w, x, 15, [255, 255, 255, 60])
-  const rows = detectInRows(buf, w, h, { rows: 2, maskAlpha: 128, minArea: 100, mergeGap: 2 })
+  const rows = detectInRows(buf, w, h, { rows: 2, maskAlpha: 128, edgeAlpha: 128, minArea: 100, mergeGap: 2 })
   assert.equal(rows.length, 2)
   assert.deepEqual(rows[0].map((r) => r.x), [5, 50])
   assert.deepEqual(rows[0][1], { x: 50, y: 8, w: 20, h: 20 })
@@ -162,9 +163,34 @@ test('generated atlases have clean alpha and the base animations of every sprite
       assert.ok(names.includes(`${k}_down_idle_0`), `${atlas}: ${k}_down_idle_0`)
       assert.ok(names.some((n) => n.startsWith(`${k}_`) && n.includes('_walk_')), `${atlas}: ${k} walk`)
     }
-    const { data, info } = await sharp(new URL(`FE/public/assets/atlas/${atlas}.png`, root).pathname.slice(1)).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
+    const { data, info } = await sharp(fileURLToPath(new URL(`FE/public/assets/atlas/${atlas}.png`, root))).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
     let faint = 0
     for (let i = 3; i < info.width * info.height * 4; i += 4) if (data[i] > 0 && data[i] < 25) faint++
     assert.equal(faint, 0, `${atlas}: ${faint} faint alpha pixels`)
   }
+})
+
+test('detectInRows keeps the soft edge around the solid core', async () => {
+  const { detectInRows } = await import('./detect.mjs')
+  const w = 60, h = 40
+  const buf = rgba(w, h)
+  // soft outline (alpha 100) one pixel wide around a solid 20x20 core
+  for (let y = 9; y <= 30; y++) for (let x = 9; x <= 30; x++) setPx(buf, w, x, y, [200, 50, 50, 100])
+  square(buf, w, 10, 10, 20)
+  const rows = detectInRows(buf, w, h, { rows: [[0, 40]], maskAlpha: 180, edgeAlpha: 25, minArea: 50 })
+  assert.deepEqual(rows[0][0], { x: 9, y: 9, w: 22, h: 22 })
+})
+
+test('soft edge growth stops halfway to the neighbouring frame', async () => {
+  const { detectInRows } = await import('./detect.mjs')
+  const w = 70, h = 30
+  const buf = rgba(w, h)
+  square(buf, w, 5, 5, 20)
+  square(buf, w, 45, 5, 20)
+  // faint glow filling the whole gap between the two frames
+  for (let x = 25; x < 45; x++) setPx(buf, w, x, 15, [255, 255, 255, 60])
+  const rows = detectInRows(buf, w, h, { rows: [[0, 30]], maskAlpha: 180, edgeAlpha: 25, minArea: 50, mergeGap: 2 })
+  const [a, b] = rows[0]
+  assert.equal(a.x + a.w - 1, 34)
+  assert.equal(b.x, 35)
 })

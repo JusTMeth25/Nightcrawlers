@@ -95,9 +95,11 @@ export function detectFrames(rgba, w, h, { minArea = 200, mergeGap = 3 } = {}) {
  * Splits the sheet into row bands (`rows`: a count of even bands, or explicit [y0, y1) pairs), then splits each band
  * into frames by column projection of the mask (alpha >= maskAlpha). Faint halos do not bridge frames.
  * cuts[i] lists x columns where band i must split (a frame starts at each cut).
+ * Each box then grows over the soft edge (alpha >= edgeAlpha) touching it, inside the band and
+ * at most halfway to the neighbouring frames, so outlines and glows are not clipped.
  * @returns {Rect[][]} one array of frames per row, left to right
  */
-export function detectInRows(rgba, w, h, { rows, cuts = [], maskAlpha = 128, minArea = 200, mergeGap = 3 }) {
+export function detectInRows(rgba, w, h, { rows, cuts = [], maskAlpha = 128, edgeAlpha = 25, minArea = 200, mergeGap = 3 }) {
   const solid = (x, y) => rgba[(y * w + x) * 4 + 3] >= maskAlpha
   const result = []
   const bands = Array.isArray(rows)
@@ -138,7 +140,28 @@ export function detectInRows(rgba, w, h, { rows, cuts = [], maskAlpha = 128, min
       }
       frames.push({ x: x0, y: top, w: x1 - x0 + 1, h: bottom - top + 1 })
     }
-    result.push(frames)
+    result.push(frames.map((f, i) => growOverEdge(rgba, w, f, {
+      minX: i > 0 ? Math.floor((frames[i - 1].x + frames[i - 1].w - 1 + f.x) / 2) + 1 : 0,
+      maxX: i < frames.length - 1 ? Math.floor((f.x + f.w - 1 + frames[i + 1].x) / 2) : w - 1,
+      minY: y0,
+      maxY: y1 - 1,
+      edgeAlpha,
+    })))
   })
   return result
+}
+
+function growOverEdge(rgba, w, f, { minX, maxX, minY, maxY, edgeAlpha }) {
+  let x0 = f.x, y0 = f.y, x1 = f.x + f.w - 1, y1 = f.y + f.h - 1
+  const soft = (x, y) => rgba[(y * w + x) * 4 + 3] >= edgeAlpha
+  const colHas = (x) => { for (let y = y0; y <= y1; y++) if (soft(x, y)) return true; return false }
+  const rowHas = (y) => { for (let x = x0; x <= x1; x++) if (soft(x, y)) return true; return false }
+  for (let grown = true; grown; ) {
+    grown = false
+    if (x0 > minX && colHas(x0 - 1)) { x0--; grown = true }
+    if (x1 < maxX && colHas(x1 + 1)) { x1++; grown = true }
+    if (y0 > minY && rowHas(y0 - 1)) { y0--; grown = true }
+    if (y1 < maxY && rowHas(y1 + 1)) { y1++; grown = true }
+  }
+  return { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 }
 }
