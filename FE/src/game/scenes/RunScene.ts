@@ -37,7 +37,7 @@ import { addXp, xpToNext } from '../systems/xp'
 import { implementedWeapons, WeaponSystem } from '../weapons/WeaponSystem'
 import type { CombatHost } from '../weapons/types'
 import { CityFloor } from '../world/CityFloor'
-import { computeZoom, ENEMY_RADIUS, GRID_CELL, PLAYER_RADIUS } from '../world/view'
+import { computeZoom, GRID_CELL, PLAYER_RADIUS } from '../world/view'
 import { ANIMS_KEY } from './PreloadScene'
 import { TOUCH_SCENE_KEY } from './TouchControlsScene'
 
@@ -385,7 +385,7 @@ export class RunScene extends Phaser.Scene implements CombatHost {
 
   private contactDamage(): void {
     if (this.player.invulnerable || this.player.dead) return
-    const n = this.grid.queryRadius(this.player.x, this.player.bodyY, PLAYER_RADIUS + ENEMY_RADIUS, this.contacts)
+    const n = this.enemies.queryHits(this.grid, this.player.x, this.player.bodyY, PLAYER_RADIUS, this.contacts)
     for (let k = 0; k < n; k++) {
       if (this.dev.stress) return
       const result = this.player.hurt(this.enemies.damage[this.contacts[k]])

@@ -5,7 +5,6 @@ import { OWNER_PLAYER } from '../entities/ProjectilePool'
 import type { InputState } from '../input/InputState'
 import type { Inventory } from '../systems/inventory'
 import { weaponStats } from '../systems/weapons'
-import { BODY_OFFSET, ENEMY_RADIUS } from '../world/view'
 import { createConeBehavior } from './behaviors/cone'
 import { createOrbitBehavior } from './behaviors/orbit'
 import { createProjectileBehavior } from './behaviors/projectile'
@@ -107,7 +106,7 @@ export class WeaponSystem {
     const i = this.host.grid.nearest(this.playerPos.x, this.playerPos.y, NEAREST_RANGE)
     if (i < 0) return null
     this.nearestPos.x = this.host.enemies.x[i]
-    this.nearestPos.y = this.host.enemies.y[i] - BODY_OFFSET
+    this.nearestPos.y = this.host.enemies.bodyY(i)
     return this.nearestPos
   }
 
@@ -116,7 +115,7 @@ export class WeaponSystem {
     const e = this.host.enemies
     for (let i = 0; i < pr.cap; i++) {
       if (!pr.active[i] || pr.owner[i] !== OWNER_PLAYER) continue
-      const n = this.host.grid.queryRadius(pr.x[i], pr.y[i], pr.radius[i] + ENEMY_RADIUS, this.found)
+      const n = e.queryHits(this.host.grid, pr.x[i], pr.y[i], pr.radius[i], this.found)
       if (n === 0) continue
       const speed = Math.hypot(pr.vx[i], pr.vy[i]) || 1
       const kx = (pr.vx[i] / speed) * PROJECTILE_KNOCK

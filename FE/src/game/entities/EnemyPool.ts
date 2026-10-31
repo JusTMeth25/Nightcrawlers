@@ -6,6 +6,7 @@ import { balance, enemies as enemyDefs } from '@data/index'
 import type { EnemyDef } from '@shared/types'
 import { animTable, dirOf, type AnimTable } from '../render/animTable'
 import { drawPlaceholder } from '../render/placeholders'
+import { BOSS_SCALE, enemyBodyScale, filterCircleHits, MAX_BODY_SCALE } from '../systems/hitShapes'
 import type { SpatialGrid } from '../systems/spatialGrid'
 import { BODY_OFFSET, ENEMY_RADIUS, SPRITE_SCALE } from '../world/view'
 import { actorDepth } from '../render/depth'
@@ -20,7 +21,8 @@ const SEPARATION_RADIUS = ENEMY_RADIUS * 1.6
 const SEPARATION_PUSH = 110
 const MAX_NEIGHBOURS = 6
 const ELITE_TINT = 0x8a2be2
-const BOSS_SCALE = 1.6
+/** grid queries grow by this so the biggest hit circle is never missed */
+const QUERY_PAD = ENEMY_RADIUS * MAX_BODY_SCALE
 
 /** charger states */
 const WALK = 0
@@ -49,6 +51,12 @@ export class EnemyPool {
   readonly elite: Uint8Array
   readonly boss: Uint8Array
   readonly defIndex: Uint8Array
+  /** hit circle radius, scaled like the sprite (elite, boss) */
+  readonly radius: Float32Array
+  /** feet to body centre, scaled like the sprite */
+  readonly bodyOff: Float32Array
+  /** bumped on every spawn: (slot, gen) identifies one enemy across slot reuse */
+  readonly gen: Uint32Array
   readonly sprites: Phaser.GameObjects.Sprite[] = []
   /** global slow (Sandevistan): 1 = normal speed */
   slow = 1
@@ -77,6 +85,9 @@ export class EnemyPool {
     this.elite = new Uint8Array(cap)
     this.boss = new Uint8Array(cap)
     this.defIndex = new Uint8Array(cap)
+    this.radius = new Float32Array(cap)
+    this.bodyOff = new Float32Array(cap)
+    this.gen = new Uint32Array(cap)
     this.kbx = new Float32Array(cap)
     this.kby = new Float32Array(cap)
     this.timer = new Float32Array(cap)
@@ -88,7 +99,7 @@ export class EnemyPool {
     this.dmgMult = new Float32Array(cap)
     this.tables = enemyDefs.map((d) => animTable(available, d.spriteKey))
     this.textures = enemyDefs.map((d, i) =>
-      this.tables[i] ? 'enemies' : drawPlaceholder(scene, `enemy_${d.id}`, d.color, d.behavior === 'boss' ? 56 : 28, d.behavior === 'boss' ? 'boss' : 'enemy'),
+      this.tables[i] ? 'enemies' : drawPlaceholder(scene, `enemy_${d.id}`, d.color, d.behavior === 'boss' ? 38 : 28, d.behavior === 'boss' ? 'boss' : 'enemy'),
     )
     for (let i = 0; i < cap; i++) {
       this.sprites.push(scene.add.sprite(0, 0, this.textures[0]).setVisible(false).setActive(false))
@@ -146,6 +157,10 @@ export class EnemyPool {
     this.y[i] = y
     this.hp[i] = hp
     this.maxHp[i] = hp
+    const body = enemyBodyScale(elite === 1, boss === 1)
+    this.radius[i] = ENEMY_RADIUS * body
+    this.bodyOff[i] = BODY_OFFSET * body
+    this.gen[i]++
     this.dmgMult[i] = opts.damageMult ?? 1
     this.damage[i] = def.damage * this.dmgMult[i]
     this.kbx[i] = 0
@@ -250,7 +265,7 @@ export class EnemyPool {
       this.timer[i] -= dt
       if (this.timer[i] <= 0 && dist <= r.range * 1.1) {
         this.timer[i] = r.cooldownSec
-        shoot(this.x[i], this.y[i] - BODY_OFFSET, ux, uy, def, this.dmgMult[i])
+        shoot(this.x[i], this.y[i] - this.bodyOff[i], ux, uy, def, this.dmgMult[i])
       }
     } else if (def.behavior === 'charger') {
       this.timer[i] -= dt
@@ -288,7 +303,7 @@ export class EnemyPool {
   }
 
   private separate(i: number, dt: number, grid: SpatialGrid): void {
-    const n = grid.queryRadius(this.x[i], this.y[i] - BODY_OFFSET, SEPARATION_RADIUS, this.neighbours)
+    const n = grid.queryRadius(this.x[i], this.y[i] - this.bodyOff[i], SEPARATION_RADIUS, this.neighbours)
     let pushX = 0
     let pushY = 0
     let used = 0
@@ -318,7 +333,21 @@ export class EnemyPool {
   /** Writes body centres into the grid (call once per frame before queries). */
   fillGrid(grid: SpatialGrid): void {
     grid.clear()
-    for (let i = 0; i < this.cap; i++) if (this.active[i]) grid.insert(i, this.x[i], this.y[i] - BODY_OFFSET)
+    for (let i = 0; i < this.cap; i++) if (this.active[i]) grid.insert(i, this.x[i], this.y[i] - this.bodyOff[i])
+  }
+
+  /**
+   * Enemies whose hit circle overlaps the circle (x, y, r), written into `out`; returns the count.
+   * The grid must have been filled by `fillGrid` this frame.
+   */
+  queryHits(grid: SpatialGrid, x: number, y: number, r: number, out: number[]): number {
+    const n = grid.queryRadius(x, y, r + QUERY_PAD, out)
+    return filterCircleHits(out, n, x, y, r, this.x, this.y, this.bodyOff, this.radius)
+  }
+
+  /** Body centre y (collision height) of enemy i. */
+  bodyY(i: number): number {
+    return this.y[i] - this.bodyOff[i]
   }
 
   /** Pushes every enemy within `radius` away from a point (revival shockwave). */
