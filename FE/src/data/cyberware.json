@@ -1,0 +1,116 @@
+[
+  {
+    "id": "kerenzikov",
+    "name": "Riflessi Kerenzikov",
+    "description": "-8% cooldown armi per livello.",
+    "maxLevel": 5,
+    "perLevel": [
+      {
+        "stat": "cooldown",
+        "op": "mul",
+        "value": -0.08
+      }
+    ]
+  },
+  {
+    "id": "synthetic_muscle",
+    "name": "Muscoli sintetici",
+    "description": "+10% potenza per livello.",
+    "maxLevel": 5,
+    "perLevel": [
+      {
+        "stat": "might",
+        "op": "mul",
+        "value": 0.1
+      }
+    ]
+  },
+  {
+    "id": "subdermal_armor",
+    "name": "Placche subdermali",
+    "description": "+1 armatura per livello.",
+    "maxLevel": 5,
+    "perLevel": [
+      {
+        "stat": "armor",
+        "op": "add",
+        "value": 1
+      }
+    ]
+  },
+  {
+    "id": "neural_link",
+    "name": "Collegamento neurale",
+    "description": "+10% durata effetti per livello.",
+    "maxLevel": 5,
+    "perLevel": [
+      {
+        "stat": "duration",
+        "op": "mul",
+        "value": 0.1
+      }
+    ]
+  },
+  {
+    "id": "kiroshi_optics",
+    "name": "Ottica Kiroshi",
+    "description": "+10% velocità proiettili e +5% critico per livello.",
+    "maxLevel": 5,
+    "perLevel": [
+      {
+        "stat": "projectileSpeed",
+        "op": "mul",
+        "value": 0.1
+      },
+      {
+        "stat": "crit",
+        "op": "add",
+        "value": 0.05
+      }
+    ]
+  },
+  {
+    "id": "blast_dampener",
+    "name": "Amplificatore d'impatto",
+    "description": "+10% area per livello.",
+    "maxLevel": 5,
+    "perLevel": [
+      {
+        "stat": "area",
+        "op": "mul",
+        "value": 0.1
+      }
+    ]
+  },
+  {
+    "id": "biomonitor",
+    "name": "Biomonitor",
+    "description": "+0,2 PV/s di rigenerazione per livello.",
+    "maxLevel": 5,
+    "perLevel": [
+      {
+        "stat": "regen",
+        "op": "add",
+        "value": 0.2
+      }
+    ]
+  },
+  {
+    "id": "data_collector",
+    "name": "Collettore dati",
+    "description": "+20% magnete e +5% crescita XP per livello.",
+    "maxLevel": 5,
+    "perLevel": [
+      {
+        "stat": "magnet",
+        "op": "mul",
+        "value": 0.2
+      },
+      {
+        "stat": "growth",
+        "op": "mul",
+        "value": 0.05
+      }
+    ]
+  }
+]

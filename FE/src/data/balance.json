@@ -1,0 +1,74 @@
+{
+  "baseStats": {
+    "maxHp": 100,
+    "regen": 0,
+    "armor": 0,
+    "speed": 120,
+    "might": 1,
+    "area": 1,
+    "cooldown": 1,
+    "duration": 1,
+    "projectileSpeed": 1,
+    "magnet": 48,
+    "luck": 1,
+    "growth": 1,
+    "revival": 0,
+    "greed": 1,
+    "crit": 0.05
+  },
+  "xp": {
+    "firstLevel": 5,
+    "growth": 1.15,
+    "flatPerLevel": 3
+  },
+  "psychosis": {
+    "perKillPerCyberLevel": 0.05,
+    "damagePer10": 0.01,
+    "healPenaltyPer10": 0.01,
+    "frenzyDurationSec": 10,
+    "frenzyDamageMult": 2
+  },
+  "difficulty": {
+    "alertHpPerMin": 0.03,
+    "alertDamagePerMin": 0.03,
+    "alertSpawnPerMin": 0.02
+  },
+  "elite": {
+    "scale": 1.3,
+    "hpMult": 8
+  },
+  "boss": {
+    "hpGrowth": 1.5,
+    "maxPatterns": 4
+  },
+  "drops": {
+    "medkitChance": 0.01,
+    "medkitHeal": 30,
+    "magnetChance": 0.003,
+    "empChance": 0.002,
+    "eurodollarBag": [
+      10,
+      50
+    ],
+    "chestCards": [
+      1,
+      3
+    ]
+  },
+  "reward": {
+    "perSecond": 0.5,
+    "perKill": 0.1,
+    "maxPerMinute": 200
+  },
+  "antiCheat": {
+    "clockSkewSec": 5,
+    "maxKillsPerSec": 40,
+    "maxLevelPerMinute": 10,
+    "maxEurodollarsPerMinute": 300,
+    "checkpointEverySec": 60
+  },
+  "player": {
+    "invulnerabilitySec": 0.5,
+    "pickupRadius": 16
+  }
+}

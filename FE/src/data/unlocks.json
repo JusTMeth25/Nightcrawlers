@@ -1,0 +1,45 @@
+[
+  {
+    "characterId": "maine",
+    "rule": {
+      "type": "survive",
+      "seconds": 600
+    },
+    "description": "Sopravvivi 10 minuti"
+  },
+  {
+    "characterId": "kiwi",
+    "rule": {
+      "type": "kills",
+      "enemyId": "maxtac",
+      "count": 50
+    },
+    "description": "Uccidi 50 agenti MaxTac in totale"
+  },
+  {
+    "characterId": "pilar",
+    "rule": {
+      "type": "eurodollars_total",
+      "amount": 5000
+    },
+    "description": "Raccogli 5.000 €$ in totale"
+  },
+  {
+    "characterId": "dorio",
+    "rule": {
+      "type": "survive_with",
+      "characterId": "maine",
+      "seconds": 1800
+    },
+    "description": "Sopravvivi 30 minuti con Maine"
+  },
+  {
+    "characterId": "falco",
+    "rule": {
+      "type": "distinct_characters",
+      "count": 3,
+      "seconds": 900
+    },
+    "description": "Raggiungi 15 minuti con 3 personaggi diversi"
+  }
+]

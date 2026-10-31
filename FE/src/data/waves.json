@@ -1,0 +1,185 @@
+{
+  "phases": [
+    {
+      "fromSec": 0,
+      "toSec": 300,
+      "spawnPerSec": 1.5,
+      "mix": [
+        {
+          "enemyId": "maelstrom",
+          "weight": 1
+        }
+      ],
+      "specials": [
+        {
+          "atSec": 150,
+          "type": "swarm",
+          "enemyId": "maelstrom",
+          "count": 30
+        }
+      ]
+    },
+    {
+      "fromSec": 300,
+      "toSec": 600,
+      "spawnPerSec": 2.5,
+      "mix": [
+        {
+          "enemyId": "maelstrom",
+          "weight": 0.7
+        },
+        {
+          "enemyId": "arasaka",
+          "weight": 0.3
+        }
+      ],
+      "specials": [
+        {
+          "atSec": 450,
+          "type": "ring",
+          "enemyId": "maelstrom",
+          "count": 40
+        }
+      ]
+    },
+    {
+      "fromSec": 600,
+      "toSec": 900,
+      "spawnPerSec": 3.5,
+      "mix": [
+        {
+          "enemyId": "maelstrom",
+          "weight": 0.5
+        },
+        {
+          "enemyId": "arasaka",
+          "weight": 0.3
+        },
+        {
+          "enemyId": "maxtac",
+          "weight": 0.2
+        }
+      ],
+      "specials": [
+        {
+          "atSec": 750,
+          "type": "wall",
+          "enemyId": "arasaka",
+          "count": 25
+        }
+      ]
+    },
+    {
+      "fromSec": 900,
+      "toSec": 1200,
+      "spawnPerSec": 4.5,
+      "mix": [
+        {
+          "enemyId": "maelstrom",
+          "weight": 0.4
+        },
+        {
+          "enemyId": "arasaka",
+          "weight": 0.35
+        },
+        {
+          "enemyId": "maxtac",
+          "weight": 0.25
+        }
+      ],
+      "specials": [
+        {
+          "atSec": 1050,
+          "type": "ring",
+          "enemyId": "maxtac",
+          "count": 20
+        }
+      ]
+    },
+    {
+      "fromSec": 1200,
+      "toSec": 1500,
+      "spawnPerSec": 5.5,
+      "mix": [
+        {
+          "enemyId": "maelstrom",
+          "weight": 0.35
+        },
+        {
+          "enemyId": "arasaka",
+          "weight": 0.35
+        },
+        {
+          "enemyId": "maxtac",
+          "weight": 0.3
+        }
+      ],
+      "specials": [
+        {
+          "atSec": 1350,
+          "type": "swarm",
+          "enemyId": "maelstrom",
+          "count": 60
+        }
+      ]
+    },
+    {
+      "fromSec": 1500,
+      "toSec": 1800,
+      "spawnPerSec": 6.5,
+      "mix": [
+        {
+          "enemyId": "maelstrom",
+          "weight": 0.3
+        },
+        {
+          "enemyId": "arasaka",
+          "weight": 0.35
+        },
+        {
+          "enemyId": "maxtac",
+          "weight": 0.35
+        }
+      ],
+      "specials": [
+        {
+          "atSec": 1650,
+          "type": "wall",
+          "enemyId": "maxtac",
+          "count": 30
+        }
+      ]
+    },
+    {
+      "fromSec": 1800,
+      "toSec": -1,
+      "spawnPerSec": 8,
+      "mix": [
+        {
+          "enemyId": "maelstrom",
+          "weight": 0.3
+        },
+        {
+          "enemyId": "arasaka",
+          "weight": 0.35
+        },
+        {
+          "enemyId": "maxtac",
+          "weight": 0.35
+        }
+      ],
+      "specials": [
+        {
+          "atSec": 1950,
+          "type": "ring",
+          "enemyId": "maxtac",
+          "count": 40
+        }
+      ]
+    }
+  ],
+  "eliteEverySec": 300,
+  "bossEverySec": 600,
+  "maxtacAlertAtSec": 1800,
+  "enemyCap": 400
+}

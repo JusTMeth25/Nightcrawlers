@@ -1,0 +1,92 @@
+[
+  {
+    "id": "sandevistan",
+    "name": "Sandevistan",
+    "description": "Il tempo rallenta per tutti tranne te: nemici al 30% della velocità e scatto in avanti.",
+    "cooldownSec": 20,
+    "durationSec": 3,
+    "params": {
+      "slowFactor": 0.3,
+      "dashDistance": 160
+    }
+  },
+  {
+    "id": "quickhack",
+    "name": "Quickhack",
+    "description": "Cortocircuito: stordisce e danneggia i nemici intorno a te.",
+    "cooldownSec": 18,
+    "durationSec": 0,
+    "params": {
+      "radius": 180,
+      "stunSec": 2,
+      "damage": 40
+    }
+  },
+  {
+    "id": "explosive_barrage",
+    "name": "Fuoco esplosivo",
+    "description": "Raffica di granate a ventaglio.",
+    "cooldownSec": 16,
+    "durationSec": 0,
+    "params": {
+      "grenades": 6,
+      "damage": 60,
+      "radius": 70
+    }
+  },
+  {
+    "id": "suppression",
+    "name": "Soppressione",
+    "description": "Cono di fuoco continuo che respinge i nemici.",
+    "cooldownSec": 22,
+    "durationSec": 4,
+    "params": {
+      "coneDeg": 50,
+      "dps": 120,
+      "knockback": 200
+    }
+  },
+  {
+    "id": "snipe",
+    "name": "Cecchinaggio",
+    "description": "Colpo penetrante ad altissimo danno.",
+    "cooldownSec": 12,
+    "durationSec": 0,
+    "params": {
+      "damage": 300,
+      "pierce": 99
+    }
+  },
+  {
+    "id": "cluster_grenade",
+    "name": "Granata a grappolo",
+    "description": "Una granata che si divide in tante cariche.",
+    "cooldownSec": 16,
+    "durationSec": 0,
+    "params": {
+      "bomblets": 8,
+      "damage": 40
+    }
+  },
+  {
+    "id": "heavy_burst",
+    "name": "Fuoco pesante",
+    "description": "Raffica perforante a cadenza altissima.",
+    "cooldownSec": 14,
+    "durationSec": 2,
+    "params": {
+      "dps": 160,
+      "pierce": 5
+    }
+  },
+  {
+    "id": "support",
+    "name": "Supporto",
+    "description": "Cura il 30% dei PV e schiera un drone extra.",
+    "cooldownSec": 30,
+    "durationSec": 10,
+    "params": {
+      "healPct": 0.3
+    }
+  }
+]
