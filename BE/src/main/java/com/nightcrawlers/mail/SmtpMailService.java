@@ -42,7 +42,8 @@ public class SmtpMailService implements MailService {
             helper.setText(html, true);
             sender.send(message);
         } catch (MessagingException | MailException e) {
-            log.warn("Email delivery failed: {}", e.getMessage());
+            // Exception class only: SMTP messages often echo the recipient address.
+            log.warn("Email delivery failed: {}", e.getClass().getSimpleName());
         }
     }
 }

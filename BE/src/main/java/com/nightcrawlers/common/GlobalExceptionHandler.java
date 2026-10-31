@@ -4,6 +4,7 @@ import java.net.URI;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import org.hibernate.exception.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -94,11 +95,21 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     /** Unique-constraint race between the existence check and the insert. */
     @ExceptionHandler(DataIntegrityViolationException.class)
     ResponseEntity<ProblemDetail> handleConflict(DataIntegrityViolationException ex) {
-        log.info("Data integrity violation: {}", ex.getMostSpecificCause().getMessage());
+        // Only the constraint name: the database message can contain personal data (emails).
+        log.info("Data integrity violation on constraint {}", constraintName(ex));
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONFLICT);
         problem.setTitle("Conflitto");
         problem.setDetail("La richiesta è in conflitto con dati esistenti.");
         return ResponseEntity.status(HttpStatus.CONFLICT).body(withType(problem));
+    }
+
+    static String constraintName(Throwable ex) {
+        for (Throwable t = ex; t != null; t = t.getCause()) {
+            if (t instanceof ConstraintViolationException cve && cve.getConstraintName() != null) {
+                return cve.getConstraintName();
+            }
+        }
+        return "unknown";
     }
 
     @ExceptionHandler(Exception.class)

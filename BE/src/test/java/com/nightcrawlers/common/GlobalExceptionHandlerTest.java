@@ -1,5 +1,6 @@
 package com.nightcrawlers.common;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -8,11 +9,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.sql.SQLException;
+
+import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -24,6 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 
+@ExtendWith(OutputCaptureExtension.class)
 @WebMvcTest(controllers = GlobalExceptionHandlerTest.ProbeController.class)
 @AutoConfigureMockMvc(addFilters = false)
 @Import({ GlobalExceptionHandler.class, GlobalExceptionHandlerTest.ProbeController.class })
@@ -81,6 +90,14 @@ class GlobalExceptionHandlerTest {
                 .andExpect(content().string(not(containsString("at com."))));
     }
 
+    @Test
+    void integrityViolationIsLoggedWithoutPersonalData(CapturedOutput output) throws Exception {
+        mvc.perform(get("/probe/duplicate"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.title").value("Conflitto"));
+        assertThat(output).contains("ux_users_email").doesNotContain("mario.rossi@mail.it");
+    }
+
     record NameRequest(@NotBlank String name) {
     }
 
@@ -95,6 +112,14 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/probe/conflict")
         String conflict() {
             throw new ApiException(HttpStatus.CONFLICT, "Conflitto di prova", "dettaglio");
+        }
+
+        @GetMapping("/probe/duplicate")
+        String duplicate() {
+            String detail = "ERROR: duplicate key value violates unique constraint \"ux_users_email\" "
+                    + "Detail: Key (email)=(mario.rossi@mail.it) already exists.";
+            throw new DataIntegrityViolationException(detail,
+                    new ConstraintViolationException(detail, new SQLException(detail, "23505"), "ux_users_email"));
         }
 
         @GetMapping("/probe/boom")
