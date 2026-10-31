@@ -3,6 +3,7 @@
 import Phaser from 'phaser'
 import { createRng } from '../systems/rng'
 import { cellHash } from './cityHash'
+import { LAYER, layerDepth } from '../render/depth'
 
 const TILE = 256
 const BLOCK = 384
@@ -22,9 +23,9 @@ export class CityFloor {
     this.scene = scene
     this.seed = seed
     this.makeTextures()
-    this.tile = scene.add.tileSprite(0, 0, 16, 16, FLOOR_KEY).setOrigin(0, 0).setDepth(-100000)
+    this.tile = scene.add.tileSprite(0, 0, 16, 16, FLOOR_KEY).setOrigin(0, 0).setDepth(layerDepth(LAYER.floor))
     for (let i = 0; i < DECOR_POOL; i++) {
-      this.decor.push(scene.add.image(0, 0, 'decor_0').setVisible(false).setDepth(-90000))
+      this.decor.push(scene.add.image(0, 0, 'decor_0').setVisible(false).setDepth(layerDepth(LAYER.decor)))
     }
   }
 

@@ -9,6 +9,7 @@ import type { Dir } from '../render/animations'
 import { animTable, dirOf, type AnimTable } from '../render/animTable'
 import { drawPlaceholder } from '../render/placeholders'
 import { BODY_OFFSET, SPRITE_SCALE } from '../world/view'
+import { actorDepth } from '../render/depth'
 
 const REVIVE_INVULN_SEC = 2
 const BLINK_HZ = 16
@@ -88,7 +89,8 @@ export class Player {
       this.sprite.setAlpha(this.invulnLeft > 0 && Math.floor(this.invulnLeft * BLINK_HZ) % 2 === 0 ? 0.35 : 1)
     }
     this.sprite.setPosition(this.x, this.y)
-    this.sprite.setDepth(this.y)
+    // the player is the y-sort reference of every actor
+    this.sprite.setDepth(actorDepth(this.y, this.y))
   }
 
   heal(amount: number): void {

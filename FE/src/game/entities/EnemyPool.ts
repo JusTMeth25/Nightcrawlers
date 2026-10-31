@@ -8,6 +8,7 @@ import { animTable, dirOf, type AnimTable } from '../render/animTable'
 import { drawPlaceholder } from '../render/placeholders'
 import type { SpatialGrid } from '../systems/spatialGrid'
 import { BODY_OFFSET, ENEMY_RADIUS, SPRITE_SCALE } from '../world/view'
+import { actorDepth } from '../render/depth'
 
 const CHARGE_EVERY_SEC = 4
 const CHARGE_WINDUP_SEC = 0.35
@@ -221,7 +222,7 @@ export class EnemyPool {
       this.kbx[i] *= damp
       this.kby[i] *= damp
       s.setPosition(this.x[i], this.y[i])
-      s.setDepth(this.y[i])
+      s.setDepth(actorDepth(this.y[i], py))
     }
   }
 

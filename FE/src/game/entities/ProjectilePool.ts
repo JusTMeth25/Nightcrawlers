@@ -2,6 +2,7 @@
 // Positions are at body height (the shooter's collision centre), like the grid entries.
 import type Phaser from 'phaser'
 import { TEX_DOT } from '../scenes/BootScene'
+import { LAYER, layerDepth } from '../render/depth'
 
 export const OWNER_PLAYER = 0
 export const OWNER_ENEMY = 1
@@ -41,7 +42,7 @@ export class ProjectilePool {
     this.hits = new Int32Array(cap * HIT_LOG)
     this.hitCount = new Uint8Array(cap)
     for (let i = 0; i < cap; i++) {
-      this.sprites.push(scene.add.image(0, 0, TEX_DOT).setVisible(false).setDepth(1e6).setBlendMode('ADD'))
+      this.sprites.push(scene.add.image(0, 0, TEX_DOT).setVisible(false).setDepth(layerDepth(LAYER.fx)).setBlendMode('ADD'))
     }
   }
 

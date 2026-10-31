@@ -4,6 +4,7 @@ import type Phaser from 'phaser'
 import { TEX_BLADE } from '../../scenes/BootScene'
 import type { Behavior, CombatHost, FireContext, WeaponRuntime } from '../types'
 import type { WeaponLevelStats } from '@shared/types'
+import { LAYER, layerDepth } from '../../render/depth'
 
 const BASE_RADIUS = 56
 const BLADE_HIT_RADIUS = 12
@@ -14,7 +15,7 @@ const KNOCK = 90
 export function createOrbitBehavior(scene: Phaser.Scene, enemyCap: number): Behavior {
   const blades: Phaser.GameObjects.Image[] = []
   for (let i = 0; i < MAX_BLADES; i++) {
-    blades.push(scene.add.image(0, 0, TEX_BLADE).setVisible(false).setBlendMode('ADD').setDepth(1e6))
+    blades.push(scene.add.image(0, 0, TEX_BLADE).setVisible(false).setBlendMode('ADD').setDepth(layerDepth(LAYER.fx)))
   }
   const nextHit = new Float32Array(enemyCap)
   const found: number[] = []

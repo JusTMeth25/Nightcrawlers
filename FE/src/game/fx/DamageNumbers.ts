@@ -1,5 +1,6 @@
 // Floating damage numbers from a fixed pool of Text objects (oldest reused when all are busy).
 import type Phaser from 'phaser'
+import { LAYER, layerDepth } from '../render/depth'
 
 const POOL = 48
 const LIFE_SEC = 0.6
@@ -16,7 +17,7 @@ export class DamageNumbers {
         scene.add
           .text(0, 0, '', { fontFamily: 'monospace', fontSize: '11px', color: '#ffffff', stroke: '#000000', strokeThickness: 3 })
           .setOrigin(0.5, 1)
-          .setDepth(2e6)
+          .setDepth(layerDepth(LAYER.text))
           .setVisible(false),
       )
     }

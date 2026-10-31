@@ -4,6 +4,7 @@
 import type Phaser from 'phaser'
 import { TEX_DOT, TEX_SHARD } from '../scenes/BootScene'
 import { tracePolygon } from '../render/placeholders'
+import { LAYER, layerDepth } from '../render/depth'
 
 export const PICKUP_XP = 0
 export const PICKUP_EURO = 1
@@ -53,7 +54,7 @@ export class PickupPool {
     this.speed = new Float32Array(cap)
     this.pulled = new Uint8Array(cap)
     makeTextures(scene)
-    for (let i = 0; i < cap; i++) this.sprites.push(scene.add.image(0, 0, TEX_SHARD).setVisible(false).setDepth(-50000))
+    for (let i = 0; i < cap; i++) this.sprites.push(scene.add.image(0, 0, TEX_SHARD).setVisible(false).setDepth(layerDepth(LAYER.pickup)))
   }
 
   drop(kind: PickupKind, x: number, y: number, value: number): void {

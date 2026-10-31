@@ -1,5 +1,6 @@
 // Elite and boss chests: they lie where the enemy died and open on contact.
 import type Phaser from 'phaser'
+import { LAYER, layerDepth } from '../render/depth'
 
 const MAX_CHESTS = 8
 const TEX_CHEST = 'tex_chest'
@@ -28,7 +29,7 @@ export class Chests {
       g.destroy()
     }
     for (let i = 0; i < MAX_CHESTS; i++) {
-      this.sprites.push(scene.add.image(0, 0, TEX_CHEST).setOrigin(0.5, 1).setVisible(false))
+      this.sprites.push(scene.add.image(0, 0, TEX_CHEST).setOrigin(0.5, 1).setDepth(layerDepth(LAYER.pickup) + 1).setVisible(false))
     }
   }
 
@@ -39,7 +40,7 @@ export class Chests {
       this.active[i] = 1
       this.x[i] = x
       this.y[i] = y
-      this.sprites[i].setPosition(x, y).setDepth(y).setVisible(true)
+      this.sprites[i].setPosition(x, y).setVisible(true)
       return true
     }
     return false
