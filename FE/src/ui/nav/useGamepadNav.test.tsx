@@ -113,6 +113,19 @@ describe('useGamepadNav', () => {
     expect(onTwo).not.toHaveBeenCalled()
   })
 
+  it('a direction already held when the menu appears is ignored until released', () => {
+    pad.axes[0] = 0.9
+    render(<Menu />)
+    screen.getByText('Uno').focus()
+    frames(1000)
+    expect(screen.getByText('Uno')).toHaveFocus()
+    pad.axes[0] = 0
+    frames(32)
+    pad.axes[0] = 0.9
+    frames(32)
+    expect(screen.getByText('Due')).toHaveFocus()
+  })
+
   it('B calls onBack', () => {
     const onBack = vi.fn()
     render(<Menu onBack={onBack} />)

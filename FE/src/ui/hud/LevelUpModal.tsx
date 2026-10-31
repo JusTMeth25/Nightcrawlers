@@ -64,20 +64,18 @@ export function LevelUpModal({ armDelayMs = 300 }: { armDelayMs?: number }) {
     if (!cards) return
     containerRef.current?.querySelector<HTMLElement>('[data-nav]')?.focus()
     const onKey = (e: KeyboardEvent) => {
-      if (/^[1-9]$/.test(e.key)) {
-        e.preventDefault()
-        if (!e.repeat) choose(Number(e.key) - 1)
-        return
-      }
+      const digit = /^[1-9]$/.test(e.key)
       const dir = ARROWS[e.key]
-      if (dir && containerRef.current) {
-        e.preventDefault()
-        moveFocus(containerRef.current, dir)
-      }
+      if (!digit && !dir) return
+      e.preventDefault()
+      // keys held from gameplay (auto-repeat) or pressed right after opening do nothing
+      if (e.repeat || Date.now() - openedAtRef.current < armDelayMs) return
+      if (digit) choose(Number(e.key) - 1)
+      else if (containerRef.current) moveFocus(containerRef.current, dir)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [cards, choose])
+  }, [cards, choose, armDelayMs])
 
   if (!cards) return null
 

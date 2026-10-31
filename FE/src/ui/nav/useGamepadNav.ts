@@ -67,6 +67,7 @@ export function useGamepadNav(opts: { onBack?: () => void; enabled?: boolean } =
     let frame = 0
     let prev: PadSnapshot | null = null
     let repeatAt = 0
+    let blocked: NavDirection | null = null
 
     const container = () => containerRef.current ?? document.body
 
@@ -79,12 +80,18 @@ export function useGamepadNav(opts: { onBack?: () => void; enabled?: boolean } =
         return
       }
       if (!prev) {
-        // first frame as active menu: remember what is already held, act on nothing
-        prev = snap
-        repeatAt = now + REPEAT_DELAY_MS
+        // first frame as active menu: remember what is already held, act on nothing.
+        // A direction held from gameplay stays ignored until it returns to neutral or changes.
+        blocked = snap.direction
+        prev = { ...snap, direction: null }
         return
       }
-      const dir = snap.direction
+      let dir = snap.direction
+      if (blocked) {
+        if (dir === blocked) dir = null
+        else blocked = null
+      }
+      snap.direction = dir
       if (dir && dir !== prev.direction) {
         step(dir)
         repeatAt = now + REPEAT_DELAY_MS

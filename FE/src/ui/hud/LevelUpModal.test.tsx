@@ -70,6 +70,27 @@ describe('LevelUpModal', () => {
     expect(choose).toHaveBeenCalledWith({ index: 1 })
   })
 
+  it('a held arrow key (repeat events) does not move the focus', () => {
+    render(<LevelUpModal armDelayMs={0} />)
+    offer()
+    fireEvent.keyDown(window, { key: 'ArrowRight', repeat: true })
+    fireEvent.keyDown(window, { key: 'ArrowRight', repeat: true })
+    expect(screen.getByRole('button', { name: /Pistola/ })).toHaveFocus()
+  })
+
+  it('arrow keys are ignored during the arm delay', () => {
+    vi.useFakeTimers()
+    render(<LevelUpModal armDelayMs={300} />)
+    offer()
+    fireEvent.keyDown(window, { key: 'ArrowRight' })
+    expect(screen.getByRole('button', { name: /Pistola/ })).toHaveFocus()
+    act(() => {
+      vi.advanceTimersByTime(350)
+    })
+    fireEvent.keyDown(window, { key: 'ArrowRight' })
+    expect(screen.getByRole('button', { name: /Shotgun/ })).toHaveFocus()
+  })
+
   it('ignores keys that do not match a card', async () => {
     render(<LevelUpModal armDelayMs={0} />)
     offer(cards.slice(0, 2))
@@ -133,6 +154,17 @@ describe('LevelUpModal', () => {
       frames(32)
       expect(choose).toHaveBeenCalledTimes(1)
       expect(choose).toHaveBeenCalledWith({ index: 1 })
+    })
+
+    it('a stick held from gameplay across the offer keeps the focus on card 1', () => {
+      render(<LevelUpModal armDelayMs={0} />)
+      frames(50)
+      pad.axes[0] = 0.9
+      frames(50)
+      offer()
+      frames(1000)
+      expect(screen.getByRole('button', { name: /Pistola/ })).toHaveFocus()
+      expect(choose).not.toHaveBeenCalled()
     })
 
     it('an A already held when the offer appears does not choose', () => {
