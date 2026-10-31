@@ -1,4 +1,4 @@
-import { getCyberware, getWeapon } from '@data/index'
+import { getCyberware, getWeapon } from '@data'
 import type { OwnedCyberware, OwnedWeapon } from '@shared/types'
 import { t } from '../i18n/it'
 import styles from './Hud.module.css'

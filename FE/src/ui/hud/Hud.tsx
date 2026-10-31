@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getCharacter, getSkill } from '@data/index'
+import { getCharacter, getSkill } from '@data'
 import { gameBus } from '@shared/events'
 import type { CharacterId, HudState } from '@shared/types'
 import { t } from '../i18n/it'

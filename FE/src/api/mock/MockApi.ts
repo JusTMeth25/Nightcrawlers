@@ -19,7 +19,7 @@ import type {
   VerifyEmailRequest,
 } from '@shared/api-contract'
 import { STARTER_CHARACTERS, type CharacterId, type RipperdocUpgradeId, type UnlockRule } from '@shared/types'
-import { balance, getRipperdoc, ripperdocCost, unlocks } from '@data/index'
+import { balance, getRipperdoc, ripperdocCost, unlocks } from '@data'
 import type { ApiClient } from '../ApiClient'
 import type { AuthBridge } from '../auth'
 import { problemError } from '../errors'

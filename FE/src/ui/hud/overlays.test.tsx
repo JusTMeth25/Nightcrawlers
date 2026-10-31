@@ -1,7 +1,7 @@
-import { act, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getWeapon } from '@data/index'
+import { getWeapon } from '@data'
 import { gameBus, type GameEvents } from '@shared/events'
 import { ChestModal } from './ChestModal'
 import { PauseMenu } from './PauseMenu'
@@ -15,14 +15,15 @@ function listen<K extends keyof GameEvents>(event: K) {
 
 afterEach(() => {
   while (offs.length) offs.pop()!()
+  vi.useRealTimers()
 })
 
 describe('ChestModal', () => {
   it('shows the evolution and "Continua" emits chest:close once', async () => {
     const close = listen('chest:close')
-    render(<ChestModal />)
+    render(<ChestModal armDelayMs={0} />)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    act(() => gameBus.emit('chest:open', { cards: [], evolution: { weapon: 'pistol', into: 'Pistola Overclock' } }))
+    act(() => gameBus.emit('chest:open', { cards: [], evolution: { weapon: 'pistol', into: getWeapon('pistol').evolution.id } }))
     expect(screen.getByRole('dialog', { name: 'Baule aperto' })).toBeInTheDocument()
     expect(screen.getByText('Pistola si evolve in Pistola Overclock')).toBeInTheDocument()
     const user = userEvent.setup()
@@ -32,14 +33,37 @@ describe('ChestModal', () => {
   })
 
   it('maps an evolution id to its name', () => {
-    render(<ChestModal />)
+    render(<ChestModal armDelayMs={0} />)
     const evo = getWeapon('shotgun').evolution
     act(() => gameBus.emit('chest:open', { cards: [], evolution: { weapon: 'shotgun', into: evo.id } }))
     expect(screen.getByText(`Shotgun si evolve in ${evo.name}`)).toBeInTheDocument()
   })
 
+  it('ignores a click during the arm delay right after opening', () => {
+    vi.useFakeTimers()
+    const close = listen('chest:close')
+    render(<ChestModal armDelayMs={300} />)
+    act(() => gameBus.emit('chest:open', { cards: [{ kind: 'heal', amount: 30 }], evolution: null }))
+    fireEvent.click(screen.getByRole('button', { name: 'Continua' }))
+    expect(close).not.toHaveBeenCalled()
+    act(() => {
+      vi.advanceTimersByTime(350)
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Continua' }))
+    expect(close).toHaveBeenCalledTimes(1)
+  })
+
+  it('blocks auto-repeated Enter/Space so a key held from gameplay cannot close the chest', () => {
+    render(<ChestModal armDelayMs={0} />)
+    act(() => gameBus.emit('chest:open', { cards: [{ kind: 'heal', amount: 30 }], evolution: null }))
+    const button = screen.getByRole('button', { name: 'Continua' })
+    expect(fireEvent.keyDown(button, { key: 'Enter', repeat: true })).toBe(false)
+    expect(fireEvent.keyDown(button, { key: ' ', repeat: true })).toBe(false)
+    expect(fireEvent.keyDown(button, { key: 'Enter' })).toBe(true)
+  })
+
   it('lists the reward cards', () => {
-    render(<ChestModal />)
+    render(<ChestModal armDelayMs={0} />)
     act(() =>
       gameBus.emit('chest:open', {
         cards: [

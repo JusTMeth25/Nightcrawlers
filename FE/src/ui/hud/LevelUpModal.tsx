@@ -4,6 +4,7 @@ import type { LevelUpCard } from '@shared/types'
 import { t } from '../i18n/it'
 import { moveFocus, type NavDirection } from '../nav/focus'
 import { useGamepadNav } from '../nav/useGamepadNav'
+import { ARM_DELAY_MS, isRepeatedActivation } from './arm'
 import { cardBadge, cardText } from './cardText'
 import styles from './Overlay.module.css'
 
@@ -19,7 +20,7 @@ const ARROWS: Record<string, NavDirection> = {
  * 'levelup:choose' is emitted once per offer; input is ignored for armDelayMs after opening
  * so that a key or button held for the game does not pick a card by accident.
  */
-export function LevelUpModal({ armDelayMs = 300 }: { armDelayMs?: number }) {
+export function LevelUpModal({ armDelayMs = ARM_DELAY_MS }: { armDelayMs?: number }) {
   const [cards, setCards] = useState<LevelUpCard[] | null>(null)
   const cardsRef = useRef<LevelUpCard[] | null>(null)
   const chosenRef = useRef(true)
@@ -64,6 +65,10 @@ export function LevelUpModal({ armDelayMs = 300 }: { armDelayMs?: number }) {
     if (!cards) return
     containerRef.current?.querySelector<HTMLElement>('[data-nav]')?.focus()
     const onKey = (e: KeyboardEvent) => {
+      if (isRepeatedActivation(e)) {
+        e.preventDefault()
+        return
+      }
       const digit = /^[1-9]$/.test(e.key)
       const dir = ARROWS[e.key]
       if (!digit && !dir) return

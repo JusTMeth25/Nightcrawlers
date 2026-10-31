@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getCyberware, getWeapon } from '@data/index'
+import { getCyberware, getWeapon } from '@data'
 import { cardBadge, cardText } from './cardText'
 
 describe('cardText', () => {

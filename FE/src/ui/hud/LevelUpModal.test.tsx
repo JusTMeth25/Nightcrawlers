@@ -78,6 +78,12 @@ describe('LevelUpModal', () => {
     expect(screen.getByRole('button', { name: /Pistola/ })).toHaveFocus()
   })
 
+  it('an auto-repeated Enter on the focused card does not choose', () => {
+    render(<LevelUpModal armDelayMs={0} />)
+    offer()
+    expect(fireEvent.keyDown(screen.getByRole('button', { name: /Pistola/ }), { key: 'Enter', repeat: true })).toBe(false)
+  })
+
   it('arrow keys are ignored during the arm delay', () => {
     vi.useFakeTimers()
     render(<LevelUpModal armDelayMs={300} />)
