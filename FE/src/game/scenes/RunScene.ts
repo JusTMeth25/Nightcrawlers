@@ -19,7 +19,10 @@ import {
   type PickupKind,
 } from '../entities/PickupPool'
 import { OWNER_ENEMY, ProjectilePool } from '../entities/ProjectilePool'
+import type { SfxId } from '../audio/sfxIds'
+import { Grenades } from '../entities/Grenades'
 import { DamageNumbers } from '../fx/DamageNumbers'
+import { FxPool } from '../fx/FxPool'
 import { ScreenFx } from '../fx/ScreenFx'
 import { InputManager } from '../input/InputManager'
 import { emptyInput, type InputState } from '../input/InputState'
@@ -35,7 +38,8 @@ import { createRng, type Rng } from '../systems/rng'
 import { SpatialGrid } from '../systems/spatialGrid'
 import { collectModifiers, computeStats } from '../systems/stats'
 import { addXp, xpToNext } from '../systems/xp'
-import { implementedWeapons, WeaponSystem } from '../weapons/WeaponSystem'
+import { implementedWeapons } from '../weapons/offerPool'
+import { WeaponSystem } from '../weapons/WeaponSystem'
 import type { CombatHost } from '../weapons/types'
 import { CityFloor } from '../world/CityFloor'
 import { computeZoom, GRID_CELL, PLAYER_RADIUS } from '../world/view'
@@ -92,6 +96,10 @@ export class RunScene extends Phaser.Scene implements CombatHost {
   eurodollars = 0
   pauseState!: PauseState
   fx!: ScreenFx
+  vfx!: FxPool
+  grenades!: Grenades
+  /** sound output (Task 14b); null until the audio system exists */
+  audio: { play(id: SfxId): void } | null = null
   protected frame = 0
   protected floor!: CityFloor
   protected readonly inView = new Phaser.Geom.Rectangle()
@@ -124,9 +132,10 @@ export class RunScene extends Phaser.Scene implements CombatHost {
     const available = (this.registry.get(ANIMS_KEY) as Set<string> | undefined) ?? new Set<string>()
     this.rng = createRng(this.run.seed)
     this.inventory = createInventory(character.startingWeapon)
-    if (this.dev.weaponsAll) {
-      // harness: every implemented weapon at max level (6 slots)
-      this.inventory = { ...this.inventory, weapons: implementedWeapons().slice(0, 6).map((id) => ({ id, level: 8, evolved: false })) }
+    if (this.dev.weapons?.length) {
+      // harness: chosen weapons at max level (6 slots)
+      const evolved = this.dev.evolved === true
+      this.inventory = { ...this.inventory, weapons: this.dev.weapons.slice(0, 6).map((id) => ({ id, level: 8, evolved })) }
     }
     this.stats = this.computeRunStats()
     this.director = new Director(waves, this.rng)
@@ -138,6 +147,8 @@ export class RunScene extends Phaser.Scene implements CombatHost {
     this.enemies = new EnemyPool(this, waves.enemyCap, available)
     this.projectiles = new ProjectilePool(this, PROJECTILE_CAP)
     this.damageNumbers = new DamageNumbers(this)
+    this.vfx = new FxPool(this)
+    this.grenades = new Grenades(this)
     this.weapons = new WeaponSystem(this, character.color)
     this.syncWeapons()
     this.pickups = new PickupPool(this, PICKUP_CAP)
@@ -251,6 +262,8 @@ export class RunScene extends Phaser.Scene implements CombatHost {
     if (this.frame % RELOCATE_EVERY_FRAMES === 0) this.relocateFarEnemies()
     this.projectiles.update(dt, this.enemies.slow)
     this.weapons.update(dt, this.input0)
+    this.grenades.update(dt, this)
+    this.vfx.update(dt)
     this.damageNumbers.update(dt)
     this.fx.update(dt)
     this.psychosis = tickPsychosis(this.psychosis, dt)
@@ -280,6 +293,10 @@ export class RunScene extends Phaser.Scene implements CombatHost {
       const result = p.hurt(pr.damage[i])
       if (result !== 'none') this.onPlayerHurt(result)
     }
+  }
+
+  sfx(id: SfxId): void {
+    this.audio?.play(id)
   }
 
   damageEnemy(enemy: number, baseDamage: number, knockX: number, knockY: number): void {

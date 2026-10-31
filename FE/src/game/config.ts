@@ -1,6 +1,6 @@
 // Phaser game configuration. The RunConfig rides in the game registry, set before the scenes boot.
 import Phaser from 'phaser'
-import type { RunConfig } from '@shared/types'
+import type { RunConfig, WeaponId } from '@shared/types'
 import { BootScene } from './scenes/BootScene'
 import { PreloadScene } from './scenes/PreloadScene'
 import { RunScene } from './scenes/RunScene'
@@ -13,8 +13,10 @@ export const DEV_OPTIONS_KEY = 'devOptions'
 export interface DevOptions {
   /** keep this many enemies alive (performance test) */
   stress?: number
-  /** start with every implemented weapon at level 8 */
-  weaponsAll?: boolean
+  /** start with these weapons at level 8 (harness `?weapons=all` or a comma list) */
+  weapons?: WeaponId[]
+  /** start them evolved */
+  evolved?: boolean
 }
 
 export function createGameConfig(parent: HTMLElement, run?: RunConfig, dev?: DevOptions): Phaser.Types.Core.GameConfig {
