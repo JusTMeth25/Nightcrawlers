@@ -7,6 +7,7 @@ export const it = {
     'Gioco fan non ufficiale e non commerciale, non affiliato a CD Projekt né a Studio Trigger. Cyberpunk, Cyberpunk: Edgerunners e i relativi personaggi appartengono ai rispettivi proprietari.',
   'app.privacy': 'Privacy',
   'app.back': 'Indietro',
+  'app.retry': 'Riprova',
   'app.home': 'Menu principale',
   'app.comingSoon': 'Questa schermata arriverà presto.',
   'app.sessionExpired': 'Sessione scaduta: accedi di nuovo.',

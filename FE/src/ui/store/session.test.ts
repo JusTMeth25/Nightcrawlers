@@ -42,10 +42,51 @@ describe('session store', () => {
     expect(store.getState().user).toBeNull()
   })
 
-  it('bootstrap with the network down becomes guest', async () => {
-    const { store } = setup({ refresh: () => Promise.reject(new ApiError(0, null, null)) })
+  it('bootstrap with refresh 403 becomes guest', async () => {
+    const { store } = setup({ refresh: () => Promise.reject(new ApiError(403, null, null)) })
     await store.getState().bootstrap()
     expect(store.getState().status).toBe('guest')
+    expect(store.getState().bootstrapFailed).toBe(false)
+  })
+
+  it.each([0, 429, 503])('bootstrap with refresh %i keeps the status unknown with a retryable error', async (status) => {
+    const { store, mock } = setup()
+    await mock.login({ login: DEMO_LOGIN, password: DEMO_PASSWORD }) // valid cookie on the "server"
+    const realRefresh = mock.refresh.bind(mock)
+    mock.refresh = () => Promise.reject(new ApiError(status, null, null))
+    await store.getState().bootstrap()
+    expect(store.getState().status).toBe('unknown')
+    expect(store.getState().bootstrapFailed).toBe(true)
+    mock.refresh = realRefresh
+    await store.getState().bootstrap()
+    expect(store.getState().status).toBe('authenticated')
+    expect(store.getState().bootstrapFailed).toBe(false)
+  })
+
+  it('bootstrap stays authenticated with save null when getSave fails after a good refresh', async () => {
+    const { store, mock } = setup()
+    await mock.login({ login: DEMO_LOGIN, password: DEMO_PASSWORD })
+    mock.getSave = () => Promise.reject(new ApiError(503, null, null))
+    await store.getState().bootstrap()
+    const s = store.getState()
+    expect(s.status).toBe('authenticated')
+    expect(s.user?.username).toBe('demo')
+    expect(s.save).toBeNull()
+    expect(s.accessToken).toBeTruthy()
+  })
+
+  it('login stays authenticated with save null when getSave fails, and reloadSave recovers it', async () => {
+    const { store, mock, auth } = setup()
+    const realGetSave = mock.getSave.bind(mock)
+    mock.getSave = () => Promise.reject(new ApiError(0, null, null))
+    await store.getState().login({ login: DEMO_LOGIN, password: DEMO_PASSWORD })
+    const s = store.getState()
+    expect(s.status).toBe('authenticated')
+    expect(s.save).toBeNull()
+    expect(s.accessToken).toBe(auth.getToken())
+    mock.getSave = realGetSave
+    await store.getState().reloadSave()
+    expect(store.getState().save).not.toBeNull()
   })
 
   it('login authenticates and loads the save; logout returns to guest with no token', async () => {
