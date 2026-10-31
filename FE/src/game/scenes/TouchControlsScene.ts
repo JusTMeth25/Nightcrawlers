@@ -1,4 +1,5 @@
-// Overlay above RunScene that draws the touch sticks and buttons. Input logic lives in TouchInput.
+// Overlay above RunScene (not zoomed): touch sticks and buttons, plus the FPS/debug line.
+// Input logic lives in TouchInput.
 import Phaser from 'phaser'
 import { STICK_RADIUS, touchButtons, type TouchInput, type VirtualStick } from '../input/TouchInput'
 
@@ -9,20 +10,30 @@ const NEON_HOT = 0xff2a6d
 export class TouchControlsScene extends Phaser.Scene {
   private touch: TouchInput | null = null
   private gfx!: Phaser.GameObjects.Graphics
+  private text!: Phaser.GameObjects.Text
+  private debug: (() => string | null) | null = null
+  private nextTextAt = 0
 
   constructor() {
     super(TOUCH_SCENE_KEY)
   }
 
-  init(data: { touch: TouchInput }): void {
+  init(data: { touch: TouchInput; debug?: () => string | null }): void {
     this.touch = data.touch
+    this.debug = data.debug ?? null
   }
 
   create(): void {
     this.gfx = this.add.graphics()
+    this.text = this.add.text(8, 8, '', { fontFamily: 'monospace', fontSize: '12px', color: '#d1f7ff' }).setAlpha(0.85)
   }
 
-  update(): void {
+  update(time: number): void {
+    if (time >= this.nextTextAt) {
+      // 4 Hz is enough for a readable counter and keeps Text re-rendering cheap
+      this.nextTextAt = time + 250
+      this.text.setText(this.debug?.() ?? '')
+    }
     const g = this.gfx
     g.clear()
     const touch = this.touch
