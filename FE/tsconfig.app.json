@@ -7,6 +7,12 @@
     "types": ["vite/client"],
     "allowArbitraryExtensions": true,
     "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "paths": {
+      "@shared/*": ["./src/shared/*"],
+      "@data/*": ["./src/data/*"],
+      "@game/*": ["./src/game/*"]
+    },
 
     /* Bundler mode */
     "moduleResolution": "bundler",

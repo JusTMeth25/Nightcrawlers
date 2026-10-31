@@ -1,0 +1,10 @@
+node_modules/
+.env
+.env.*
+!.env.example
+BE/src/main/resources/application-local.properties
+*.log
+coverage/
+playwright-report/
+test-results/
+.superpowers/
