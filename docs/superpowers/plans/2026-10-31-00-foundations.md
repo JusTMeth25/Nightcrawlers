@@ -250,7 +250,7 @@ export const API = {
   - `refresh` 200 `AuthResponse` con nuovi cookie; 401; 403 CSRF mancante o errato.
   - `logout` 204; `logout-all` 204.
   - `forgot-password` 202 sempre; `reset-password` 204; 400.
-  - `GET /me` 200 `UserDto`; `GET /me/export` 200 JSON (`Content-Disposition: attachment`); `DELETE /me` 204; 401 password errata.
+  - `GET /me` 200 `UserDto`; `GET /me/export` 200 JSON (`Content-Disposition: attachment`); `DELETE /me` 204; 403 password errata (401 resta riservato alla sessione scaduta, che il client tratta con un refresh).
   - `GET /save` 200 `SaveDto`.
   - `runs/start` 201 `StartRunResponse`; 403 email non verificata o personaggio bloccato.
   - `runs/{id}/checkpoint` 204; 404; 409 run non `ACTIVE`; 422 checkpoint non plausibile (la run diventa `FLAGGED`).

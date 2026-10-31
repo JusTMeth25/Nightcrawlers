@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { STARTER_CHARACTERS, type WeaponId } from '@shared/types'
+import { STARTER_CHARACTERS, type StatKey, type StatModifier, type WeaponId } from '@shared/types'
 import {
+  balance,
   characters,
   cyberware,
   enemies,
@@ -79,5 +80,35 @@ describe('game data', () => {
   it('computes Ripperdoc cost growth', () => {
     const def = { ...ripperdoc[0], baseCost: 100, costGrowth: 1.5 }
     expect(ripperdocCost(def, 2)).toBe(225)
+  })
+
+  it('uses unique ids in every list', () => {
+    for (const list of [characters, skills, weapons, cyberware, enemies, ripperdoc]) {
+      const all = list.map((x) => x.id)
+      expect(new Set(all).size, all.join(',')).toBe(all.length)
+    }
+  })
+
+  it('references existing enemies and characters in unlock rules', () => {
+    const enemyIds = ids(enemies)
+    const characterIds = ids(characters)
+    for (const u of unlocks) {
+      expect(characterIds.has(u.characterId), u.characterId).toBe(true)
+      if ('enemyId' in u.rule) expect(enemyIds.has(u.rule.enemyId), u.characterId).toBe(true)
+      if ('characterId' in u.rule) expect(characterIds.has(u.rule.characterId), u.characterId).toBe(true)
+    }
+  })
+
+  it('modifies only known stats', () => {
+    const statKeys = new Set(Object.keys(balance.baseStats) as StatKey[])
+    const mods: StatModifier[] = [
+      ...characters.flatMap((c) => c.passive),
+      ...cyberware.flatMap((c) => c.perLevel),
+      ...ripperdoc.map((r) => r.perRank),
+    ]
+    for (const m of mods) {
+      expect(statKeys.has(m.stat), m.stat).toBe(true)
+      expect(['add', 'mul']).toContain(m.op)
+    }
   })
 })
