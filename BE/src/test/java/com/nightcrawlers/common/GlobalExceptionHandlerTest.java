@@ -47,7 +47,16 @@ class GlobalExceptionHandlerTest {
     void malformedJsonIsProblemJson400() throws Exception {
         mvc.perform(post("/probe/validate").contentType(MediaType.APPLICATION_JSON).content("{nope"))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.title").value("Richiesta non valida"))
+                .andExpect(jsonPath("$.detail").value("La richiesta non è leggibile o non è valida."));
+    }
+
+    @Test
+    void springDefaultErrorsGetItalianTitles() throws Exception {
+        mvc.perform(get("/probe/validate"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(jsonPath("$.title").value("Metodo non consentito"));
     }
 
     @Test

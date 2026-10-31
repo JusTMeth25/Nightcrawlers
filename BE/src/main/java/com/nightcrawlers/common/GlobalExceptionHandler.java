@@ -32,8 +32,27 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             WebRequest request) {
         if (body instanceof ProblemDetail problem) {
             withType(problem);
+            italianize(problem, statusCode);
         }
         return super.createResponseEntity(body, headers, statusCode, request);
+    }
+
+    /** Spring's built-in errors carry English reason phrases; the UI shows titles to Italian users. */
+    private static final Map<Integer, String[]> ITALIAN = Map.of(
+            400, new String[] { "Richiesta non valida", "La richiesta non è leggibile o non è valida." },
+            404, new String[] { "Risorsa non trovata", "La risorsa richiesta non esiste." },
+            405, new String[] { "Metodo non consentito", "Metodo HTTP non supportato per questa risorsa." },
+            406, new String[] { "Formato non accettabile", "Formato di risposta non disponibile." },
+            413, new String[] { "Richiesta troppo grande", "Il corpo della richiesta è troppo grande." },
+            415, new String[] { "Formato non supportato", "Tipo di contenuto non supportato." });
+
+    private static void italianize(ProblemDetail problem, HttpStatusCode statusCode) {
+        String[] text = ITALIAN.get(statusCode.value());
+        HttpStatus status = HttpStatus.resolve(statusCode.value());
+        if (text != null && status != null && status.getReasonPhrase().equals(problem.getTitle())) {
+            problem.setTitle(text[0]);
+            problem.setDetail(text[1]);
+        }
     }
 
     private static ProblemDetail withType(ProblemDetail problem) {
