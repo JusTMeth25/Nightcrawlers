@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { api } from '../../../api'
+import { isApiError } from '../../../api/errors'
 import { ErrorBanner } from '../../components/ErrorBanner'
 import { NeonButton, NeonLink } from '../../components/NeonButton'
 import { Panel } from '../../components/Panel'
@@ -11,15 +12,23 @@ import { useGamepadNav } from '../../nav/useGamepadNav'
 import { useSession } from '../../store/session'
 import styles from './AuthScreen.module.css'
 
-type Status = 'checking' | 'success' | 'invalid'
+type Status = 'checking' | 'success' | 'invalid' | 'error'
+
+function isTransient(error: unknown) {
+  return isApiError(error) && (error.status === 0 || error.status === 429 || error.status >= 500)
+}
 
 // Email tokens are single use: StrictMode re-runs effects, so each token is sent once per page.
+// Success and definitive answers (400) stay cached; transient failures are dropped to allow a retry.
 const verifications = new Map<string, Promise<void>>()
 function verifyOnce(token: string) {
   let p = verifications.get(token)
   if (!p) {
     p = api.verifyEmail({ token })
     verifications.set(token, p)
+    p.catch((error: unknown) => {
+      if (isTransient(error) && verifications.get(token) === p) verifications.delete(token)
+    })
   }
   return p
 }
@@ -38,6 +47,8 @@ export default function VerifyEmailScreen() {
   const session = useSession((s) => s.status)
   const user = useSession((s) => s.user)
   const setUser = useSession((s) => s.setUser)
+  const [attempt, setAttempt] = useState(0)
+  const [errorText, setErrorText] = useState<string | null>(null)
 
   useEffect(() => {
     if (!token) return
@@ -49,12 +60,23 @@ export default function VerifyEmailScreen() {
         const current = useSession.getState().user
         if (current && !current.emailVerified) setUser({ ...current, emailVerified: true })
       },
-      () => alive && setStatus('invalid'),
+      (error: unknown) => {
+        if (!alive) return
+        if (isTransient(error)) {
+          setErrorText(apiErrorText(error))
+          setStatus('error')
+        } else setStatus('invalid')
+      },
     )
     return () => {
       alive = false
     }
-  }, [token, setUser])
+  }, [token, setUser, attempt])
+
+  const onRetry = () => {
+    setStatus('checking')
+    setAttempt((n) => n + 1)
+  }
 
   const onResend = async () => {
     setResend({ busy: true, message: null, error: null })
@@ -76,6 +98,14 @@ export default function VerifyEmailScreen() {
             <NeonLink to={session === 'authenticated' ? '/select' : '/login'} variant="primary" autoFocus>
               {session === 'authenticated' ? t('menu.play') : t('login.submit')}
             </NeonLink>
+          </>
+        )}
+        {status === 'error' && (
+          <>
+            <ErrorBanner>{errorText}</ErrorBanner>
+            <NeonButton variant="primary" onClick={onRetry} autoFocus>
+              {t('app.retry')}
+            </NeonButton>
           </>
         )}
         {status === 'invalid' && (
