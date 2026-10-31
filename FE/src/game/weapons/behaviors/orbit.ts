@@ -1,10 +1,12 @@
 // Monowire: `projectiles` blades circle the player for `durationSec`, at `speed` rad/s,
-// on a radius scaled by `area`. Each enemy is hit at most once every HIT_EVERY_SEC per weapon.
+// on a radius scaled by `area`. Each enemy is hit at most once every HIT_EVERY_SEC per weapon
+// (HitGate: keyed by enemy identity, not by pool slot).
 import type Phaser from 'phaser'
 import { TEX_BLADE } from '../../scenes/BootScene'
 import type { Behavior, CombatHost, FireContext, WeaponRuntime } from '../types'
 import type { WeaponLevelStats } from '@shared/types'
 import { LAYER, layerDepth } from '../../render/depth'
+import { HitGate } from '../../systems/hitGate'
 
 const BASE_RADIUS = 56
 const BLADE_HIT_RADIUS = 12
@@ -17,7 +19,7 @@ export function createOrbitBehavior(scene: Phaser.Scene, enemyCap: number): Beha
   for (let i = 0; i < MAX_BLADES; i++) {
     blades.push(scene.add.image(0, 0, TEX_BLADE).setVisible(false).setBlendMode('ADD').setDepth(layerDepth(LAYER.fx)))
   }
-  const nextHit = new Float32Array(enemyCap)
+  const gate = new HitGate(enemyCap)
   const found: number[] = []
   let activeLeft = 0
   let angle = 0
@@ -54,11 +56,10 @@ export function createOrbitBehavior(scene: Phaser.Scene, enemyCap: number): Beha
           .setScale(stats.area)
           .setTint(weapon.color)
           .setVisible(true)
-        const hits = host.grid.queryRadius(bx, by, BLADE_HIT_RADIUS * stats.area, found)
+        const hits = e.queryHits(host.grid, bx, by, BLADE_HIT_RADIUS * stats.area, found)
         for (let h = 0; h < hits; h++) {
           const i = found[h]
-          if (!e.active[i] || nextHit[i] > host.clock) continue
-          nextHit[i] = host.clock + HIT_EVERY_SEC
+          if (!e.active[i] || !gate.tryHit(i, e.gen[i], host.clock, HIT_EVERY_SEC)) continue
           // push outwards from the player
           const dx = e.x[i] - p.x
           const dy = e.y[i] - p.y
