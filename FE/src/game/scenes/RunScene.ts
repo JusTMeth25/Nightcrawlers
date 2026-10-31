@@ -2,21 +2,34 @@
 // Game time only advances while no pause reason is active (menu, level-up, chest).
 import Phaser from 'phaser'
 import { balance, getCharacter, getEnemy, waves } from '@data/index'
-import { DEFAULT_OPTIONS, type EnemyId, type RunConfig, type Stats, type WeaponId } from '@shared/types'
+import { gameBus } from '@shared/events'
+import { DEFAULT_OPTIONS, type EnemyId, type LevelUpCard, type RunConfig, type Stats, type WeaponId } from '@shared/types'
 import { DEV_OPTIONS_KEY, RUN_CONFIG_KEY, type DevOptions } from '../config'
+import { Chests } from '../entities/Chest'
 import { formationPositions } from '../entities/formations'
 import { EnemyPool, type EnemyShot } from '../entities/EnemyPool'
 import { Player } from '../entities/Player'
+import {
+  PICKUP_EMP,
+  PICKUP_EURO,
+  PICKUP_MAGNET,
+  PICKUP_MEDKIT,
+  PICKUP_XP,
+  PickupPool,
+  type PickupKind,
+} from '../entities/PickupPool'
 import { OWNER_ENEMY, ProjectilePool } from '../entities/ProjectilePool'
 import { DamageNumbers } from '../fx/DamageNumbers'
 import { InputManager } from '../input/InputManager'
 import { alertMultipliers, Director, type SpawnOrder } from '../systems/director'
-import { computeDamage } from '../systems/combat'
+import { RunFlow } from '../run/RunFlow'
+import { computeDamage, healAmount } from '../systems/combat'
 import { createInventory, type Inventory } from '../systems/inventory'
 import { createPsychosis, isFrenzy, onKill, tick as tickPsychosis, type PsychosisState } from '../systems/psychosis'
 import { createRng, type Rng } from '../systems/rng'
 import { SpatialGrid } from '../systems/spatialGrid'
 import { collectModifiers, computeStats } from '../systems/stats'
+import { addXp, xpToNext } from '../systems/xp'
 import { implementedWeapons, WeaponSystem } from '../weapons/WeaponSystem'
 import type { CombatHost } from '../weapons/types'
 import { CityFloor } from '../world/CityFloor'
@@ -35,6 +48,7 @@ const PROJECTILE_CAP = 800
 const ENEMY_SHOT_RADIUS = 4
 const ENEMY_SHOT_COLOR = 0xff3355
 const ENEMY_SHOT_LIFE_SEC = 3
+const PICKUP_CAP = 600
 
 export type PauseReason = 'menu' | 'levelup' | 'chest'
 
@@ -66,13 +80,20 @@ export class RunScene extends Phaser.Scene implements CombatHost {
   readonly killsByEnemy: Partial<Record<EnemyId, number>> = {}
   readonly enemiesSeen = new Set<EnemyId>()
   readonly weaponsSeen = new Set<WeaponId>()
+  pickups!: PickupPool
+  chests!: Chests
+  flow!: RunFlow
   controls!: InputManager
   kills = 0
+  level = 1
+  xp = 0
+  eurodollars = 0
   readonly pauseReasons = new Set<PauseReason>()
   protected frame = 0
   protected floor!: CityFloor
   protected readonly inView = new Phaser.Geom.Rectangle()
   protected readonly contacts: number[] = []
+  protected readonly busOff: (() => void)[] = []
   private fps = 0
 
   constructor() {
@@ -85,6 +106,9 @@ export class RunScene extends Phaser.Scene implements CombatHost {
     this.clock = 0
     this.frame = 0
     this.kills = 0
+    this.level = 1
+    this.xp = 0
+    this.eurodollars = 0
     for (const k of Object.keys(this.killsByEnemy) as EnemyId[]) delete this.killsByEnemy[k]
     this.enemiesSeen.clear()
     this.weaponsSeen.clear()
@@ -110,7 +134,23 @@ export class RunScene extends Phaser.Scene implements CombatHost {
     this.damageNumbers = new DamageNumbers(this)
     this.weapons = new WeaponSystem(this, character.color)
     this.syncWeapons()
+    this.pickups = new PickupPool(this, PICKUP_CAP)
+    this.chests = new Chests(this)
+    this.flow = new RunFlow(gameBus, {
+      rng: this.rng,
+      getInventory: () => this.inventory,
+      setInventory: (inv) => this.setInventory(inv),
+      luck: () => this.stats.luck,
+      pause: (reason) => this.pauseFor(reason),
+      resume: (reason) => this.resumeFrom(reason),
+      onCard: (card) => this.onCard(card),
+      weaponPool: implementedWeapons(),
+    })
     this.controls = new InputManager(this)
+    this.busOff.push(
+      gameBus.on('pause', () => this.pauseFor('menu')),
+      gameBus.on('resume', () => this.resumeFrom('menu')),
+    )
 
     const cam = this.cameras.main
     cam.startFollow(this.player.sprite, true)
@@ -141,11 +181,27 @@ export class RunScene extends Phaser.Scene implements CombatHost {
   }
 
   pauseFor(reason: PauseReason): void {
+    if (this.pauseReasons.has(reason)) return
     this.pauseReasons.add(reason)
+    gameBus.emit('game:paused', { reason })
   }
 
   resumeFrom(reason: PauseReason): void {
-    this.pauseReasons.delete(reason)
+    if (!this.pauseReasons.delete(reason)) return
+    if (this.pauseReasons.size === 0) gameBus.emit('game:resumed', undefined)
+  }
+
+  /** Inventory changes (cards, chests, evolutions) refresh stats, player and weapons. */
+  setInventory(inv: Inventory): void {
+    this.inventory = inv
+    this.stats = this.computeRunStats()
+    this.player.setStats(this.stats)
+    this.syncWeapons()
+  }
+
+  private onCard(card: LevelUpCard): void {
+    if (card.kind === 'heal') this.player.heal(healAmount(card.amount, this.psychosis.value))
+    else if (card.kind === 'eurodollars') this.eurodollars += card.amount
   }
 
   private applyZoom(): void {
@@ -177,6 +233,9 @@ export class RunScene extends Phaser.Scene implements CombatHost {
     this.projectiles.update(dt, this.enemies.slow)
     this.weapons.update(dt, input)
     this.damageNumbers.update(dt)
+    const pickupRadius = balance.player.pickupRadius + PLAYER_RADIUS
+    this.pickups.update(dt, this.player.x, this.player.y, this.stats.magnet, pickupRadius, this.collect)
+    this.chests.update(dt, this.player.x, this.player.y, () => this.flow.onChestOpened())
     this.psychosis = tickPsychosis(this.psychosis, dt)
     this.contactDamage()
     this.enemyShotHits()
@@ -214,9 +273,10 @@ export class RunScene extends Phaser.Scene implements CombatHost {
     if (dead) this.onEnemyKilled(enemy)
   }
 
-  /** XP, drops, psychosis and counters; drops arrive with plan Task 12. */
+  /** XP, drops, chests, psychosis and counters. */
   protected onEnemyKilled(enemy: number): void {
     const def = this.enemies.def(enemy)
+    this.dropLoot(enemy)
     this.kills++
     this.killsByEnemy[def.id] = (this.killsByEnemy[def.id] ?? 0) + 1
     this.enemiesSeen.add(def.id)
@@ -224,6 +284,59 @@ export class RunScene extends Phaser.Scene implements CombatHost {
     for (const c of this.inventory.cyberware) cyberLevels += c.level
     this.psychosis = onKill(this.psychosis, cyberLevels)
     this.enemies.release(enemy)
+  }
+
+  private dropLoot(enemy: number): void {
+    const e = this.enemies
+    const def = e.def(enemy)
+    const x = e.x[enemy]
+    const y = e.y[enemy]
+    const luck = this.stats.luck
+    const d = balance.drops
+    const p = this.pickups
+    p.drop(PICKUP_XP, x, y, def.xp)
+    if (this.rng.next() < def.eurodollarChance * luck) {
+      p.drop(PICKUP_EURO, x + 8, y, this.rng.int(d.eurodollarBag[0], d.eurodollarBag[1]))
+    }
+    if (this.rng.next() < d.medkitChance * luck) p.drop(PICKUP_MEDKIT, x - 8, y, d.medkitHeal)
+    if (this.rng.next() < d.magnetChance * luck) p.drop(PICKUP_MAGNET, x, y + 8, 0)
+    if (this.rng.next() < d.empChance * luck) p.drop(PICKUP_EMP, x, y - 8, 0)
+    // a chest that finds no free slot opens at once
+    if ((e.elite[enemy] || e.boss[enemy]) && !this.chests.place(x, y)) this.flow.onChestOpened()
+  }
+
+  private readonly collect = (kind: PickupKind, value: number): void => {
+    switch (kind) {
+      case PICKUP_XP: {
+        const next = addXp({ level: this.level, xp: this.xp }, value, this.stats.growth)
+        this.level = next.level
+        this.xp = next.xp
+        if (next.levelsGained > 0) this.flow.onLevels(next.levelsGained)
+        break
+      }
+      case PICKUP_EURO:
+        this.eurodollars += value
+        break
+      case PICKUP_MEDKIT:
+        this.player.heal(healAmount(value, this.psychosis.value))
+        break
+      case PICKUP_MAGNET:
+        this.pickups.magnetAll()
+        break
+      case PICKUP_EMP:
+        this.emp()
+        break
+    }
+  }
+
+  /** EMP grenade: every non-boss enemy on screen dies (spec 2.8). */
+  private emp(): void {
+    const v = this.cameras.main.worldView
+    const e = this.enemies
+    for (let i = 0; i < e.cap; i++) {
+      if (e.active[i] && !e.boss[i] && v.contains(e.x[i], e.y[i])) this.onEnemyKilled(i)
+    }
+    this.cameras.main.flash(200, 209, 247, 255)
   }
 
   /** Esc / Start / touch pause button. */
@@ -309,13 +422,16 @@ export class RunScene extends Phaser.Scene implements CombatHost {
     const p = this.player
     const t = Math.floor(this.clock)
     const time = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`
-    return `${fps}${time}  HP ${Math.ceil(p?.hp ?? 0)}/${Math.round(p?.maxHp ?? 0)}  enemies ${this.enemies?.alive ?? 0}  kills ${this.kills}${this.paused ? '  [paused]' : ''}`
+    return `${fps}${time}  Lv ${this.level} (${Math.floor(this.xp)}/${xpToNext(this.level)})  €$ ${this.eurodollars}  HP ${Math.ceil(p?.hp ?? 0)}/${Math.round(p?.maxHp ?? 0)}  enemies ${this.enemies?.alive ?? 0}  kills ${this.kills}${this.paused ? '  [paused]' : ''}`
   }
 
   protected teardown(): void {
     this.scale.off(Phaser.Scale.Events.RESIZE, this.applyZoom, this)
     this.controls?.destroy()
     this.weapons?.destroy()
+    this.flow?.dispose()
+    for (const off of this.busOff) off()
+    this.busOff.length = 0
     this.scene.stop(TOUCH_SCENE_KEY)
   }
 

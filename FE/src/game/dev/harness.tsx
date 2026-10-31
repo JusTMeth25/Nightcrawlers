@@ -6,6 +6,7 @@ import { createRoot } from 'react-dom/client'
 import { characters } from '@data/index'
 import { DEFAULT_OPTIONS, type CharacterId, type RunConfig } from '@shared/types'
 import type { DevOptions } from '../config'
+import CardPicker from './CardPicker'
 import DevGame from './DevGame'
 import '../../index.css'
 
@@ -31,5 +32,6 @@ const dev: DevOptions = {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <DevGame config={config} dev={dev} />
+    <CardPicker />
   </StrictMode>,
 )
