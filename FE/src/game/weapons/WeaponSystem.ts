@@ -42,6 +42,7 @@ export class WeaponSystem {
   private readonly playerPos: Vec = { x: 0, y: 0 }
   private readonly nearestPos: Vec = { x: 0, y: 0 }
   private readonly lastMove: Vec = { x: 1, y: 0 }
+  private readonly aimOut: Vec = { x: 1, y: 0 }
 
   constructor(host: CombatHost, characterColor: string) {
     this.host = host
@@ -92,7 +93,7 @@ export class WeaponSystem {
       slot.cooldownLeft -= dt
       if (slot.cooldownLeft > 0) continue
       if (nearest === undefined) nearest = this.findNearest()
-      const dir = aimDirection(slot.def.aim, input, this.playerPos, nearest, this.lastMove)
+      const dir = aimDirection(slot.def.aim, input, this.playerPos, nearest, this.lastMove, this.aimOut)
       if (slot.behavior.fire({ host, weapon: slot, stats: slot.stats, dir, input })) {
         slot.cooldownLeft = slot.stats.cooldownSec
       } else {

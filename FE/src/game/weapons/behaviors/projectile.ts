@@ -5,6 +5,8 @@ import type { Behavior, FireContext } from '../types'
 
 const FAN_DEG = 8
 const BASE_RADIUS = 4
+/** scratch array reused by every shot */
+const angles: number[] = []
 
 export function createProjectileBehavior(): Behavior {
   return {
@@ -12,7 +14,7 @@ export function createProjectileBehavior(): Behavior {
       if (!dir) return false
       const base = Math.atan2(dir.y, dir.x)
       const p = host.player
-      for (const a of spreadAngles(base, stats.projectiles, FAN_DEG)) {
+      for (const a of spreadAngles(base, stats.projectiles, FAN_DEG, angles)) {
         host.projectiles.fire(
           OWNER_PLAYER,
           p.x,

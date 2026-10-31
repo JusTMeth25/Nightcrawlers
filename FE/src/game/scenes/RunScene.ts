@@ -6,7 +6,7 @@ import { gameBus } from '@shared/events'
 import { DEFAULT_OPTIONS, type EnemyId, type LevelUpCard, type RunConfig, type Stats, type WeaponId } from '@shared/types'
 import { DEV_OPTIONS_KEY, RUN_CONFIG_KEY, type DevOptions } from '../config'
 import { Chests } from '../entities/Chest'
-import { formationPositions } from '../entities/formations'
+import { formationPositions, scatterPoint, type Point } from '../entities/formations'
 import { EnemyPool, type EnemyShot } from '../entities/EnemyPool'
 import { Player } from '../entities/Player'
 import {
@@ -95,6 +95,7 @@ export class RunScene extends Phaser.Scene implements CombatHost {
   protected readonly inView = new Phaser.Geom.Rectangle()
   protected readonly contacts: number[] = []
   private fps = 0
+  private readonly scratch: Point = { x: 0, y: 0 }
   private input0: InputState = emptyInput()
 
   constructor() {
@@ -376,7 +377,7 @@ export class RunScene extends Phaser.Scene implements CombatHost {
     for (let i = 0; i < e.cap; i++) {
       if (!e.active[i] || e.boss[i]) continue
       if (Math.hypot(e.x[i] - this.player.x, e.y[i] - this.player.y) <= limit) continue
-      const [p] = formationPositions('scatter', 1, v.centerX, v.centerY, v.width, v.height, this.rng)
+      const p = scatterPoint(v.centerX, v.centerY, v.width, v.height, this.rng, this.scratch)
       e.x[i] = p.x
       e.y[i] = p.y
     }

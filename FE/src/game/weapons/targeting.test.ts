@@ -36,3 +36,21 @@ describe('spreadAngles', () => {
     expect(three[2] - three[0]).toBeCloseTo((16 * Math.PI) / 180)
   })
 })
+
+describe('allocation-free variants', () => {
+  it('aimDirection writes into the given vector', () => {
+    const out = { x: 0, y: 0 }
+    const input = { ...emptyInput(), aimX: 0, aimY: 2, aimActive: true }
+    expect(aimDirection('aim', input, player, null, left, out)).toBe(out)
+    expect(out).toEqual({ x: 0, y: 1 })
+    expect(aimDirection('nearest', input, player, null, left, out)).toBeNull()
+  })
+
+  it('spreadAngles fills and returns the given array', () => {
+    const out: number[] = [9, 9, 9, 9]
+    expect(spreadAngles(0, 2, 10, out)).toBe(out)
+    expect(out[0]).toBeCloseTo((-5 * Math.PI) / 180)
+    expect(out[1]).toBeCloseTo((5 * Math.PI) / 180)
+    expect(out).toHaveLength(2)
+  })
+})

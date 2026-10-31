@@ -17,7 +17,11 @@ export class CityFloor {
   private readonly seed: number
   private readonly tile: Phaser.GameObjects.TileSprite
   private readonly decor: Phaser.GameObjects.Image[] = []
-  private lastRange = ''
+  // visible block range of the last decoration pass (numbers: no per-frame string)
+  private lastX0 = NaN
+  private lastX1 = NaN
+  private lastY0 = NaN
+  private lastY1 = NaN
 
   constructor(scene: Phaser.Scene, seed: number) {
     this.scene = scene
@@ -101,9 +105,11 @@ export class CityFloor {
     const x1 = Math.floor((v.x + v.width) / BLOCK) + 1
     const y0 = Math.floor(v.y / BLOCK) - 1
     const y1 = Math.floor((v.y + v.height) / BLOCK) + 1
-    const range = `${x0},${x1},${y0},${y1}`
-    if (range === this.lastRange) return
-    this.lastRange = range
+    if (x0 === this.lastX0 && x1 === this.lastX1 && y0 === this.lastY0 && y1 === this.lastY1) return
+    this.lastX0 = x0
+    this.lastX1 = x1
+    this.lastY0 = y0
+    this.lastY1 = y1
     let used = 0
     for (let cx = x0; cx <= x1 && used < DECOR_POOL; cx++) {
       for (let cy = y0; cy <= y1 && used < DECOR_POOL; cy++) {

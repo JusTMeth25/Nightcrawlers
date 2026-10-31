@@ -1,5 +1,6 @@
 // Where a weapon fires (spec 2.3): `aim` uses the player's aim, else the nearest enemy, else
 // the last movement; `nearest` needs a target; `area` lets the behaviour decide.
+// The `out` parameters let the frame loop reuse scratch objects instead of allocating.
 import type { AimType } from '@shared/types'
 import type { InputState } from '../input/InputState'
 
@@ -8,9 +9,13 @@ export interface Vec {
   y: number
 }
 
-function unit(x: number, y: number): Vec | null {
+/** Writes the unit vector of (x, y) into `out`; false for a zero vector. */
+function unitInto(x: number, y: number, out: Vec): boolean {
   const len = Math.hypot(x, y)
-  return len === 0 ? null : { x: x / len, y: y / len }
+  if (len === 0) return false
+  out.x = x / len
+  out.y = y / len
+  return true
 }
 
 export function aimDirection(
@@ -19,21 +24,26 @@ export function aimDirection(
   playerPos: Vec,
   nearest: Vec | null,
   lastMoveDir: Vec,
+  out: Vec = { x: 0, y: 0 },
 ): Vec | null {
   if (aimType === 'area') return null
-  const toNearest = nearest ? unit(nearest.x - playerPos.x, nearest.y - playerPos.y) : null
-  if (aimType === 'nearest') return toNearest
-  if (input.aimActive) {
-    const aim = unit(input.aimX, input.aimY)
-    if (aim) return aim
+  const hasNearest = nearest !== null && unitInto(nearest.x - playerPos.x, nearest.y - playerPos.y, out)
+  if (aimType === 'nearest') return hasNearest ? out : null
+  if (input.aimActive && unitInto(input.aimX, input.aimY, out)) return out
+  if (hasNearest && nearest) {
+    unitInto(nearest.x - playerPos.x, nearest.y - playerPos.y, out)
+    return out
   }
-  return toNearest ?? unit(lastMoveDir.x, lastMoveDir.y) ?? { x: 1, y: 0 }
+  if (unitInto(lastMoveDir.x, lastMoveDir.y, out)) return out
+  out.x = 1
+  out.y = 0
+  return out
 }
 
-/** `count` angles `stepDeg` apart, centred on `base` (radians). */
-export function spreadAngles(base: number, count: number, stepDeg: number): number[] {
+/** `count` angles `stepDeg` apart, centred on `base` (radians), written into `out`. */
+export function spreadAngles(base: number, count: number, stepDeg: number, out: number[] = []): number[] {
   const step = (stepDeg * Math.PI) / 180
-  const out: number[] = []
-  for (let i = 0; i < count; i++) out.push(base + (i - (count - 1) / 2) * step)
+  out.length = count
+  for (let i = 0; i < count; i++) out[i] = base + (i - (count - 1) / 2) * step
   return out
 }

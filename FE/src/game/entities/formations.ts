@@ -12,18 +12,36 @@ export interface Point {
 
 type Side = 0 | 1 | 2 | 3 // top, right, bottom, left
 
-/** A point just outside `side`; `t` in [0,1] runs along it. */
-function edgePoint(side: Side, t: number, cx: number, cy: number, hw: number, hh: number, out: number): Point {
+/** Writes a point just outside `side` into `p`; `t` in [0,1] runs along it. */
+function edgeInto(p: Point, side: Side, t: number, cx: number, cy: number, hw: number, hh: number, out: number): Point {
   switch (side) {
     case 0:
-      return { x: cx - hw + t * hw * 2, y: cy - hh - out }
+      p.x = cx - hw + t * hw * 2
+      p.y = cy - hh - out
+      break
     case 1:
-      return { x: cx + hw + out, y: cy - hh + t * hh * 2 }
+      p.x = cx + hw + out
+      p.y = cy - hh + t * hh * 2
+      break
     case 2:
-      return { x: cx - hw + t * hw * 2, y: cy + hh + out }
+      p.x = cx - hw + t * hw * 2
+      p.y = cy + hh + out
+      break
     default:
-      return { x: cx - hw - out, y: cy - hh + t * hh * 2 }
+      p.x = cx - hw - out
+      p.y = cy - hh + t * hh * 2
   }
+  return p
+}
+
+function edgePoint(side: Side, t: number, cx: number, cy: number, hw: number, hh: number, out: number): Point {
+  return edgeInto({ x: 0, y: 0 }, side, t, cx, cy, hw, hh, out)
+}
+
+/** One scatter position written into `out` (no allocation: used by the frame loop). */
+export function scatterPoint(cx: number, cy: number, viewW: number, viewH: number, rng: Rng, out: Point): Point {
+  const side = rng.int(0, 3) as Side
+  return edgeInto(out, side, rng.next(), cx, cy, viewW / 2, viewH / 2, SPAWN_MARGIN + rng.next() * SPAWN_MARGIN)
 }
 
 export function formationPositions(
@@ -71,9 +89,7 @@ export function formationPositions(
       break
     }
     default: {
-      for (let i = 0; i < count; i++) {
-        pts.push(edgePoint(rng.int(0, 3) as Side, rng.next(), cx, cy, hw, hh, SPAWN_MARGIN + rng.next() * SPAWN_MARGIN))
-      }
+      for (let i = 0; i < count; i++) pts.push(scatterPoint(cx, cy, viewW, viewH, rng, { x: 0, y: 0 }))
     }
   }
   return pts

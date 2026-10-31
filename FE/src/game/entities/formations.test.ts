@@ -32,3 +32,15 @@ describe('formationPositions', () => {
     }
   })
 })
+
+describe('scatterPoint', () => {
+  it('writes one off-screen point into the given object', async () => {
+    const { scatterPoint } = await import('./formations')
+    const out = { x: 0, y: 0 }
+    const rng = createRng(9)
+    for (let i = 0; i < 50; i++) {
+      expect(scatterPoint(CX, CY, W, H, rng, out)).toBe(out)
+      expect(outside(out)).toBe(true)
+    }
+  })
+})

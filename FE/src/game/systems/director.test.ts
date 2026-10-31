@@ -75,3 +75,16 @@ describe('Director', () => {
     expect(d.update(300, 0.1, waves.enemyCap).map((o) => o.kind)).toEqual(['elite'])
   })
 })
+
+describe('Director allocations', () => {
+  it('never maps the phase mix while updating', () => {
+    const copy: typeof waves = JSON.parse(JSON.stringify(waves))
+    for (const p of copy.phases) {
+      p.mix.map = () => {
+        throw new Error('mix.map called')
+      }
+    }
+    const d = new Director(copy, createRng(3))
+    for (let i = 1; i <= 400 * 60; i += 6) d.update(i / 60, 0.1, 0)
+  })
+})
