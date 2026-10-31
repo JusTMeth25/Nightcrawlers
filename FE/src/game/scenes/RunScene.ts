@@ -1,19 +1,24 @@
-// The run: game clock, player, enemies, director and city. Pure rules live in systems/.
+// The run: game clock, player, enemies, weapons, director and city. Pure rules live in systems/.
 // Game time only advances while no pause reason is active (menu, level-up, chest).
 import Phaser from 'phaser'
 import { balance, getCharacter, getEnemy, waves } from '@data/index'
-import { DEFAULT_OPTIONS, type RunConfig, type Stats } from '@shared/types'
+import { DEFAULT_OPTIONS, type EnemyId, type RunConfig, type Stats, type WeaponId } from '@shared/types'
 import { DEV_OPTIONS_KEY, RUN_CONFIG_KEY, type DevOptions } from '../config'
 import { formationPositions } from '../entities/formations'
 import { EnemyPool, type EnemyShot } from '../entities/EnemyPool'
 import { Player } from '../entities/Player'
+import { OWNER_ENEMY, ProjectilePool } from '../entities/ProjectilePool'
+import { DamageNumbers } from '../fx/DamageNumbers'
 import { InputManager } from '../input/InputManager'
 import { alertMultipliers, Director, type SpawnOrder } from '../systems/director'
+import { computeDamage } from '../systems/combat'
 import { createInventory, type Inventory } from '../systems/inventory'
-import { createPsychosis, isFrenzy, type PsychosisState } from '../systems/psychosis'
+import { createPsychosis, isFrenzy, onKill, tick as tickPsychosis, type PsychosisState } from '../systems/psychosis'
 import { createRng, type Rng } from '../systems/rng'
 import { SpatialGrid } from '../systems/spatialGrid'
 import { collectModifiers, computeStats } from '../systems/stats'
+import { implementedWeapons, WeaponSystem } from '../weapons/WeaponSystem'
+import type { CombatHost } from '../weapons/types'
 import { CityFloor } from '../world/CityFloor'
 import { computeZoom, ENEMY_RADIUS, GRID_CELL, PLAYER_RADIUS } from '../world/view'
 import { ANIMS_KEY } from './PreloadScene'
@@ -26,6 +31,10 @@ const VIEW_MARGIN = 96
 const RELOCATE_EVERY_FRAMES = 30
 const REVIVE_RADIUS = 220
 const REVIVE_FORCE = 900
+const PROJECTILE_CAP = 800
+const ENEMY_SHOT_RADIUS = 4
+const ENEMY_SHOT_COLOR = 0xff3355
+const ENEMY_SHOT_LIFE_SEC = 3
 
 export type PauseReason = 'menu' | 'levelup' | 'chest'
 
@@ -38,7 +47,7 @@ const FALLBACK_RUN: RunConfig = {
   options: DEFAULT_OPTIONS,
 }
 
-export class RunScene extends Phaser.Scene {
+export class RunScene extends Phaser.Scene implements CombatHost {
   run!: RunConfig
   dev: DevOptions = {}
   rng!: Rng
@@ -51,6 +60,12 @@ export class RunScene extends Phaser.Scene {
   readonly grid = new SpatialGrid(GRID_CELL)
   player!: Player
   enemies!: EnemyPool
+  projectiles!: ProjectilePool
+  weapons!: WeaponSystem
+  damageNumbers!: DamageNumbers
+  readonly killsByEnemy: Partial<Record<EnemyId, number>> = {}
+  readonly enemiesSeen = new Set<EnemyId>()
+  readonly weaponsSeen = new Set<WeaponId>()
   controls!: InputManager
   kills = 0
   readonly pauseReasons = new Set<PauseReason>()
@@ -70,6 +85,9 @@ export class RunScene extends Phaser.Scene {
     this.clock = 0
     this.frame = 0
     this.kills = 0
+    for (const k of Object.keys(this.killsByEnemy) as EnemyId[]) delete this.killsByEnemy[k]
+    this.enemiesSeen.clear()
+    this.weaponsSeen.clear()
     this.pauseReasons.clear()
     this.psychosis = createPsychosis()
   }
@@ -79,11 +97,19 @@ export class RunScene extends Phaser.Scene {
     const available = (this.registry.get(ANIMS_KEY) as Set<string> | undefined) ?? new Set<string>()
     this.rng = createRng(this.run.seed)
     this.inventory = createInventory(character.startingWeapon)
+    if (this.dev.weaponsAll) {
+      // harness: every implemented weapon at max level (6 slots)
+      this.inventory = { ...this.inventory, weapons: implementedWeapons().slice(0, 6).map((id) => ({ id, level: 8, evolved: false })) }
+    }
     this.stats = this.computeRunStats()
     this.director = new Director(waves, this.rng)
     this.floor = new CityFloor(this, this.run.seed)
     this.player = new Player(this, character, this.stats, available)
     this.enemies = new EnemyPool(this, waves.enemyCap, available)
+    this.projectiles = new ProjectilePool(this, PROJECTILE_CAP)
+    this.damageNumbers = new DamageNumbers(this)
+    this.weapons = new WeaponSystem(this, character.color)
+    this.syncWeapons()
     this.controls = new InputManager(this)
 
     const cam = this.cameras.main
@@ -98,6 +124,16 @@ export class RunScene extends Phaser.Scene {
   computeRunStats(): Stats {
     const character = getCharacter(this.run.characterId)
     return computeStats(balance.baseStats, collectModifiers(character, this.run.ripperdoc, this.inventory.cyberware))
+  }
+
+  get gameScene(): Phaser.Scene {
+    return this
+  }
+
+  /** Re-reads inventory and stats into the weapon system (after cards and evolutions). */
+  syncWeapons(): void {
+    this.weapons.sync(this.inventory, this.stats)
+    for (const w of this.inventory.weapons) this.weaponsSeen.add(w.id)
   }
 
   get paused(): boolean {
@@ -138,12 +174,57 @@ export class RunScene extends Phaser.Scene {
     this.enemies.update(dt, this.frame, this.player.x, this.player.y, this.inView, this.grid, this.enemyShot)
     this.enemies.fillGrid(this.grid)
     if (this.frame % RELOCATE_EVERY_FRAMES === 0) this.relocateFarEnemies()
+    this.projectiles.update(dt, this.enemies.slow)
+    this.weapons.update(dt, input)
+    this.damageNumbers.update(dt)
+    this.psychosis = tickPsychosis(this.psychosis, dt)
     this.contactDamage()
+    this.enemyShotHits()
   }
 
+  /** Ranged enemies (kite) fire through the shared projectile pool. */
+  protected enemyShot: EnemyShot = (x, y, dx, dy, def, damageMult) => {
+    const r = def.ranged
+    if (!r) return
+    this.projectiles.fire(OWNER_ENEMY, x, y, dx * r.projectileSpeed, dy * r.projectileSpeed, ENEMY_SHOT_LIFE_SEC, r.damage * damageMult, 1, ENEMY_SHOT_RADIUS, ENEMY_SHOT_COLOR)
+  }
 
-  /** Enemy ranged attacks; the projectile pool replaces this in Task 11. */
-  protected enemyShot: EnemyShot = () => {}
+  private enemyShotHits(): void {
+    const pr = this.projectiles
+    const p = this.player
+    for (let i = 0; i < pr.cap; i++) {
+      if (!pr.active[i] || pr.owner[i] !== OWNER_ENEMY) continue
+      const r = pr.radius[i] + PLAYER_RADIUS
+      if ((pr.x[i] - p.x) ** 2 + (pr.y[i] - p.bodyY) ** 2 > r * r) continue
+      pr.release(i)
+      if (this.dev.stress) continue
+      const result = p.hurt(pr.damage[i])
+      if (result !== 'none') this.onPlayerHurt(result)
+    }
+  }
+
+  damageEnemy(enemy: number, baseDamage: number, knockX: number, knockY: number): void {
+    const e = this.enemies
+    if (!e.active[enemy]) return
+    const hit = computeDamage(baseDamage, this.stats, { psychosis: this.psychosis.value, frenzy: isFrenzy(this.psychosis), rng: this.rng })
+    // bosses barely move when hit
+    const k = e.boss[enemy] ? 0.1 : 1
+    const dead = e.hit(enemy, hit.amount, knockX * k, knockY * k)
+    this.damageNumbers.show(e.x[enemy], e.y[enemy] - 30, hit.amount, hit.crit)
+    if (dead) this.onEnemyKilled(enemy)
+  }
+
+  /** XP, drops, psychosis and counters; drops arrive with plan Task 12. */
+  protected onEnemyKilled(enemy: number): void {
+    const def = this.enemies.def(enemy)
+    this.kills++
+    this.killsByEnemy[def.id] = (this.killsByEnemy[def.id] ?? 0) + 1
+    this.enemiesSeen.add(def.id)
+    let cyberLevels = 0
+    for (const c of this.inventory.cyberware) cyberLevels += c.level
+    this.psychosis = onKill(this.psychosis, cyberLevels)
+    this.enemies.release(enemy)
+  }
 
   /** Esc / Start / touch pause button. */
   protected onPauseInput(): void {
@@ -234,6 +315,7 @@ export class RunScene extends Phaser.Scene {
   protected teardown(): void {
     this.scale.off(Phaser.Scale.Events.RESIZE, this.applyZoom, this)
     this.controls?.destroy()
+    this.weapons?.destroy()
     this.scene.stop(TOUCH_SCENE_KEY)
   }
 
