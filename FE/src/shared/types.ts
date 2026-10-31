@@ -210,6 +210,7 @@ export interface HudState {
   eurodollars: number
   psychosis: number
   psychosisActive: boolean
+  /** share of the skill cooldown still to wait: 1 = just used, 0 = ready */
   skillCooldown01: number
   weapons: OwnedWeapon[]
   cyberware: OwnedCyberware[]
@@ -226,6 +227,7 @@ export type LevelUpCard =
   | { kind: 'eurodollars'; amount: number }
 export interface ChestReward {
   cards: LevelUpCard[]
+  /** into = evolution id (WeaponDef.evolution.id), never the display name */
   evolution: { weapon: WeaponId; into: string } | null
 }
 export interface RunCheckpoint {
