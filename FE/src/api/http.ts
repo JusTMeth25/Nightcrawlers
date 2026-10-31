@@ -4,7 +4,7 @@ import { ApiError } from './errors'
 
 export interface HttpOptions {
   getToken(): string | null
-  /** Obtain a new access token through the refresh cookie; null (or a throw) = session lost. */
+  /** New access token through the refresh cookie. null or an ApiError 401/403 = session lost; other errors propagate. */
   refresh(): Promise<string | null>
   onAuthLost(): void
   fetchImpl?: typeof fetch
@@ -61,7 +61,10 @@ export function createHttp(opts: HttpOptions): Http {
         let next: string | null
         try {
           next = await opts.refresh()
-        } catch {
+        } catch (error) {
+          // only a refused refresh (401/403) ends the session; network errors, 429 and 5xx
+          // reach the caller and the session stays as it is
+          if (!(error instanceof ApiError) || (error.status !== 401 && error.status !== 403)) throw error
           next = null
         }
         if (!next) {
@@ -107,6 +110,8 @@ export function createHttp(opts: HttpOptions): Http {
     // another request already refreshed while this one was in flight
     if (current && current !== usedToken) return current
     if (refreshing) return refreshing
+    // no token at all (guest, or the session was already lost): nothing to refresh
+    if (!usedToken) return null
     if (lostToken !== undefined && lostToken === usedToken) return null
     return sharedRefresh(usedToken)
   }

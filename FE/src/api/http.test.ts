@@ -116,6 +116,49 @@ describe('http', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(3)
   })
 
+  it.each([
+    ['network error', new ApiError(0, null, null)],
+    ['rate limit', new ApiError(429, null, 30)],
+    ['server error', new ApiError(503, null, null)],
+  ])('a refresh failing with %s propagates the error and keeps the session', async (_name, refreshError) => {
+    const { http, refresh, onAuthLost } = setup(
+      () => problem(401, 'Unauthorized'),
+      async () => {
+        await tick()
+        throw refreshError
+      },
+    )
+    const results = await Promise.allSettled([http.request('/api/a', { auth: true }), http.request('/api/b', { auth: true })])
+    for (const r of results) {
+      expect(r.status).toBe('rejected')
+      expect((r as PromiseRejectedResult).reason).toBe(refreshError)
+    }
+    expect(refresh).toHaveBeenCalledTimes(1)
+    expect(onAuthLost).not.toHaveBeenCalled()
+  })
+
+  it.each([401, 403])('a refresh rejected with %i ends the session', async (status) => {
+    const { http, onAuthLost } = setup(
+      () => problem(401, 'Unauthorized'),
+      async () => {
+        throw new ApiError(status, null, null)
+      },
+    )
+    await expect(http.request('/api/a', { auth: true })).rejects.toMatchObject({ status: 401 })
+    expect(onAuthLost).toHaveBeenCalledTimes(1)
+  })
+
+  it('after the session is lost, a call without token does not refresh again', async () => {
+    const { http, refresh, onAuthLost } = setup(
+      () => problem(401, 'Unauthorized'),
+      async () => null,
+    )
+    await expect(http.request('/api/a', { auth: true })).rejects.toMatchObject({ status: 401 })
+    await expect(http.request('/api/b', { auth: true })).rejects.toMatchObject({ status: 401 })
+    expect(refresh).toHaveBeenCalledTimes(1)
+    expect(onAuthLost).toHaveBeenCalledTimes(1)
+  })
+
   it('does not refresh on 401 of an unauthenticated call (e.g. wrong login)', async () => {
     const { http, refresh } = setup(() => problem(401, 'Bad credentials'))
     await expect(http.request('/api/auth/login', { method: 'POST', body: {} })).rejects.toMatchObject({ status: 401 })
@@ -198,6 +241,20 @@ describe('real ApiClient', () => {
     const api = createRealApi({ auth: bridge, fetchImpl: fetchImpl as typeof fetch })
     await expect(api.me()).resolves.toEqual(user)
     expect(bridge.getToken()).toBe('tok-2')
+  })
+
+  it('keeps the token when /auth/refresh answers 500', async () => {
+    const bridge = createAuthBridge()
+    bridge.setToken('expired')
+    const lost = vi.fn()
+    bridge.onAuthLost(lost)
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) =>
+      String(input) === API.refresh ? problem(500, 'Boom') : problem(401, 'Expired'),
+    )
+    const api = createRealApi({ auth: bridge, fetchImpl: fetchImpl as typeof fetch })
+    await expect(api.getSave()).rejects.toMatchObject({ status: 500 })
+    expect(lost).not.toHaveBeenCalled()
+    expect(bridge.getToken()).toBe('expired')
   })
 
   it('signals auth lost when the refresh is rejected', async () => {
