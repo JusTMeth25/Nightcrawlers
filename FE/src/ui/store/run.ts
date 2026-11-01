@@ -43,7 +43,8 @@ export interface RunDeps {
 }
 
 function randomSeed() {
-  return crypto.getRandomValues(new Uint32Array(1))[0] & 0x7fffffff
+  // same range as the server seeds: 0..2147483646
+  return crypto.getRandomValues(new Uint32Array(1))[0] % 2147483647
 }
 
 const cleared = {

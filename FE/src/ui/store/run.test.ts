@@ -184,4 +184,15 @@ describe('run store', () => {
     expect(run.getState().submitError).toBeTruthy()
     expect(run.getState().canRetry).toBe(false)
   })
+  it('guest seed stays within the contract range (0..2147483646)', async () => {
+    const { session, run } = setup()
+    session.getState().playAsGuest()
+    vi.spyOn(crypto, 'getRandomValues').mockImplementation(<T extends ArrayBufferView | null>(array: T) => {
+      ;(array as unknown as Uint32Array).fill(0xffffffff)
+      return array
+    })
+    run.getState().select('david')
+    await run.getState().start()
+    expect(run.getState().config!.seed).toBeLessThanOrEqual(2147483646)
+  })
 })
