@@ -6,7 +6,15 @@ import LoginScreen from './screens/auth/LoginScreen'
 import RegisterScreen from './screens/auth/RegisterScreen'
 import ResetPasswordScreen from './screens/auth/ResetPasswordScreen'
 import VerifyEmailScreen from './screens/auth/VerifyEmailScreen'
+import AccountScreen from './screens/AccountScreen'
+import CharacterSelectScreen from './screens/CharacterSelectScreen'
+import CodexScreen from './screens/CodexScreen'
+import GameOverScreen from './screens/GameOverScreen'
 import PlaceholderScreen from './screens/PlaceholderScreen'
+import OptionsScreen from './screens/OptionsScreen'
+import PlayScreen from './screens/PlayScreen'
+import PrivacyScreen from './screens/PrivacyScreen'
+import RipperdocScreen from './screens/RipperdocScreen'
 import TitleScreen from './screens/TitleScreen'
 
 export const routes: RouteObject[] = [
@@ -19,18 +27,17 @@ export const routes: RouteObject[] = [
       { path: '/verify-email', element: <VerifyEmailScreen /> },
       { path: '/forgot-password', element: <ForgotPasswordScreen /> },
       { path: '/reset-password', element: <ResetPasswordScreen /> },
-      { path: '/select', element: <PlaceholderScreen title={t('screen.select')} /> },
-      { path: '/play', element: <PlaceholderScreen title={t('screen.play')} /> },
-      { path: '/game-over', element: <PlaceholderScreen title={t('screen.gameOver')} /> },
-      { path: '/codex', element: <PlaceholderScreen title={t('screen.codex')} /> },
-      { path: '/options', element: <PlaceholderScreen title={t('screen.options')} /> },
-      { path: '/privacy', element: <PlaceholderScreen title={t('screen.privacy')} /> },
+      { path: '/select', element: <CharacterSelectScreen /> },
+      { path: '/play', element: <PlayScreen /> },
+      { path: '/game-over', element: <GameOverScreen /> },
+      { path: '/codex', element: <CodexScreen /> },
+      { path: '/options', element: <OptionsScreen /> },
+      { path: '/privacy', element: <PrivacyScreen /> },
+      // guests see the Ripperdoc disabled with an invite to register (spec 2.11)
+      { path: '/ripperdoc', element: <RipperdocScreen /> },
       {
         element: <RequireAuth />,
-        children: [
-          { path: '/ripperdoc', element: <PlaceholderScreen title={t('screen.ripperdoc')} /> },
-          { path: '/account', element: <PlaceholderScreen title={t('screen.account')} /> },
-        ],
+        children: [{ path: '/account', element: <AccountScreen /> }],
       },
       { path: '*', element: <PlaceholderScreen title={t('app.notFound')} /> },
     ],

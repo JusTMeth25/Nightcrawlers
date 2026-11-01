@@ -5,9 +5,9 @@
     "spriteKey": "maelstrom",
     "color": "#ff2a6d",
     "behavior": "chase",
-    "hp": 12,
+    "hp": 10,
     "speed": 70,
-    "damage": 8,
+    "damage": 5,
     "xp": 1,
     "eurodollarChance": 0.02
   },

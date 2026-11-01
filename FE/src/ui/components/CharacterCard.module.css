@@ -1,0 +1,105 @@
+.card {
+  --nc-char-color: var(--nc-cyan);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 11rem;
+  padding: 0.75rem 0.5rem;
+  border: 2px solid rgb(123 44 255 / 55%);
+  background: linear-gradient(170deg, rgb(123 44 255 / 14%), rgb(5 1 13 / 95%) 60%);
+  color: var(--nc-text);
+  font: inherit;
+  cursor: pointer;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  transition:
+    border-color 100ms,
+    box-shadow 100ms,
+    transform 100ms;
+}
+
+.card:hover,
+.card:focus-visible {
+  border-color: var(--nc-yellow);
+  box-shadow: var(--nc-glow-yellow);
+  outline: none;
+}
+
+.selected {
+  border-color: var(--nc-char-color);
+  box-shadow: 0 0 14px var(--nc-char-color);
+  transform: translateY(-3px);
+}
+
+.locked {
+  filter: grayscale(0.7);
+}
+
+.encrypted {
+  filter: hue-rotate(-40deg) saturate(0.6);
+}
+
+.name {
+  color: var(--nc-char-color);
+  font-weight: 700;
+  text-align: center;
+}
+
+.state {
+  color: var(--nc-muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
+.encrypted .state {
+  color: var(--nc-magenta);
+  animation: glitch 1.6s infinite steps(2);
+}
+
+.portraitBox {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 6rem;
+  height: 6.5rem;
+}
+
+.portrait {
+  display: block;
+  background-image: url('/assets/atlas/heroes.png');
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 0 6px var(--nc-char-color));
+}
+
+.placeholder {
+  display: block;
+  width: 4.5rem;
+  height: 6rem;
+  margin-top: 0.5rem;
+  border: 2px solid var(--nc-char-color);
+  background:
+    repeating-linear-gradient(to bottom, rgb(255 255 255 / 8%) 0 2px, transparent 2px 5px),
+    radial-gradient(circle at 50% 30%, var(--nc-char-color) 0 18%, transparent 19%);
+  box-shadow: 0 0 12px var(--nc-char-color);
+  opacity: 0.75;
+  clip-path: polygon(30% 0, 70% 0, 100% 40%, 100% 100%, 0 100%, 0 40%);
+}
+
+@keyframes glitch {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .encrypted .state {
+    transition: none;
+    animation: none;
+  }
+}

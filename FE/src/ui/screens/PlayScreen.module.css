@@ -1,0 +1,71 @@
+.play {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: var(--nc-bg);
+  touch-action: none;
+  user-select: none;
+}
+
+.control {
+  pointer-events: auto;
+  min-width: 44px;
+  min-height: 44px;
+  border: 2px solid var(--nc-violet);
+  background: rgb(5 1 13 / 70%);
+  color: var(--nc-text);
+  font: inherit;
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+
+.control:hover,
+.control:focus-visible {
+  background: var(--nc-violet);
+}
+
+.rotate {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 2rem;
+  background: var(--nc-bg);
+  text-align: center;
+}
+
+.rotate h2 {
+  color: var(--nc-yellow);
+  text-shadow: var(--nc-glow-yellow);
+}
+
+.rotateIcon {
+  width: 3rem;
+  height: 5rem;
+  border: 3px solid var(--nc-cyan);
+  border-radius: 0.5rem;
+  box-shadow: var(--nc-glow-cyan);
+  animation: rotate-hint 2s ease-in-out infinite;
+}
+
+@keyframes rotate-hint {
+  0%,
+  30% {
+    transform: rotate(0deg);
+  }
+  60%,
+  100% {
+    transform: rotate(-90deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rotateIcon {
+    animation: none;
+    transform: rotate(-90deg);
+  }
+}
