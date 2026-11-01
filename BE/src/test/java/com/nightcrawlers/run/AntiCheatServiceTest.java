@@ -15,7 +15,10 @@ import com.nightcrawlers.run.AntiCheatService.Verdict;
 import com.nightcrawlers.run.dto.CheckpointRequest;
 import com.nightcrawlers.run.dto.EndRunRequest;
 
-/** balance.json antiCheat: skew 5 s, 40 kills/s, 10 levels/min, 300 €$/min. */
+/**
+ * balance.json antiCheat: skew 5 s, 40 kills/s, 10 levels/min, 300 €$/min plus 50 €$ per kill,
+ * rates measured over windows of at least 60 s (checkpointEverySec).
+ */
 class AntiCheatServiceTest {
 
     private static final Instant START = Instant.parse("2026-11-01T10:00:00Z");
@@ -98,10 +101,43 @@ class AntiCheatServiceTest {
 
     @Test
     void endWithoutCheckpointsIsMeasuredFromTheStart() {
-        assertThat(antiCheat.checkEnd(run, Optional.empty(), end(10, 400, Map.of("maelstrom", 400L)), at(11)))
+        // 10 s run: the window is widened to 60 s -> at most 2400 kills
+        assertThat(antiCheat.checkEnd(run, Optional.empty(), end(10, 2400, Map.of("maelstrom", 2400L)), at(11)))
                 .isEqualTo(Verdict.OK);
-        assertThat(antiCheat.checkEnd(run, Optional.empty(), end(10, 401, Map.of("maelstrom", 401L)), at(11))
+        assertThat(antiCheat.checkEnd(run, Optional.empty(), end(10, 2401, Map.of("maelstrom", 2401L)), at(11))
                 .flagged()).isTrue();
+    }
+
+    @Test
+    void shortFinalIntervalIsWidenedToTheCheckpointPeriod() {
+        Optional<RunCheckpoint> prev = previous(60, 100, 3, 50);
+        // end 3 s after the last checkpoint: +1 level and one 50 €$ bag
+        EndRunRequest late = new EndRunRequest("david", 63.0, 100L, Map.of("maelstrom", 100L), 4, 100L,
+                List.of("pistol"), List.of("maelstrom"));
+        assertThat(antiCheat.checkEnd(run, prev, late, at(64))).isEqualTo(Verdict.OK);
+        // same, with the end at the checkpoint time (dt = 0)
+        EndRunRequest same = new EndRunRequest("david", 60.0, 100L, Map.of("maelstrom", 100L), 4, 100L,
+                List.of("pistol"), List.of("maelstrom"));
+        assertThat(antiCheat.checkEnd(run, prev, same, at(64))).isEqualTo(Verdict.OK);
+    }
+
+    @Test
+    void shortCheckpointIntervalIsWidenedButStillLimited() {
+        Optional<RunCheckpoint> prev = previous(60, 0, 3, 0);
+        assertThat(antiCheat.checkCheckpoint(run, prev, cp(63, 2400, 13, 0), at(64))).isEqualTo(Verdict.OK);
+        assertThat(antiCheat.checkCheckpoint(run, prev, cp(63, 2401, 3, 0), at(64)).flagged()).isTrue();
+        assertThat(antiCheat.checkCheckpoint(run, prev, cp(63, 0, 14, 0), at(64)).flagged()).isTrue();
+    }
+
+    @Test
+    void eurodollarCapGrowsWithKills() {
+        Optional<RunCheckpoint> prev = previous(60, 0, 1, 0);
+        // 480 kills in 60 s: cap 480*50 + 300
+        assertThat(antiCheat.checkCheckpoint(run, prev, cp(120, 480, 1, 800), at(121))).isEqualTo(Verdict.OK);
+        assertThat(antiCheat.checkCheckpoint(run, prev, cp(120, 480, 1, 24_300), at(121))).isEqualTo(Verdict.OK);
+        assertThat(antiCheat.checkCheckpoint(run, prev, cp(120, 480, 1, 24_301), at(121)).flagged()).isTrue();
+        // no kills: only the per-minute allowance
+        assertThat(antiCheat.checkCheckpoint(run, prev, cp(120, 0, 1, 301), at(121)).flagged()).isTrue();
     }
 
     @Test

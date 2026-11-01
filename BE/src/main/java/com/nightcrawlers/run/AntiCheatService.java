@@ -17,7 +17,9 @@ import com.nightcrawlers.run.dto.EndRunRequest;
 /**
  * Plausibility of client-reported progress (spec 4.6, balance.json {@code antiCheat}). Each
  * interval is measured from the previous accepted checkpoint, or from the start of the run
- * (0 s, 0 kills, level 1, 0 €$). Rates use game time: it can never exceed real time + skew.
+ * (0 s, 0 kills, level 1, 0 €$). Rates use game time (it can never exceed real time + skew)
+ * over a window of at least {@code checkpointEverySec}; the €$ cap of a window is
+ * {@code Δkills * maxEurodollarsPerKill + window/60 * maxEurodollarsPerMinute}.
  */
 @Service
 public class AntiCheatService {
@@ -97,14 +99,17 @@ public class AntiCheatService {
                 || after.level() < before.level() || after.eurodollars() < before.eurodollars()) {
             return Verdict.flag("progress decreased");
         }
-        double dt = after.elapsedSec() - before.elapsedSec();
-        if (after.kills() - before.kills() > limits.maxKillsPerSec() * dt + EPSILON) {
+        // Short intervals (e.g. death 3 s after a checkpoint) are judged over a full checkpoint window.
+        double dt = Math.max(after.elapsedSec() - before.elapsedSec(), limits.checkpointEverySec());
+        long killDelta = after.kills() - before.kills();
+        if (killDelta > limits.maxKillsPerSec() * dt + EPSILON) {
             return Verdict.flag("kill rate");
         }
         if (after.level() - before.level() > limits.maxLevelPerMinute() * dt / 60 + EPSILON) {
             return Verdict.flag("level rate");
         }
-        if (after.eurodollars() - before.eurodollars() > limits.maxEurodollarsPerMinute() * dt / 60 + EPSILON) {
+        double eurodollarCap = killDelta * limits.maxEurodollarsPerKill() + limits.maxEurodollarsPerMinute() * dt / 60;
+        if (after.eurodollars() - before.eurodollars() > eurodollarCap + EPSILON) {
             return Verdict.flag("eurodollar rate");
         }
         return Verdict.OK;
