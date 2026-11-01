@@ -104,4 +104,40 @@ class TokenCleanupIT {
         assertThat(remaining("email_tokens")).containsExactly(open).doesNotContain(used, expired);
         assertThat(result.emailTokens()).isGreaterThanOrEqualTo(2);
     }
+
+    private long audit(UUID user, long daysAgo) {
+        return jdbc.queryForObject("""
+                INSERT INTO audit_log (user_id, event, ip_hash, created_at) VALUES (?, 'LOGIN_SUCCESS', ?, ?)
+                RETURNING id""", Long.class, user, "a".repeat(64), ts(now.minus(java.time.Duration.ofDays(daysAgo))));
+    }
+
+    private String ipHash(long id) {
+        return jdbc.queryForObject("SELECT ip_hash FROM audit_log WHERE id = ?", String.class, id);
+    }
+
+    private boolean exists(long id) {
+        return jdbc.queryForObject("SELECT count(*) FROM audit_log WHERE id = ?", Integer.class, id) == 1;
+    }
+
+    @Test
+    void auditIpHashesExpireAfter90DaysAndDetachedRowsAfterAYear() {
+        long recent = audit(userId, 10);
+        long old = audit(userId, 91);
+        long veryOldOwned = audit(userId, 400);
+        long detachedOld = audit(null, 200);
+        long detachedVeryOld = audit(null, 366);
+
+        TokenCleanupService.Result result = cleanup.purge();
+
+        assertThat(ipHash(recent)).isNotNull();
+        assertThat(ipHash(old)).isNull();
+        assertThat(exists(old)).isTrue();
+        assertThat(exists(veryOldOwned)).isTrue();
+        assertThat(ipHash(veryOldOwned)).isNull();
+        assertThat(exists(detachedOld)).isTrue();
+        assertThat(ipHash(detachedOld)).isNull();
+        assertThat(exists(detachedVeryOld)).isFalse();
+        assertThat(result.auditIpHashesCleared()).isGreaterThanOrEqualTo(3);
+        assertThat(result.auditRowsDeleted()).isGreaterThanOrEqualTo(1);
+    }
 }
