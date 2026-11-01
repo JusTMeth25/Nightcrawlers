@@ -27,3 +27,11 @@ export function stepFrame(deltaMs: number, host: FrameHost): boolean {
   host.resolveDamage(dt)
   return true
 }
+
+/** Runs the simulation steps in order, stopping as soon as `stop` is true (the player died). */
+export function runSteps(steps: readonly ((dtSec: number) => void)[], dtSec: number, stop: () => boolean): void {
+  for (let i = 0; i < steps.length; i++) {
+    if (stop()) return
+    steps[i](dtSec)
+  }
+}

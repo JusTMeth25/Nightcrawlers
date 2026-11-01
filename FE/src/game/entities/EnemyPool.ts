@@ -6,6 +6,7 @@ import { balance, enemies as enemyDefs } from '@data/index'
 import type { EnemyDef } from '@shared/types'
 import { animTable, dirOf, type AnimTable } from '../render/animTable'
 import { drawPlaceholder } from '../render/placeholders'
+import { BOSS_SCALE, enemyBodyScale, filterCircleHits, MAX_BODY_SCALE } from '../systems/hitShapes'
 import type { SpatialGrid } from '../systems/spatialGrid'
 import { BODY_OFFSET, ENEMY_RADIUS, SPRITE_SCALE } from '../world/view'
 import { actorDepth } from '../render/depth'
@@ -20,7 +21,9 @@ const SEPARATION_RADIUS = ENEMY_RADIUS * 1.6
 const SEPARATION_PUSH = 110
 const MAX_NEIGHBOURS = 6
 const ELITE_TINT = 0x8a2be2
-const BOSS_SCALE = 1.6
+const STUN_TINT = 0x2a7fff
+/** grid queries grow by this so the biggest hit circle is never missed */
+const QUERY_PAD = ENEMY_RADIUS * MAX_BODY_SCALE
 
 /** charger states */
 const WALK = 0
@@ -48,7 +51,15 @@ export class EnemyPool {
   readonly active: Uint8Array
   readonly elite: Uint8Array
   readonly boss: Uint8Array
+  /** 1 = moved by an external controller (BossController): the pool only applies knockback */
+  readonly controlled: Uint8Array
   readonly defIndex: Uint8Array
+  /** hit circle radius, scaled like the sprite (elite, boss) */
+  readonly radius: Float32Array
+  /** feet to body centre, scaled like the sprite */
+  readonly bodyOff: Float32Array
+  /** bumped on every spawn: (slot, gen) identifies one enemy across slot reuse */
+  readonly gen: Uint32Array
   readonly sprites: Phaser.GameObjects.Sprite[] = []
   /** global slow (Sandevistan): 1 = normal speed */
   slow = 1
@@ -60,6 +71,7 @@ export class EnemyPool {
   private readonly cdx: Float32Array
   private readonly cdy: Float32Array
   private readonly flash: Float32Array
+  private readonly stunLeft: Float32Array
   private readonly pendingDt: Float32Array
   private readonly dmgMult: Float32Array
   private readonly tables: (AnimTable | null)[]
@@ -76,7 +88,11 @@ export class EnemyPool {
     this.active = new Uint8Array(cap)
     this.elite = new Uint8Array(cap)
     this.boss = new Uint8Array(cap)
+    this.controlled = new Uint8Array(cap)
     this.defIndex = new Uint8Array(cap)
+    this.radius = new Float32Array(cap)
+    this.bodyOff = new Float32Array(cap)
+    this.gen = new Uint32Array(cap)
     this.kbx = new Float32Array(cap)
     this.kby = new Float32Array(cap)
     this.timer = new Float32Array(cap)
@@ -84,11 +100,12 @@ export class EnemyPool {
     this.cdx = new Float32Array(cap)
     this.cdy = new Float32Array(cap)
     this.flash = new Float32Array(cap)
+    this.stunLeft = new Float32Array(cap)
     this.pendingDt = new Float32Array(cap)
     this.dmgMult = new Float32Array(cap)
     this.tables = enemyDefs.map((d) => animTable(available, d.spriteKey))
     this.textures = enemyDefs.map((d, i) =>
-      this.tables[i] ? 'enemies' : drawPlaceholder(scene, `enemy_${d.id}`, d.color, d.behavior === 'boss' ? 56 : 28, d.behavior === 'boss' ? 'boss' : 'enemy'),
+      this.tables[i] ? 'enemies' : drawPlaceholder(scene, `enemy_${d.id}`, d.color, d.behavior === 'boss' ? 38 : 28, d.behavior === 'boss' ? 'boss' : 'enemy'),
     )
     for (let i = 0; i < cap; i++) {
       this.sprites.push(scene.add.sprite(0, 0, this.textures[0]).setVisible(false).setActive(false))
@@ -142,10 +159,15 @@ export class EnemyPool {
     this.defIndex[i] = di
     this.elite[i] = elite
     this.boss[i] = boss
+    this.controlled[i] = 0
     this.x[i] = x
     this.y[i] = y
     this.hp[i] = hp
     this.maxHp[i] = hp
+    const body = enemyBodyScale(elite === 1, boss === 1)
+    this.radius[i] = ENEMY_RADIUS * body
+    this.bodyOff[i] = BODY_OFFSET * body
+    this.gen[i]++
     this.dmgMult[i] = opts.damageMult ?? 1
     this.damage[i] = def.damage * this.dmgMult[i]
     this.kbx[i] = 0
@@ -153,6 +175,7 @@ export class EnemyPool {
     this.state[i] = WALK
     this.timer[i] = def.behavior === 'charger' ? CHARGE_EVERY_SEC : (def.ranged?.cooldownSec ?? 0)
     this.flash[i] = 0
+    this.stunLeft[i] = 0
     this.pendingDt[i] = 0
     const s = this.sprites[i]
     const table = this.tables[di]
@@ -181,8 +204,34 @@ export class EnemyPool {
     this.hp[i] -= amount
     this.kbx[i] += kx
     this.kby[i] += ky
-    this.flash[i] = HIT_FLASH_SEC
+    if (this.flash[i] <= 0) {
+      this.flash[i] = HIT_FLASH_SEC
+      this.applyTint(i)
+    } else {
+      this.flash[i] = HIT_FLASH_SEC
+    }
     return this.hp[i] <= 0
+  }
+
+  /** Stuns enemy i for `sec` (no movement, no attacks; knockback still applies). */
+  stun(i: number, sec: number): void {
+    if (sec <= this.stunLeft[i]) return
+    const was = this.stunLeft[i] > 0
+    this.stunLeft[i] = sec
+    if (!was) this.applyTint(i)
+  }
+
+  stunned(i: number): boolean {
+    return this.stunLeft[i] > 0
+  }
+
+  /** Tint by priority: hit flash, stun, elite, none. */
+  private applyTint(i: number): void {
+    const s = this.sprites[i]
+    if (this.flash[i] > 0) s.setTint(0xffffff).setTintMode(Phaser.TintModes.FILL)
+    else if (this.stunLeft[i] > 0) s.setTint(STUN_TINT).setTintMode(Phaser.TintModes.ADD)
+    else if (this.elite[i]) s.setTint(ELITE_TINT).setTintMode(Phaser.TintModes.ADD)
+    else s.setTint(0xffffff).setTintMode(Phaser.TintModes.MULTIPLY)
   }
 
   /**
@@ -201,19 +250,23 @@ export class EnemyPool {
     for (let i = 0; i < this.cap; i++) {
       if (!this.active[i]) continue
       const s = this.sprites[i]
-      // hit flash runs every frame so it stays visible
+      // hit flash and stun run every frame so they stay visible
       if (this.flash[i] > 0) {
         this.flash[i] -= dt
-        if (this.flash[i] > 0) s.setTint(0xffffff).setTintMode(Phaser.TintModes.FILL)
-        else if (this.elite[i]) s.setTint(ELITE_TINT).setTintMode(Phaser.TintModes.ADD)
-        else s.setTint(0xffffff).setTintMode(Phaser.TintModes.MULTIPLY)
+        if (this.flash[i] <= 0) this.applyTint(i)
+      }
+      if (this.stunLeft[i] > 0) {
+        this.stunLeft[i] -= dt
+        if (this.stunLeft[i] <= 0) this.applyTint(i)
       }
       this.pendingDt[i] += dt
       const onScreen = inView.contains(this.x[i], this.y[i])
+      // off-screen sprites are hidden: the renderer skips them entirely
+      if (s.visible !== onScreen) s.setVisible(onScreen)
       if (!onScreen && (i + frame) % 3 !== 0) continue
       const step = Math.min(this.pendingDt[i], 0.3) * this.slow
       this.pendingDt[i] = 0
-      this.think(i, step, px, py, shoot)
+      if (this.stunLeft[i] <= 0 && !this.controlled[i]) this.think(i, step, px, py, shoot)
       if (onScreen) this.separate(i, step, grid)
       // knockback decays exponentially
       this.x[i] += this.kbx[i] * step
@@ -222,7 +275,9 @@ export class EnemyPool {
       this.kbx[i] *= damp
       this.kby[i] *= damp
       s.setPosition(this.x[i], this.y[i])
-      s.setDepth(actorDepth(this.y[i], py))
+      // every depth write queues a display-list sort: write only real changes
+      const depth = Math.round(actorDepth(this.y[i], py))
+      if (s.depth !== depth) s.setDepth(depth)
     }
   }
 
@@ -250,7 +305,7 @@ export class EnemyPool {
       this.timer[i] -= dt
       if (this.timer[i] <= 0 && dist <= r.range * 1.1) {
         this.timer[i] = r.cooldownSec
-        shoot(this.x[i], this.y[i] - BODY_OFFSET, ux, uy, def, this.dmgMult[i])
+        shoot(this.x[i], this.y[i] - this.bodyOff[i], ux, uy, def, this.dmgMult[i])
       }
     } else if (def.behavior === 'charger') {
       this.timer[i] -= dt
@@ -277,18 +332,22 @@ export class EnemyPool {
     }
     this.x[i] += vx * speed * dt
     this.y[i] += vy * speed * dt
-    const s = this.sprites[i]
+    this.face(i, ux, uy, 'walk')
+  }
+
+  /** Turns enemy i towards (ux, uy) and plays `action` (falls back like every animation). */
+  face(i: number, ux: number, uy: number, action: 'walk' | 'skill' | 'shoot'): void {
     const table = this.tables[this.defIndex[i]]
-    if (table) {
-      const dir = dirOf(ux, uy)
-      const key = table[dir].walk
-      if (key && s.anims.currentAnim?.key !== key) s.play(key)
-      s.setFlipX(dir === 'side' && ux < 0)
-    }
+    if (!table) return
+    const s = this.sprites[i]
+    const dir = dirOf(ux, uy)
+    const key = table[dir][action] ?? table[dir].walk
+    if (key && s.anims.currentAnim?.key !== key) s.play(key)
+    s.setFlipX(dir === 'side' && ux < 0)
   }
 
   private separate(i: number, dt: number, grid: SpatialGrid): void {
-    const n = grid.queryRadius(this.x[i], this.y[i] - BODY_OFFSET, SEPARATION_RADIUS, this.neighbours)
+    const n = grid.queryRadius(this.x[i], this.y[i] - this.bodyOff[i], SEPARATION_RADIUS, this.neighbours)
     let pushX = 0
     let pushY = 0
     let used = 0
@@ -318,7 +377,21 @@ export class EnemyPool {
   /** Writes body centres into the grid (call once per frame before queries). */
   fillGrid(grid: SpatialGrid): void {
     grid.clear()
-    for (let i = 0; i < this.cap; i++) if (this.active[i]) grid.insert(i, this.x[i], this.y[i] - BODY_OFFSET)
+    for (let i = 0; i < this.cap; i++) if (this.active[i]) grid.insert(i, this.x[i], this.y[i] - this.bodyOff[i])
+  }
+
+  /**
+   * Enemies whose hit circle overlaps the circle (x, y, r), written into `out`; returns the count.
+   * The grid must have been filled by `fillGrid` this frame.
+   */
+  queryHits(grid: SpatialGrid, x: number, y: number, r: number, out: number[]): number {
+    const n = grid.queryRadius(x, y, r + QUERY_PAD, out)
+    return filterCircleHits(out, n, x, y, r, this.x, this.y, this.bodyOff, this.radius)
+  }
+
+  /** Body centre y (collision height) of enemy i. */
+  bodyY(i: number): number {
+    return this.y[i] - this.bodyOff[i]
   }
 
   /** Pushes every enemy within `radius` away from a point (revival shockwave). */

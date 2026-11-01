@@ -28,6 +28,7 @@ export function createProjectileBehavior(): Behavior {
           weapon.color,
         )
       }
+      host.sfx('shoot')
       return true
     },
   }

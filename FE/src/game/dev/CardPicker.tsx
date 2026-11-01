@@ -21,7 +21,8 @@ const box: React.CSSProperties = {
   zIndex: 10,
 }
 
-export default function CardPicker() {
+/** `auto`: answer every level-up with the first card and close chests at once (long runs). */
+export default function CardPicker({ auto = false }: { auto?: boolean }) {
   const [cards, setCards] = useState<LevelUpCard[] | null>(null)
   const [chest, setChest] = useState<ChestReward | null>(null)
 
@@ -29,17 +30,21 @@ export default function CardPicker() {
     const offs = [
       gameBus.on('levelup:offer', ({ cards }) => {
         console.info('[harness] levelup:offer', cards)
-        setCards(cards)
+        if (auto) queueMicrotask(() => gameBus.emit('levelup:choose', { index: 0 }))
+        else setCards(cards)
       }),
       gameBus.on('chest:open', (reward) => {
         console.info('[harness] chest:open', reward)
-        setChest(reward)
+        if (auto) queueMicrotask(() => gameBus.emit('chest:close', undefined))
+        else setChest(reward)
       }),
       gameBus.on('game:paused', (p) => console.info('[harness] game:paused', p.reason)),
       gameBus.on('game:resumed', () => console.info('[harness] game:resumed')),
+      gameBus.on('run:checkpoint', (c) => console.info('[harness] run:checkpoint', JSON.stringify(c))),
+      gameBus.on('run:end', (r) => console.info('[harness] run:end', JSON.stringify(r))),
     ]
     return () => offs.forEach((off) => off())
-  }, [])
+  }, [auto])
 
   if (cards) {
     return (
