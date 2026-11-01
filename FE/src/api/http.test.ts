@@ -62,6 +62,19 @@ describe('http', () => {
     expect(init.body).toBe('{"a":1}')
   })
 
+  it('keeps the errorId of a 500 problem detail', async () => {
+    const { http } = setup(() =>
+      new Response(JSON.stringify({ type: 'about:blank', title: 'Errore interno', status: 500, errorId: 'e-42' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/problem+json' },
+      }),
+    )
+    await expect(http.request('/api/x', { auth: true })).rejects.toMatchObject({
+      status: 500,
+      problem: { errorId: 'e-42' },
+    })
+  })
+
   it('refreshes once for three parallel 401s and retries each request once', async () => {
     const { http, refresh, fetchImpl, onAuthLost } = setup((url, init) =>
       header(init, 'Authorization') === 'Bearer new' ? json(200, { url }) : problem(401, 'Unauthorized'),

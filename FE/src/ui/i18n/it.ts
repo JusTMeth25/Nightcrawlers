@@ -49,6 +49,7 @@ export const it = {
 
   'error.network': 'Impossibile contattare il server. Controlla la connessione e riprova.',
   'error.generic': 'Qualcosa è andato storto. Riprova.',
+  'error.code': '(codice: {id})',
   'error.rateLimited': 'Troppi tentativi, riprova tra {seconds} secondi',
   'error.rateLimitedShort': 'Troppi tentativi, riprova più tardi',
 

@@ -172,6 +172,15 @@ describe('AccountScreen', () => {
     expect(del).toHaveBeenCalledTimes(2)
   })
 
+  it('an unexpected server error shows its code so the user can report it', async () => {
+    vi.spyOn(api, 'exportData').mockRejectedValueOnce(
+      new ApiError(500, { type: 'about:blank', title: 'Errore interno', status: 500, errorId: 'f00d-42' }, null),
+    )
+    renderAccount()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Esporta i miei dati' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Qualcosa è andato storto. Riprova. (codice: f00d-42)')
+  })
+
   // last: the mock user is gone afterwards
   it('deletes the account with the right password and goes home as guest', async () => {
     const router = renderAccount()
