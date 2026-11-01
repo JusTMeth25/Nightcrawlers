@@ -11,6 +11,11 @@
 	# No trusted_proxies: X-Forwarded-* from clients are never trusted.
 	servers {
 		protocols h1 h2 h3
+		timeouts {
+			read_header 10s
+			read_body 30s
+			idle 2m
+		}
 	}
 }
 
@@ -41,6 +46,13 @@
 		-Via
 	}
 
+	# Path parameters (;) and dot segments (..), raw or percent-encoded ({path} is decoded), are
+	# never legitimate here: 400 before any routing.
+	@badpath expression `{http.request.uri.path}.contains(";") || {http.request.uri.path}.contains("..")`
+	handle @badpath {
+		respond 400
+	}
+
 	# Health and other actuator endpoints are reachable only inside the docker network.
 	@actuator path /actuator /actuator/*
 	handle @actuator {
@@ -52,6 +64,13 @@
 	# proxies) and the RFC 7239 Forwarded header is dropped; the backend reads only XFF,
 	# and only from this container's address (TRUSTED_PROXIES).
 	handle /api/* {
+		# JSON bodies are small. A declared length of 1 MB or more is refused with 413 up front;
+		# bodies without a length (chunked) are cut at 1 MB.
+		@toolarge header_regexp Content-Length ^[0-9]{7,}$
+		respond @toolarge 413
+		request_body {
+			max_size 1MB
+		}
 		reverse_proxy backend:8080 {
 			header_up -Forwarded
 			header_up -X-Real-IP
