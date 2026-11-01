@@ -40,6 +40,8 @@ export default function CardPicker({ auto = false }: { auto?: boolean }) {
       }),
       gameBus.on('game:paused', (p) => console.info('[harness] game:paused', p.reason)),
       gameBus.on('game:resumed', () => console.info('[harness] game:resumed')),
+      gameBus.on('run:checkpoint', (c) => console.info('[harness] run:checkpoint', JSON.stringify(c))),
+      gameBus.on('run:end', (r) => console.info('[harness] run:end', JSON.stringify(r))),
     ]
     return () => offs.forEach((off) => off())
   }, [auto])

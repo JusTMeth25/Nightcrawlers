@@ -7,13 +7,15 @@ import {
   DEFAULT_OPTIONS,
   type EnemyId,
   type GameOptions,
+  type HudState,
   type LevelUpCard,
   type OwnedWeapon,
   type RunConfig,
+  type RunResult,
   type Stats,
   type WeaponId,
 } from '@shared/types'
-import { DEV_OPTIONS_KEY, RUN_CONFIG_KEY, type DevOptions } from '../config'
+import { DEV_OPTIONS_KEY, RUN_CONFIG_KEY, SESSION_KEY, type DevOptions } from '../config'
 import { Chests } from '../entities/Chest'
 import { formationPositions, scatterPoint, type Point } from '../entities/formations'
 import { EnemyPool, type EnemyShot } from '../entities/EnemyPool'
@@ -42,7 +44,10 @@ import { bossHp } from '../enemies/bossPatterns'
 import { alertMultipliers, Director, type SpawnOrder } from '../systems/director'
 import { bindSceneEnd } from '../run/lifecycle'
 import { PauseState } from '../run/PauseState'
-import { stepFrame, type FrameHost } from '../run/frame'
+import { MAX_FRAME_MS, stepFrame, type FrameHost } from '../run/frame'
+import { GameSession } from '../run/GameSession'
+import { HudReporter } from '../run/HudReporter'
+import { CheckpointClock, RunStats } from '../run/RunStats'
 import { RunFlow } from '../run/RunFlow'
 import { computeDamage, healAmount } from '../systems/combat'
 import { createInventory, type Inventory } from '../systems/inventory'
@@ -73,6 +78,8 @@ const ENEMY_SHOT_LIFE_SEC = 3
 const PICKUP_CAP = 600
 const PICKUP_RADIUS = balance.player.pickupRadius + PLAYER_RADIUS
 const AIM_NEAREST_RANGE = 420
+/** death animation before run:end (plan Task 15) */
+const DEATH_SEC = 1.5
 
 const FALLBACK_RUN: RunConfig = {
   mode: 'guest',
@@ -99,17 +106,14 @@ export class RunScene extends Phaser.Scene implements SkillHost {
   projectiles!: ProjectilePool
   weapons!: WeaponSystem
   damageNumbers!: DamageNumbers
-  readonly killsByEnemy: Partial<Record<EnemyId, number>> = {}
-  readonly enemiesSeen = new Set<EnemyId>()
-  readonly weaponsSeen = new Set<WeaponId>()
+  runStats = new RunStats()
+  session!: GameSession
   pickups!: PickupPool
   chests!: Chests
   flow!: RunFlow
   controls!: InputManager
-  kills = 0
   level = 1
   xp = 0
-  eurodollars = 0
   pauseState!: PauseState
   screen!: ScreenFx
   frenzyOverlay!: FrenzyOverlay
@@ -119,7 +123,15 @@ export class RunScene extends Phaser.Scene implements SkillHost {
   vfx!: FxPool
   grenades!: Grenades
   audio: AudioSystem | null = null
-  private offOptions: (() => void) | null = null
+  private unlinkSession: (() => void) | null = null
+  private offFreeze: (() => void) | null = null
+  /** the session was made here (no GameCanvas): dispose it with the scene */
+  private ownSession = false
+  private readonly hud = new HudReporter(gameBus)
+  private checkpoints!: CheckpointClock
+  private startSec = 0
+  /** real seconds left of the death animation before run:end */
+  private deathLeft = -1
   protected frame = 0
   protected floor!: CityFloor
   protected readonly inView = new Phaser.Geom.Rectangle()
@@ -140,13 +152,15 @@ export class RunScene extends Phaser.Scene implements SkillHost {
     this.dev = (this.registry.get(DEV_OPTIONS_KEY) as DevOptions | undefined) ?? {}
     this.clock = 0
     this.frame = 0
-    this.kills = 0
     this.level = 1
     this.xp = 0
-    this.eurodollars = 0
-    for (const k of Object.keys(this.killsByEnemy) as EnemyId[]) delete this.killsByEnemy[k]
-    this.enemiesSeen.clear()
-    this.weaponsSeen.clear()
+    this.deathLeft = -1
+    this.runStats = new RunStats()
+    const session = this.registry.get(SESSION_KEY) as GameSession | undefined
+    this.ownSession = !session
+    this.session = session ?? new GameSession(gameBus, this.run)
+    // options may have changed between the mount and the scene start
+    this.run = { ...this.run, options: this.session.options }
     this.psychosis = createPsychosis()
   }
 
@@ -163,7 +177,9 @@ export class RunScene extends Phaser.Scene implements SkillHost {
     this.stats = this.computeRunStats()
     if (this.dev.frenzy) this.psychosis = { value: 0, frenzyLeftSec: balance.psychosis.frenzyDurationSec }
     const startSec = Math.max(0, this.dev.startSec ?? 0)
+    this.startSec = startSec
     this.clock = startSec
+    this.checkpoints = new CheckpointClock(balance.antiCheat.checkpointEverySec, startSec)
     this.director = new Director(waves, this.rng, startSec)
     this.floor = new CityFloor(this, this.run.seed)
     // cosmetic randomness has its own stream: options never change the run
@@ -184,8 +200,8 @@ export class RunScene extends Phaser.Scene implements SkillHost {
     this.bosses = new BossController(this)
     this.pickups = new PickupPool(this, PICKUP_CAP)
     this.chests = new Chests(this)
-    this.pauseState = new PauseState(gameBus, () => this.flow.busy)
-    this.pauseState.onChange((paused) => this.freezeCosmetics(paused))
+    this.pauseState = this.session.pause
+    this.offFreeze = this.pauseState.onChange((paused) => this.freezeCosmetics(paused))
     this.flow = new RunFlow(gameBus, {
       rng: this.rng,
       getInventory: () => this.inventory,
@@ -198,6 +214,11 @@ export class RunScene extends Phaser.Scene implements SkillHost {
     })
     this.controls = new InputManager(this)
     this.createAudio()
+    this.unlinkSession = this.session.link({
+      modalOpen: () => this.flow.busy,
+      result: () => this.result(),
+      applyOptions: (o) => this.applyOptions(o),
+    })
 
     const cam = this.cameras.main
     cam.startFollow(this.player.sprite, true)
@@ -218,7 +239,6 @@ export class RunScene extends Phaser.Scene implements SkillHost {
     const unlock = () => audio.unlock()
     this.input.once(Phaser.Input.Events.POINTER_DOWN, unlock)
     this.input.keyboard?.once('keydown', unlock)
-    this.offOptions = gameBus.on('options:changed', (o) => this.applyOptions(o))
   }
 
   /** Options changed from the pause menu. */
@@ -241,11 +261,29 @@ export class RunScene extends Phaser.Scene implements SkillHost {
   /** Re-reads inventory and stats into the weapon system (after cards and evolutions). */
   syncWeapons(): void {
     this.weapons.sync(this.inventory, this.stats)
-    for (const w of this.inventory.weapons) this.weaponsSeen.add(w.id)
+    for (const w of this.inventory.weapons) this.runStats.seeWeapon(w.id)
   }
 
   get paused(): boolean {
-    return this.pauseState.paused || this.player.dead
+    return this.pauseState.paused || this.player.dead || this.session.isEnded
+  }
+
+  get kills(): number {
+    return this.runStats.kills
+  }
+
+  get eurodollars(): number {
+    return this.runStats.eurodollarsCollected
+  }
+
+  /** Game seconds played (a harness `?t=` start does not count). */
+  get elapsedSec(): number {
+    return this.clock - this.startSec
+  }
+
+  /** The run's data so far (run:end, run:quit). */
+  result(): RunResult {
+    return this.runStats.result(this.run.runId, this.run.characterId, this.elapsedSec, this.level)
   }
 
   /** Inventory changes (cards, chests, evolutions) refresh stats, player and weapons. */
@@ -287,7 +325,7 @@ export class RunScene extends Phaser.Scene implements SkillHost {
 
   private onCard(card: LevelUpCard): void {
     if (card.kind === 'heal') this.heal(card.amount)
-    else if (card.kind === 'eurodollars') this.eurodollars += card.amount
+    else if (card.kind === 'eurodollars') this.runStats.addEurodollars(card.amount)
   }
 
   /** Sprite animations, tweens and timers stop with the game (menu, level-up, chest). */
@@ -313,8 +351,38 @@ export class RunScene extends Phaser.Scene implements SkillHost {
     const screenY = (this.player.bodyY - cam.worldView.y) * cam.zoom
     this.input0 = this.controls.update(screenX, screenY, this.run.options.autoAim)
     // ignored while a level-up or chest is open (PauseState)
-    if (this.input0.pause) this.pauseState.toggleMenu()
+    if (this.input0.pause && !this.player.dead) this.pauseState.toggleMenu()
     stepFrame(deltaMs, this.frameHost)
+    if (this.deathLeft >= 0 && !this.session.isEnded) {
+      // the death animation runs on real time; then the run ends
+      this.deathLeft -= Math.min(deltaMs, MAX_FRAME_MS) / 1000
+      if (this.deathLeft < 0) this.session.end(this.result())
+    }
+    const now = this.game.loop.time
+    if (this.hud.due(now)) this.hud.maybeEmit(now, this.hudState())
+  }
+
+  /** A fresh object each time (React state), built at most 10 times per second. */
+  private hudState(): HudState {
+    const p = this.player
+    return {
+      timeSec: this.clock,
+      hp: Math.max(0, p.hp),
+      maxHp: p.maxHp,
+      level: this.level,
+      xp: this.xp,
+      xpToNext: xpToNext(this.level),
+      kills: this.runStats.kills,
+      eurodollars: this.runStats.eurodollarsCollected,
+      psychosis: this.psychosis.value,
+      psychosisActive: isFrenzy(this.psychosis),
+      skillCooldown01: this.skills.cooldown01,
+      weapons: this.inventory.weapons,
+      cyberware: this.inventory.cyberware,
+      bossHp01: this.bosses.bossHp01,
+      maxtacAlert: this.clock >= waves.maxtacAlertAtSec,
+      fps: this.run.options.showFps ? Math.round(this.fps) : null,
+    }
   }
 
   /** The per-frame steps, in order; see run/frame.ts for the pause rules. */
@@ -323,6 +391,8 @@ export class RunScene extends Phaser.Scene implements SkillHost {
     advanceClock: (dt) => {
       this.frame++
       this.clock += dt
+      const due = this.checkpoints.due(this.clock)
+      for (let k = 0; k < due; k++) gameBus.emit('run:checkpoint', this.runStats.checkpoint(this.elapsedSec, this.level))
     },
     simulate: (dt) => this.simulate(dt),
     resolveDamage: () => {
@@ -403,9 +473,7 @@ export class RunScene extends Phaser.Scene implements SkillHost {
   protected onEnemyKilled(enemy: number): void {
     const def = this.enemies.def(enemy)
     this.dropLoot(enemy)
-    this.kills++
-    this.killsByEnemy[def.id] = (this.killsByEnemy[def.id] ?? 0) + 1
-    this.enemiesSeen.add(def.id)
+    this.runStats.addKill(def.id)
     let cyberLevels = 0
     for (const c of this.inventory.cyberware) cyberLevels += c.level
     this.psychosis = onKill(this.psychosis, cyberLevels)
@@ -445,7 +513,7 @@ export class RunScene extends Phaser.Scene implements SkillHost {
         break
       }
       case PICKUP_EURO:
-        this.eurodollars += value
+        this.runStats.addEurodollars(value)
         break
       case PICKUP_MEDKIT:
         this.player.heal(healAmount(value, this.psychosis.value))
@@ -505,7 +573,7 @@ export class RunScene extends Phaser.Scene implements SkillHost {
 
   /** Codex: an enemy counts as seen once it spawns. */
   protected onEnemySpawned(slot: number): void {
-    this.enemiesSeen.add(this.enemies.def(slot).id)
+    this.runStats.seeEnemy(this.enemies.def(slot).id)
   }
 
   spawnAround(enemyId: EnemyId, x: number, y: number, count: number, radius: number): void {
@@ -569,9 +637,10 @@ export class RunScene extends Phaser.Scene implements SkillHost {
     }
   }
 
-  /** Run end and `run:end` come with plan Task 15. */
+  /** No revival left: the death animation plays for DEATH_SEC, then run:end. */
   protected onPlayerDeath(): void {
-    console.info('[game] player died at', this.clock.toFixed(1), 's')
+    this.skills.stop()
+    this.deathLeft = DEATH_SEC
   }
 
   private debugLine(): string | null {
@@ -587,12 +656,14 @@ export class RunScene extends Phaser.Scene implements SkillHost {
   protected teardown(destroying: boolean): void {
     // bus listeners first: they must go even if a later step throws
     this.flow?.dispose()
-    this.pauseState?.dispose()
+    this.offFreeze?.()
+    this.offFreeze = null
+    this.unlinkSession?.()
+    this.unlinkSession = null
+    if (this.ownSession) this.session?.dispose()
     this.scale.off(Phaser.Scale.Events.RESIZE, this.applyZoom, this)
     this.controls?.destroy()
     this.weapons?.destroy()
-    this.offOptions?.()
-    this.offOptions = null
     this.audio?.dispose()
     this.audio = null
     this.skills?.destroy()

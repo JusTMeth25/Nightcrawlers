@@ -7,6 +7,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { characters, weapons } from '@data/index'
+import { gameBus } from '@shared/events'
 import { DEFAULT_OPTIONS, type CharacterId, type RunConfig, type WeaponId } from '@shared/types'
 import type { DevOptions } from '../config'
 import CardPicker from './CardPicker'
@@ -39,9 +40,12 @@ const dev: DevOptions = {
   startSec: Math.max(0, Number(params.get('t') ?? 0) || 0),
 }
 
+// headless checks drive the bus from here
+;(window as unknown as { __bus?: typeof gameBus }).__bus = gameBus
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <DevGame config={config} dev={dev} />
+    <DevGame config={config} dev={dev} onEnd={(r) => console.info('[harness] onEnd', JSON.stringify(r))} />
     <CardPicker auto={params.get('auto') === '1'} />
   </StrictMode>,
 )

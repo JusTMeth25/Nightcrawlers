@@ -1,17 +1,11 @@
-// Harness-only host for the Phaser game (GameCanvas takes over in plan Task 15).
-import { useEffect, useRef } from 'react'
-import Phaser from 'phaser'
-import type { RunConfig } from '@shared/types'
-import { createGameConfig, type DevOptions } from '../config'
+// Harness host: the same mount as GameCanvas, plus the harness switches (DevOptions).
+import { useRef } from 'react'
+import type { RunConfig, RunResult } from '@shared/types'
+import type { DevOptions } from '../config'
+import { useGame } from '../run/useGame'
 
-export default function DevGame({ config, dev }: { config: RunConfig; dev: DevOptions }) {
+export default function DevGame({ config, dev, onEnd }: { config: RunConfig; dev: DevOptions; onEnd: (r: RunResult) => void }) {
   const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!ref.current) return
-    const game = new Phaser.Game(createGameConfig(ref.current, config, dev))
-    // headless checks read the game state from here
-    ;(window as unknown as { __game?: Phaser.Game }).__game = game
-    return () => game.destroy(true)
-  }, [config, dev])
+  useGame(ref, config, onEnd, dev)
   return <div ref={ref} data-testid="game-canvas" style={{ position: 'fixed', inset: 0 }} />
 }
