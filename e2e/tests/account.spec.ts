@@ -53,11 +53,9 @@ test('register, verify by email, login, session survives a reload, logout from a
   await expect(page.getByRole('link', { name: 'Account' })).toHaveCount(0)
 })
 
-// BUG: AccountScreen.onLogoutAll calls navigate('/') and then signs out synchronously; RequireAuth
-// re-renders /account as guest before the navigation commits and redirects to /login
-// (state.from = '/account'). Remove test.fail() once the user lands on the title screen.
+// Regression: signing out used to let RequireAuth redirect /account to /login before the
+// navigation to the title screen committed.
 test('logout from all devices returns to the title screen', async ({ page, request }) => {
-  test.fail()
   const user = newUser('lga')
   await createVerifiedUser(request, user)
   await loginViaUi(page, user)
