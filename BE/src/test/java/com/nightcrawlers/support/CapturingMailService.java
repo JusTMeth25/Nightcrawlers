@@ -12,6 +12,7 @@ import java.util.regex.Pattern;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import com.nightcrawlers.mail.MailService;
+import com.nightcrawlers.mail.RenderedMail;
 
 /**
  * Keeps sent emails in memory instead of talking to SMTP. Reads wait until the mail executor
@@ -21,7 +22,7 @@ public class CapturingMailService implements MailService {
 
     private static final Pattern TOKEN = Pattern.compile("token=([A-Za-z0-9_-]+)");
 
-    public record Mail(String to, String subject, String html) {
+    public record Mail(String to, String subject, String html, String text) {
 
         public Optional<String> token() {
             Matcher m = TOKEN.matcher(html);
@@ -38,7 +39,7 @@ public class CapturingMailService implements MailService {
     }
 
     @Override
-    public void send(String to, String subject, String html) {
+    public void send(String to, String subject, RenderedMail body) {
         CountDownLatch current = gate;
         if (current != null) {
             try {
@@ -47,7 +48,7 @@ public class CapturingMailService implements MailService {
                 Thread.currentThread().interrupt();
             }
         }
-        sent.add(new Mail(to, subject, html));
+        sent.add(new Mail(to, subject, body.html(), body.text()));
     }
 
     /** Makes every send block (like a slow SMTP relay) until {@link #unblock} is called. */

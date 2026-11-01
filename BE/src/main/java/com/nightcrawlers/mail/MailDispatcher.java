@@ -26,7 +26,7 @@ public class MailDispatcher {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     public void dispatch(MailMessage message) {
         try {
-            executor.execute(() -> mail.send(message.to(), message.subject(), message.html()));
+            executor.execute(() -> mail.send(message.to(), message.subject(), message.body()));
         } catch (TaskRejectedException e) {
             log.warn("Mail queue full, email dropped");
         }

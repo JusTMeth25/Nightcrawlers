@@ -35,13 +35,22 @@ class SmtpMailServiceTest {
             "http://x", "salt", new AppProperties.Cookies(true)));
 
     @Test
-    void sendsHtmlMail() {
+    void sendsMultipartAlternativeWithTextAndHtml() throws Exception {
         MimeMessage message = new MimeMessage((Session) null);
         when(sender.createMimeMessage()).thenReturn(message);
 
-        service.send(EMAIL, "Oggetto", "<p>ciao</p>");
+        service.send(EMAIL, "Oggetto", new RenderedMail("<p>ciao html</p>", "ciao testo"));
 
         verify(sender).send(message);
+        message.saveChanges();
+        java.io.ByteArrayOutputStream raw = new java.io.ByteArrayOutputStream();
+        message.writeTo(raw);
+        String mime = raw.toString(java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(mime)
+                .contains("multipart/alternative")
+                .contains("text/plain").contains("ciao testo")
+                .contains("text/html").contains("ciao html");
+        assertThat(mime.indexOf("text/plain")).isLessThan(mime.indexOf("text/html"));
     }
 
     @Test
@@ -49,7 +58,7 @@ class SmtpMailServiceTest {
         when(sender.createMimeMessage()).thenReturn(new MimeMessage((Session) null));
         doThrow(new MailSendException("Failed messages: invalid address " + EMAIL)).when(sender).send(any(MimeMessage.class));
 
-        service.send(EMAIL, "Oggetto", "<p>ciao</p>");
+        service.send(EMAIL, "Oggetto", new RenderedMail("<p>ciao</p>", "ciao"));
 
         assertThat(output).contains("MailSendException").doesNotContain(EMAIL);
     }

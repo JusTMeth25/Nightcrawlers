@@ -15,7 +15,7 @@ import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 
 /**
- * Sends HTML email through SMTP (Brevo in production). Delivery failures are logged, not
+ * Sends HTML email with a plain-text alternative through SMTP (Brevo in production). Delivery failures are logged, not
  * propagated: the caller's answer must not depend on the mail relay (no enumeration, no 500).
  */
 @Service
@@ -32,14 +32,15 @@ public class SmtpMailService implements MailService {
     }
 
     @Override
-    public void send(String to, String subject, String html) {
+    public void send(String to, String subject, RenderedMail body) {
         try {
             MimeMessage message = sender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, false, StandardCharsets.UTF_8.name());
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, StandardCharsets.UTF_8.name());
             helper.setFrom(from);
             helper.setTo(to);
             helper.setSubject(subject);
-            helper.setText(html, true);
+            // multipart/alternative: plain text first, HTML last (clients show the last part they support)
+            helper.setText(body.text(), body.html());
             sender.send(message);
         } catch (MessagingException | MailException e) {
             // Exception class only: SMTP messages often echo the recipient address.

@@ -1,38 +1,48 @@
 package com.nightcrawlers.mail;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.stereotype.Component;
-import org.springframework.web.util.HtmlUtils;
+import org.thymeleaf.TemplateEngine;
+import org.thymeleaf.context.Context;
+import org.thymeleaf.exceptions.TemplateInputException;
+import org.thymeleaf.templatemode.TemplateMode;
+import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
 
-/** Loads {@code mail/templates/<name>.html} and replaces {@code {{key}}} with HTML-escaped values. */
+/**
+ * Renders {@code mail/<name>.html} (HTML, shared layout {@code mail/layout.html}) and
+ * {@code mail/<name>.txt} (plain text) with Thymeleaf. Values are escaped by Thymeleaf
+ * ({@code th:text}, {@code [[...]]}), never concatenated into markup.
+ */
 @Component
 public class MailTemplates {
 
-    private final Map<String, String> cache = new ConcurrentHashMap<>();
+    private static final Locale ITALIAN = Locale.ITALIAN;
 
-    public String render(String name, Map<String, String> values) {
-        String html = cache.computeIfAbsent(name, MailTemplates::load);
-        for (Map.Entry<String, String> e : values.entrySet()) {
-            html = html.replace("{{" + e.getKey() + "}}", HtmlUtils.htmlEscape(e.getValue(), "UTF-8"));
+    private final TemplateEngine html = engine(TemplateMode.HTML, ".html");
+    private final TemplateEngine text = engine(TemplateMode.TEXT, ".txt");
+
+    public RenderedMail render(String name, Map<String, ?> values) {
+        Context context = new Context(ITALIAN);
+        values.forEach(context::setVariable);
+        try {
+            return new RenderedMail(html.process(name, context), text.process(name, context));
+        } catch (TemplateInputException e) {
+            throw new IllegalStateException("Missing or invalid mail template " + name, e);
         }
-        return html;
     }
 
-    private static String load(String name) {
-        String path = "/mail/templates/" + name + ".html";
-        try (InputStream in = MailTemplates.class.getResourceAsStream(path)) {
-            if (in == null) {
-                throw new IllegalStateException("Missing mail template " + path);
-            }
-            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+    private static TemplateEngine engine(TemplateMode mode, String suffix) {
+        ClassLoaderTemplateResolver resolver = new ClassLoaderTemplateResolver();
+        resolver.setPrefix("mail/");
+        resolver.setSuffix(suffix);
+        resolver.setTemplateMode(mode);
+        resolver.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        resolver.setCacheable(true);
+        TemplateEngine engine = new TemplateEngine();
+        engine.setTemplateResolver(resolver);
+        return engine;
     }
 }

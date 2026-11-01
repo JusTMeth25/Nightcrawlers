@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: mail(
+        'Qualcuno ha provato a registrarsi con il tuo indirizzo email.',
+        'Tentativo di registrazione',
+        ~{::#content},
+        'Recupera la password',
+        'Se non sei stato tu, puoi ignorare questo messaggio: il tuo account non è stato modificato.')}">
+<body>
+<div id="content">
+  <p style="margin:0 0 12px 0;">Ciao <strong style="color:#f5e663;" th:text="${username}">netrunner</strong>,</p>
+  <p style="margin:0 0 12px 0;">qualcuno ha provato a registrarsi con il tuo indirizzo email, che ha gi&agrave; un account.
+    Se sei stato tu e non ricordi la password, puoi reimpostarla.</p>
+</div>
+</body>
+</html>
