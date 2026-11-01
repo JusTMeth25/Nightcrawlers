@@ -62,6 +62,8 @@ export default function RipperdocScreen() {
       setNotice(t('ripperdoc.bought', { name, rank: next.ripperdoc[id] ?? 0 }))
     } catch (err) {
       setError(buyErrorText(err))
+      // 409 = the local save was stale (€$ or rank changed elsewhere): show the server state
+      if (isApiError(err, 409)) void reloadSave().catch(() => {})
     } finally {
       setBusy(null)
     }

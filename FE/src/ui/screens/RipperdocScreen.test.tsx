@@ -83,9 +83,12 @@ describe('RipperdocScreen', () => {
   it('shows the problem title of a 409', async () => {
     await loginDemo(2500)
     vi.spyOn(api, 'buyRipperdoc').mockRejectedValueOnce(problemError(409, '€$ insufficienti'))
+    const reloadSave = vi.spyOn(useSession.getState(), 'reloadSave')
     renderRipperdoc()
     await userEvent.setup().click(within(row(getRipperdoc('luck').name)).getByRole('button', { name: /Installa/ }))
     expect(await screen.findByRole('alert')).toHaveTextContent('€$ insufficienti')
+    // the local save was stale: reload it from the server
+    expect(reloadSave).toHaveBeenCalledTimes(1)
   })
 
   it('a maxed upgrade cannot be bought', async () => {
