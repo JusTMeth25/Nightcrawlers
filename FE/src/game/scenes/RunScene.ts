@@ -212,10 +212,13 @@ export class RunScene extends Phaser.Scene implements SkillHost {
       onCard: (card) => this.onCard(card),
       weaponPool: implementedWeapons(),
     })
+    // unmount is synchronous for the bus even though Phaser destroys the scene a frame later
+    this.session.onDispose(() => this.flow.dispose())
     this.controls = new InputManager(this)
     this.createAudio()
     this.unlinkSession = this.session.link({
       modalOpen: () => this.flow.busy,
+      playerDead: () => this.player.dead,
       result: () => this.result(),
       applyOptions: (o) => this.applyOptions(o),
     })
@@ -345,6 +348,7 @@ export class RunScene extends Phaser.Scene implements SkillHost {
   }
 
   update(_time: number, deltaMs: number): void {
+    if (this.session.isDisposed) return
     this.fps = this.game.loop.actualFps
     const cam = this.cameras.main
     const screenX = (this.player.x - cam.worldView.x) * cam.zoom
