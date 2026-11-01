@@ -88,6 +88,8 @@ export interface ProblemDetail {
   status: number
   detail?: string
   errors?: Record<string, string>
+  /** correlation id of an unexpected server error (500) */
+  errorId?: string
 }
 export interface MessageResponse {
   message: string
