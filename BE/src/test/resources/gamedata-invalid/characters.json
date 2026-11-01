@@ -1,0 +1,140 @@
+[
+  {
+    "id": "david",
+    "name": "David Martinez",
+    "starter": true,
+    "spriteKey": "david",
+    "color": "#f5e663",
+    "startingWeapon": "pistol",
+    "skill": "sandevistan",
+    "passive": [
+      {
+        "stat": "speed",
+        "op": "mul",
+        "value": 0.1
+      }
+    ]
+  },
+  {
+    "id": "lucy",
+    "name": "Lucy",
+    "starter": true,
+    "spriteKey": "lucy",
+    "color": "#c9a7ff",
+    "startingWeapon": "monowire",
+    "skill": "quickhack",
+    "passive": [
+      {
+        "stat": "cooldown",
+        "op": "mul",
+        "value": -0.15
+      }
+    ]
+  },
+  {
+    "id": "rebecca",
+    "name": "Rebecca",
+    "starter": true,
+    "spriteKey": "rebecca",
+    "color": "#52e0c4",
+    "startingWeapon": "shotgun",
+    "skill": "explosive_barrage",
+    "passive": [
+      {
+        "stat": "might",
+        "op": "mul",
+        "value": 0.2
+      },
+      {
+        "stat": "maxHp",
+        "op": "add",
+        "value": -10
+      }
+    ]
+  },
+  {
+    "id": "maine",
+    "name": "Maine",
+    "starter": false,
+    "spriteKey": "maine",
+    "color": "#d9822b",
+    "startingWeapon": "minigun",
+    "skill": "suppression",
+    "passive": [
+      {
+        "stat": "maxHp",
+        "op": "mul",
+        "value": 0.3
+      },
+      {
+        "stat": "speed",
+        "op": "mul",
+        "value": -0.1
+      }
+    ]
+  },
+  {
+    "id": "kiwi",
+    "name": "Kiwi",
+    "starter": false,
+    "spriteKey": null,
+    "color": "#ffd447",
+    "startingWeapon": "smart_pistol",
+    "skill": "snipe",
+    "passive": [
+      {
+        "stat": "luck",
+        "op": "mul",
+        "value": 0.2
+      }
+    ]
+  },
+  {
+    "id": "pilar",
+    "name": "Pilar",
+    "starter": false,
+    "spriteKey": null,
+    "color": "#ff9f43",
+    "startingWeapon": "grenade_launcher",
+    "skill": "cluster_grenade",
+    "passive": [
+      {
+        "stat": "area",
+        "op": "mul",
+        "value": 0.2
+      }
+    ]
+  },
+  {
+    "id": "dorio",
+    "name": "Dorio",
+    "starter": false,
+    "spriteKey": null,
+    "color": "#9c6b4a",
+    "startingWeapon": "heavy_rifle",
+    "skill": "heavy_burst",
+    "passive": [
+      {
+        "stat": "armor",
+        "op": "add",
+        "value": 2
+      }
+    ]
+  },
+  {
+    "id": "falco",
+    "name": "Falco",
+    "starter": false,
+    "spriteKey": null,
+    "color": "#6fd3ff",
+    "startingWeapon": "drone",
+    "skill": "support",
+    "passive": [
+      {
+        "stat": "magnet",
+        "op": "mul",
+        "value": 0.3
+      }
+    ]
+  }
+]

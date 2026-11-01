@@ -1,0 +1,3 @@
+[
+  { "characterId": "kiwi", "rule": { "type": "kills", "enemyId": "not_an_enemy", "count": 50 } }
+]
