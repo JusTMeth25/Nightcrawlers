@@ -2,6 +2,9 @@
 # Deploys image tag $1 on the VM (called over SSH by .github/workflows/deploy.yml).
 # On failure (pull error, unhealthy container, e.g. a failing Flyway migration) the stack is
 # brought back to the tag in .last-good-tag and the script exits non-zero.
+# Before pulling, a local pre-deploy dump is taken (ops/backup.sh --pre-deploy, newest 3 kept):
+# the way back when a migration succeeds but the new version has to be abandoned
+# (docs/deploy.md, "Ripristino del dump pre-deploy").
 #
 # Usage: [IMAGE_PREFIX=ghcr.io/<owner>/<repo>] ops/deploy.sh <tag>   (works in /opt/nightcrawlers)
 # IMAGE_PREFIX (lower case) is saved in .env with TAG, so a later plain `docker compose up`
@@ -9,6 +12,7 @@
 set -euo pipefail
 
 APP_DIR="${APP_DIR:-/opt/nightcrawlers}"
+export APP_DIR # read by ops/backup.sh
 WAIT_TIMEOUT="${WAIT_TIMEOUT:-300}"
 PRUNE_IMAGES="${PRUNE_IMAGES:-1}"
 new_tag="${1:?usage: deploy.sh <image tag>}"
@@ -34,7 +38,14 @@ set_env() {
 }
 
 echo "deploying $new_tag (last good: ${prev_tag:-none})"
-if compose "$new_tag" pull --quiet web backend \
+if [[ -n "$(docker compose ps --status running -q db 2>/dev/null)" ]]; then
+    "$APP_DIR/ops/backup.sh" --pre-deploy "$new_tag" \
+        || { echo "pre-deploy dump failed: deploy aborted, nothing changed" >&2; exit 1; }
+else
+    echo "database not running yet (first deploy): no pre-deploy dump"
+fi
+# all images: the app at the new tag plus patch releases of postgres:18 and the pinned duckdns
+if compose "$new_tag" pull --quiet \
     && compose "$new_tag" up -d --remove-orphans --wait --wait-timeout "$WAIT_TIMEOUT"; then
     echo "$new_tag" > .last-good-tag
     set_env TAG "$new_tag"
