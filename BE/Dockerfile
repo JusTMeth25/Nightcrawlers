@@ -44,7 +44,7 @@ RUN jlink --add-modules "$(cat /modules.txt),java.sql,java.sql.rowset,java.net.h
         --include-locales=en,it --strip-debug --no-man-pages --no-header-files \
         --compress=zip-0 --output /jre
 
-FROM ubuntu:24.04
+FROM ubuntu:24.10
 RUN groupadd --system app && useradd --system --gid app --no-create-home --shell /usr/sbin/nologin app
 ENV JAVA_HOME=/opt/java \
     PATH=/opt/java/bin:$PATH \
