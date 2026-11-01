@@ -27,4 +27,9 @@ public interface EmailTokenRepository extends JpaRepository<EmailToken, UUID> {
             where t.userId = :userId and t.purpose = :purpose and t.usedAt is null""")
     int invalidateOpen(@Param("userId") UUID userId, @Param("purpose") EmailToken.Purpose purpose,
             @Param("now") Instant now);
+
+    /** Used or expired tokens are never accepted again. */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("delete from EmailToken t where t.usedAt is not null or t.expiresAt <= :now")
+    int deleteUsedOrExpired(@Param("now") Instant now);
 }
