@@ -45,6 +45,10 @@ public class RefreshToken {
     @Column(name = "user_agent", length = 512)
     private String userAgent;
 
+    /** The successor issued when this token was rotated. */
+    @Column(name = "replaced_by")
+    private UUID replacedBy;
+
     public RefreshToken(UUID userId, UUID familyId, String tokenHash, Instant createdAt, Instant expiresAt,
             String userAgent) {
         this.id = UUID.randomUUID();

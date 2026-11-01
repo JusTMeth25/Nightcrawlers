@@ -7,6 +7,7 @@ public enum AuditEvent {
     LOGOUT,
     LOGOUT_ALL,
     REFRESH_REUSE,
+    REFRESH_GRACE,
     PASSWORD_RESET,
     ACCOUNT_DELETED,
     RIPPERDOC_PURCHASE,
