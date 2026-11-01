@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.util.List;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.DefaultValue;
 import org.springframework.validation.annotation.Validated;
 
 import jakarta.validation.Valid;
@@ -27,8 +28,12 @@ public record AppProperties(
     public record Jwt(@NotBlank @Size(min = 32) String secret, @NotNull Duration accessTtl) {
     }
 
-    /** {@code ttl}: sliding lifetime of each token; {@code absoluteTtl}: cap for a whole login (family). */
-    public record Refresh(@NotNull Duration ttl, @NotNull Duration absoluteTtl) {
+    /**
+     * {@code ttl}: sliding lifetime of each token; {@code absoluteTtl}: cap for a whole login (family);
+     * {@code reuseGrace}: how long a just-rotated token may be presented again (benign race).
+     */
+    public record Refresh(@NotNull Duration ttl, @NotNull Duration absoluteTtl,
+            @DefaultValue("PT20S") @NotNull Duration reuseGrace) {
     }
 
     public record Cors(@NotEmpty List<String> allowedOrigins) {

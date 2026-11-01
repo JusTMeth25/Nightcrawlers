@@ -87,11 +87,20 @@ class RefreshIT {
                 .contains("HttpOnly", "Path=/api/auth");
     }
 
+    private long liveTokensOfFamilyOf(Session session) {
+        RefreshToken any = refreshTokens.findByTokenHash(SecureTokens.sha256Hex(session.refreshToken())).orElseThrow();
+        return refreshTokens.findByUserId(any.getUserId()).stream()
+                .filter(t -> t.getFamilyId().equals(any.getFamilyId()))
+                .filter(t -> t.getUsedAt() == null && t.getRevokedAt() == null)
+                .count();
+    }
+
     @Test
-    void reusingAnOldTokenRevokesTheWholeFamily() throws Exception {
+    void reusingAnOldTokenAfterTheGraceWindowRevokesTheWholeFamily() throws Exception {
         Session first = api.loginSession(api.register());
         Session second = TestApi.session(refresh(first).andExpect(status().isOk()).andReturn());
         long reusesBefore = auditLog.countByEvent(AuditEvent.REFRESH_REUSE);
+        clock.advance(java.time.Duration.ofSeconds(21));
 
         refresh(first)
                 .andExpect(status().isUnauthorized())
@@ -102,11 +111,58 @@ class RefreshIT {
     }
 
     @Test
-    void concurrentRefreshesWithTheSameTokenLetExactlyOneThrough() throws Exception {
+    void reuseWithinTheGraceWindowIssuesANewSuccessorWithoutRevoking() throws Exception {
+        // a reload before the refresh response arrived: the browser still holds the old cookie
+        Session first = api.loginSession(api.register());
+        Session lost = TestApi.session(refresh(first).andExpect(status().isOk()).andReturn());
+        long reusesBefore = auditLog.countByEvent(AuditEvent.REFRESH_REUSE);
+        long gracesBefore = auditLog.countByEvent(AuditEvent.REFRESH_GRACE);
+        clock.advance(java.time.Duration.ofSeconds(19));
+
+        Session retried = TestApi.session(refresh(first).andExpect(status().isOk()).andReturn());
+
+        assertThat(retried.refreshToken()).isNotEqualTo(lost.refreshToken());
+        assertThat(auditLog.countByEvent(AuditEvent.REFRESH_GRACE)).isEqualTo(gracesBefore + 1);
+        assertThat(auditLog.countByEvent(AuditEvent.REFRESH_REUSE)).isEqualTo(reusesBefore);
+        assertThat(liveTokensOfFamilyOf(first)).isEqualTo(1);
+        // only the newest successor stays valid; the superseded one does not revoke the family
+        refresh(lost).andExpect(status().isUnauthorized());
+        refresh(retried).andExpect(status().isOk());
+        assertThat(auditLog.countByEvent(AuditEvent.REFRESH_REUSE)).isEqualTo(reusesBefore);
+    }
+
+    @Test
+    void reuseAfterTheSuccessorWasUsedRevokesTheFamilyEvenWithinTheWindow() throws Exception {
+        Session first = api.loginSession(api.register());
+        Session second = TestApi.session(refresh(first).andExpect(status().isOk()).andReturn());
+        Session third = TestApi.session(refresh(second).andExpect(status().isOk()).andReturn());
+        long reusesBefore = auditLog.countByEvent(AuditEvent.REFRESH_REUSE);
+
+        refresh(first).andExpect(status().isUnauthorized());
+        refresh(third).andExpect(status().isUnauthorized());
+        assertThat(auditLog.countByEvent(AuditEvent.REFRESH_REUSE)).isEqualTo(reusesBefore + 1);
+    }
+
+    @Test
+    void reuseOfARevokedFamilyIsRefusedWithinTheWindow() throws Exception {
+        Session first = api.loginSession(api.register());
+        refresh(first).andExpect(status().isOk());
+        mvc.perform(post("/api/auth/logout")
+                        .cookie(new Cookie("refresh_token", first.refreshToken()),
+                                new Cookie("XSRF-TOKEN", first.csrfToken()))
+                        .header("X-CSRF-Token", first.csrfToken()))
+                .andExpect(status().isNoContent());
+
+        refresh(first).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void concurrentRefreshesWithTheSameTokenAllSucceedAndLeaveOneValidSuccessor() throws Exception {
         Session session = api.loginSession(api.register());
+        long reusesBefore = auditLog.countByEvent(AuditEvent.REFRESH_REUSE);
         CountDownLatch start = new CountDownLatch(1);
 
-        List<CompletableFuture<MvcResult>> calls = List.of(1, 2).stream()
+        List<CompletableFuture<MvcResult>> calls = List.of(1, 2, 3, 4).stream()
                 .map(i -> CompletableFuture.supplyAsync(() -> {
                     try {
                         start.await();
@@ -119,10 +175,17 @@ class RefreshIT {
         start.countDown();
         List<MvcResult> results = calls.stream().map(CompletableFuture::join).toList();
 
-        assertThat(results).extracting(r -> r.getResponse().getStatus()).containsExactlyInAnyOrder(200, 401);
-        // the loser is treated as reuse: the winner's new token belongs to a revoked family
-        MvcResult winner = results.stream().filter(r -> r.getResponse().getStatus() == 200).findFirst().orElseThrow();
-        refresh(TestApi.session(winner)).andExpect(status().isUnauthorized());
+        assertThat(results).extracting(r -> r.getResponse().getStatus()).containsOnly(200);
+        assertThat(liveTokensOfFamilyOf(session)).isEqualTo(1);
+        assertThat(auditLog.countByEvent(AuditEvent.REFRESH_REUSE)).isEqualTo(reusesBefore);
+        List<Integer> next = results.stream().map(r -> {
+            try {
+                return refresh(TestApi.session(r)).andReturn().getResponse().getStatus();
+            } catch (Exception e) {
+                throw new IllegalStateException(e);
+            }
+        }).toList();
+        assertThat(next).containsExactlyInAnyOrder(200, 401, 401, 401);
     }
 
     @Test

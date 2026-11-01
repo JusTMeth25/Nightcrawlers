@@ -6,13 +6,32 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import jakarta.persistence.LockModeType;
+
 public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID> {
 
     Optional<RefreshToken> findByTokenHash(String tokenHash);
+
+    /** Row-locked read: concurrent retries with the same old token are handled one at a time. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select t from RefreshToken t where t.tokenHash = :hash")
+    Optional<RefreshToken> findByTokenHashForUpdate(@Param("hash") String tokenHash);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("update RefreshToken t set t.replacedBy = :successor where t.id = :id")
+    int setReplacedBy(@Param("id") UUID id, @Param("successor") UUID successor);
+
+    /** Revokes a successor that was never used; 0 if it was used (or revoked) meanwhile. */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("""
+            update RefreshToken t set t.revokedAt = :now
+            where t.id = :id and t.usedAt is null and t.revokedAt is null""")
+    int supersedeUnused(@Param("id") UUID id, @Param("now") Instant now);
 
     List<RefreshToken> findByUserId(UUID userId);
 

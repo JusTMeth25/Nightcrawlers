@@ -23,7 +23,7 @@ class JwtServiceTest {
 
     static AppProperties props(String secret) {
         return new AppProperties(new AppProperties.Jwt(secret, Duration.ofMinutes(15)),
-                new AppProperties.Refresh(Duration.ofDays(30), Duration.ofDays(90)), new AppProperties.Cors(List.of("http://x")),
+                new AppProperties.Refresh(Duration.ofDays(30), Duration.ofDays(90), Duration.ofSeconds(20)), new AppProperties.Cors(List.of("http://x")),
                 new AppProperties.Mail("a@b.c"), "http://x", "salt", new AppProperties.Cookies(true));
     }
 
