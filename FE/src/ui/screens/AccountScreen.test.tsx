@@ -2,8 +2,10 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
-import { api } from '../../api'
+import { api, authBridge } from '../../api'
+import { ApiError, problemError } from '../../api/errors'
 import { DEMO_LOGIN, DEMO_PASSWORD, UNVERIFIED_LOGIN } from '../../api/mock/MockApi'
+import { RequireAuth } from '../layout/AppShell'
 import { useSession } from '../store/session'
 import AccountScreen from './AccountScreen'
 
@@ -112,6 +114,62 @@ describe('AccountScreen', () => {
     expect(screen.getByText('Non verificata')).toBeInTheDocument()
     await userEvent.setup().click(screen.getByRole('button', { name: 'Reinvia email di verifica' }))
     expect(resend).toHaveBeenCalledTimes(1)
+  })
+
+  it('delete while locked (423): shows the lock time from Retry-After, still logged in', async () => {
+    vi.spyOn(api, 'deleteAccount').mockRejectedValueOnce(problemError(423, 'Account bloccato', undefined, 120))
+    renderAccount()
+    await askDelete('wrong-password-000')
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Account temporaneamente bloccato, riprova tra 120 secondi',
+    )
+    expect(useSession.getState().status).toBe('authenticated')
+  })
+
+  it('delete while locked (423) without Retry-After: asks to retry later', async () => {
+    vi.spyOn(api, 'deleteAccount').mockRejectedValueOnce(problemError(423, 'Account bloccato'))
+    renderAccount()
+    await askDelete('wrong-password-000')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Account temporaneamente bloccato, riprova più tardi')
+  })
+
+  it('after the lock revoked the sessions, a call that ends the session leads to the login', async () => {
+    vi.spyOn(api, 'deleteAccount').mockRejectedValueOnce(problemError(423, 'Account bloccato', undefined, 60))
+    vi.spyOn(api, 'exportData').mockImplementationOnce(async () => {
+      authBridge.authLost() // refresh answered 401: the backend revoked every session
+      throw new ApiError(401, null, null)
+    })
+    const router = createMemoryRouter(
+      [
+        { element: <RequireAuth />, children: [{ path: '/account', element: <AccountScreen /> }] },
+        { path: '/login', element: <p>login screen</p> },
+      ],
+      { initialEntries: ['/account'] },
+    )
+    render(<RouterProvider router={router} />)
+    await askDelete('wrong-password-000')
+    expect(await screen.findByRole('alert')).toHaveTextContent('riprova tra 60 secondi')
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Esporta i miei dati' }))
+    expect(await screen.findByText('login screen')).toBeInTheDocument()
+    expect(useSession.getState()).toMatchObject({ status: 'guest', sessionExpired: true })
+  })
+
+  it('a 409 lock conflict on delete shows a retryable error; the next attempt succeeds', async () => {
+    const del = vi
+      .spyOn(api, 'deleteAccount')
+      .mockRejectedValueOnce(problemError(409, 'Conflitto'))
+      .mockResolvedValueOnce(undefined) // keeps the shared mock user for the last test
+    const router = renderAccount()
+    await askDelete(DEMO_PASSWORD)
+    expect(await screen.findByRole('alert')).toHaveTextContent('Riprova')
+    expect(router.state.location.pathname).toBe('/account')
+    expect(useSession.getState().status).toBe('authenticated')
+    // the confirmation form is still open: type the password again and retry
+    const u = userEvent.setup()
+    await u.type(screen.getByLabelText('Password'), DEMO_PASSWORD)
+    await u.click(screen.getByRole('button', { name: 'Elimina definitivamente' }))
+    expect(await screen.findByText('title screen')).toBeInTheDocument()
+    expect(del).toHaveBeenCalledTimes(2)
   })
 
   // last: the mock user is gone afterwards

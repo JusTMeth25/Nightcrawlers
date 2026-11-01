@@ -250,6 +250,8 @@ export const it = {
   'account.deleteConfirm': 'Elimina definitivamente',
   'account.deleteCancel': 'Annulla',
   'account.wrongPassword': 'Password errata',
+  'account.locked': 'Account temporaneamente bloccato, riprova tra {seconds} secondi',
+  'account.lockedShort': 'Account temporaneamente bloccato, riprova più tardi',
   'account.deleted': 'Account eliminato. Ci vediamo a Night City.',
   'account.privacy': 'Informativa privacy',
 
