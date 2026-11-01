@@ -1,9 +1,9 @@
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { gameBus } from '@shared/events'
-import { DEFAULT_OPTIONS, type GameCanvasProps, type RunConfig, type RunResult } from '@shared/types'
+import { DEFAULT_OPTIONS, type GameCanvasProps, type HudState, type RunConfig, type RunResult } from '@shared/types'
 import { useRun } from '../store/run'
 import PlayScreen from './PlayScreen'
 
@@ -117,5 +117,30 @@ describe('PlayScreen', () => {
     const router = renderPlay()
     expect(router.state.location.pathname).toBe('/game-over')
     expect(screen.queryByTestId('game-canvas')).not.toBeInTheDocument()
+  })
+  it('upright from the start: keeps asking to pause until the game confirms the pause menu', () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query.includes('portrait'),
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }))
+    onTestFinished(() => vi.unstubAllGlobals())
+    const hud: HudState = {
+      timeSec: 1, hp: 100, maxHp: 100, level: 1, xp: 0, xpToNext: 10, kills: 0, eurodollars: 0, psychosis: 0,
+      psychosisActive: false, skillCooldown01: 0, weapons: [], cyberware: [], bossHp01: null, maxtacAlert: false, fps: null,
+    }
+    const pause = vi.fn()
+    const off = gameBus.on('pause', pause)
+    onTestFinished(off)
+    useRun.setState({ config })
+    renderPlay()
+    expect(pause).toHaveBeenCalledTimes(1) // the engine may not be listening yet
+    act(() => gameBus.emit('hud:update', hud))
+    expect(pause).toHaveBeenCalledTimes(2)
+    act(() => gameBus.emit('game:paused', { reason: 'menu' }))
+    act(() => gameBus.emit('hud:update', hud))
+    expect(pause).toHaveBeenCalledTimes(2)
+    act(() => gameBus.emit('game:resumed', undefined))
+    expect(pause).toHaveBeenCalledTimes(3)
   })
 })

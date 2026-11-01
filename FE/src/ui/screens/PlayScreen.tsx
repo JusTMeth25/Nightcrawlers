@@ -39,9 +39,27 @@ export default function PlayScreen() {
 
   useEffect(() => gameBus.on('run:checkpoint', (c) => onCheckpoint(c)), [onCheckpoint])
 
-  // turning the phone upright pauses the game (the pause menu waits under the rotate notice)
+  // turning the phone upright pauses the game (the pause menu waits under the rotate notice).
+  // The engine may not listen yet when /play mounts: ask again on every hud:update until it
+  // confirms the pause menu, and again if the game resumes while still upright.
   useEffect(() => {
-    if (portrait) gameBus.emit('pause', undefined)
+    if (!portrait) return
+    let confirmed = false
+    const ask = () => {
+      if (!confirmed) gameBus.emit('pause', undefined)
+    }
+    const offs = [
+      gameBus.on('hud:update', ask),
+      gameBus.on('game:paused', ({ reason }) => {
+        if (reason === 'menu') confirmed = true
+      }),
+      gameBus.on('game:resumed', () => {
+        confirmed = false
+        ask()
+      }),
+    ]
+    ask()
+    return () => offs.forEach((off) => off())
   }, [portrait])
 
   const onEnd = useCallback(
