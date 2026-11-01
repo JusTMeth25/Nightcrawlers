@@ -44,7 +44,7 @@ import { bossHp } from '../enemies/bossPatterns'
 import { alertMultipliers, Director, type SpawnOrder } from '../systems/director'
 import { bindSceneEnd } from '../run/lifecycle'
 import { PauseState } from '../run/PauseState'
-import { MAX_FRAME_MS, stepFrame, type FrameHost } from '../run/frame'
+import { MAX_FRAME_MS, runSteps, stepFrame, type FrameHost } from '../run/frame'
 import { GameSession } from '../run/GameSession'
 import { HudReporter } from '../run/HudReporter'
 import { CheckpointClock, RunStats } from '../run/RunStats'
@@ -405,31 +405,46 @@ export class RunScene extends Phaser.Scene implements SkillHost {
     },
   }
 
+  /**
+   * The simulation steps, in order. A boss shockwave can kill the player mid-step: runSteps then
+   * stops, so no pickup opens a level-up during the death animation.
+   */
+  private readonly steps: readonly ((dt: number) => void)[] = [
+    (dt) => {
+      const cam = this.cameras.main
+      this.player.update(dt, this.input0, isFrenzy(this.psychosis))
+      this.skills.update(dt, this.input0.skill)
+      this.floor.update(cam)
+      this.spawnStep(dt)
+      const v = cam.worldView
+      this.inView.setTo(v.x - VIEW_MARGIN, v.y - VIEW_MARGIN, v.width + VIEW_MARGIN * 2, v.height + VIEW_MARGIN * 2)
+    },
+    (dt) => this.bosses.update(dt),
+    (dt) => {
+      this.enemies.fillGrid(this.grid)
+      this.enemies.update(dt, this.frame, this.player.x, this.player.y, this.inView, this.grid, this.enemyShot)
+      this.enemies.fillGrid(this.grid)
+      if (this.frame % RELOCATE_EVERY_FRAMES === 0) this.relocateFarEnemies()
+      this.projectiles.update(dt, this.enemies.slow)
+      this.weapons.update(dt, this.input0)
+      this.grenades.update(dt, this)
+      this.vfx.update(dt)
+      this.damageNumbers.update(dt)
+      this.screen.update(dt)
+      this.psychosis = tickPsychosis(this.psychosis, dt)
+      this.frenzyOverlay.update(dt, isFrenzy(this.psychosis))
+    },
+    // these can open a level-up or a chest: stepFrame then skips player damage
+    (dt) => this.pickups.update(dt, this.player.x, this.player.y, this.stats.magnet, PICKUP_RADIUS, this.collect, this.inView),
+    (dt) => this.chests.update(dt, this.player.x, this.player.y, this.openChest),
+  ]
+
+  private readonly playerDead = (): boolean => this.player.dead
+
   private simulate(dt: number): void {
-    const cam = this.cameras.main
-    this.player.update(dt, this.input0, isFrenzy(this.psychosis))
-    this.skills.update(dt, this.input0.skill)
-    this.floor.update(cam)
-    this.spawnStep(dt)
-    const v = cam.worldView
-    this.inView.setTo(v.x - VIEW_MARGIN, v.y - VIEW_MARGIN, v.width + VIEW_MARGIN * 2, v.height + VIEW_MARGIN * 2)
-    this.bosses.update(dt)
-    this.enemies.fillGrid(this.grid)
-    this.enemies.update(dt, this.frame, this.player.x, this.player.y, this.inView, this.grid, this.enemyShot)
-    this.enemies.fillGrid(this.grid)
-    if (this.frame % RELOCATE_EVERY_FRAMES === 0) this.relocateFarEnemies()
-    this.projectiles.update(dt, this.enemies.slow)
-    this.weapons.update(dt, this.input0)
-    this.grenades.update(dt, this)
-    this.vfx.update(dt)
-    this.damageNumbers.update(dt)
-    this.screen.update(dt)
-    this.psychosis = tickPsychosis(this.psychosis, dt)
-    this.frenzyOverlay.update(dt, isFrenzy(this.psychosis))
-    // these two can open a level-up or a chest: stepFrame then skips player damage
-    this.pickups.update(dt, this.player.x, this.player.y, this.stats.magnet, PICKUP_RADIUS, this.collect, this.inView)
-    this.chests.update(dt, this.player.x, this.player.y, this.openChest)
+    runSteps(this.steps, dt, this.playerDead)
   }
+
 
   private readonly openChest = (): void => {
     this.sfx('chest')
