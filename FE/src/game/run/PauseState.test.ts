@@ -77,4 +77,14 @@ describe('PauseState', () => {
     pause.pause('menu')
     expect(changes).toEqual([true, false])
   })
+
+  it('reports the current state at once to a listener that asks for it (paused before the scene)', () => {
+    const { pause } = setup()
+    pause.pause('menu')
+    const changes: boolean[] = []
+    pause.onChange((p) => changes.push(p), true)
+    expect(changes).toEqual([true])
+    pause.resume('menu')
+    expect(changes).toEqual([true, false])
+  })
 })

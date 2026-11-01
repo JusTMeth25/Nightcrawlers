@@ -42,9 +42,13 @@ export class PauseState {
     this.bus.emit('game:resumed', undefined)
   }
 
-  /** Called with true when the game freezes and false when it runs again (cosmetics follow it). */
-  onChange(fn: (paused: boolean) => void): () => void {
+  /**
+   * Called with true when the game freezes and false when it runs again (cosmetics follow it).
+   * `now`: also call it at once with the current state (the game may be paused already).
+   */
+  onChange(fn: (paused: boolean) => void, now = false): () => void {
     this.changeListeners.add(fn)
+    if (now && this.paused) fn(true)
     return () => {
       this.changeListeners.delete(fn)
     }

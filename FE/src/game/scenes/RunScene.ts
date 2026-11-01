@@ -201,7 +201,8 @@ export class RunScene extends Phaser.Scene implements SkillHost {
     this.pickups = new PickupPool(this, PICKUP_CAP)
     this.chests = new Chests(this)
     this.pauseState = this.session.pause
-    this.offFreeze = this.pauseState.onChange((paused) => this.freezeCosmetics(paused))
+    // the menu may already be open (portrait phone) when the scene starts
+    this.offFreeze = this.pauseState.onChange((paused) => this.freezeCosmetics(paused), true)
     this.flow = new RunFlow(gameBus, {
       rng: this.rng,
       getInventory: () => this.inventory,
