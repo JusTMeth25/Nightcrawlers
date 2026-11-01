@@ -28,6 +28,20 @@ function download(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 0)
 }
 
+/** 403 = wrong password (401 is reserved for an expired session): no refresh, stay here.
+ *  423 = too many wrong passwords: the backend locked the account and revoked every session, so a later
+ *  call may end the session (refresh 401) and the normal session-lost flow takes over.
+ *  409 = lock conflict: the generic text asks to retry. */
+function deleteErrorText(error: unknown): string {
+  if (isApiError(error, 403)) return t('account.wrongPassword')
+  if (isApiError(error, 423)) {
+    return error.retryAfterSec !== null
+      ? t('account.locked', { seconds: error.retryAfterSec })
+      : t('account.lockedShort')
+  }
+  return apiErrorText(error)
+}
+
 type Busy = null | 'logout' | 'logoutAll' | 'export' | 'delete'
 
 export default function AccountScreen() {
@@ -91,8 +105,7 @@ export default function AccountScreen() {
       navigate('/', { replace: true })
       signOutLocally()
     } catch (err) {
-      // 403 = wrong password (401 is reserved for an expired session): no refresh, stay here
-      setError(isApiError(err, 403) ? t('account.wrongPassword') : apiErrorText(err))
+      setError(deleteErrorText(err))
       setPassword('')
       setBusy(null)
     }

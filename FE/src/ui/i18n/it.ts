@@ -49,6 +49,7 @@ export const it = {
 
   'error.network': 'Impossibile contattare il server. Controlla la connessione e riprova.',
   'error.generic': 'Qualcosa è andato storto. Riprova.',
+  'error.code': '(codice: {id})',
   'error.rateLimited': 'Troppi tentativi, riprova tra {seconds} secondi',
   'error.rateLimitedShort': 'Troppi tentativi, riprova più tardi',
 
@@ -250,6 +251,8 @@ export const it = {
   'account.deleteConfirm': 'Elimina definitivamente',
   'account.deleteCancel': 'Annulla',
   'account.wrongPassword': 'Password errata',
+  'account.locked': 'Account temporaneamente bloccato, riprova tra {seconds} secondi',
+  'account.lockedShort': 'Account temporaneamente bloccato, riprova più tardi',
   'account.deleted': 'Account eliminato. Ci vediamo a Night City.',
   'account.privacy': 'Informativa privacy',
 
@@ -269,7 +272,13 @@ export const it = {
     'Gestire l’account, salvare i progressi, proteggere il servizio da abusi (limiti di tentativi, controllo delle run).',
   'privacy.retentionTitle': 'Conservazione',
   'privacy.retention':
-    'I dati restano finché l’account esiste. Eliminando l’account vengono cancellati account, salvataggio e run; i log di sicurezza con IP hashato hanno durata limitata.',
+    'I dati restano finché l’account esiste. Eliminando l’account vengono cancellati account, salvataggio e run.',
+  'privacy.retentionIp':
+    'Nei log di sicurezza l’indirizzo IP è salvato solo come hash con salt, e l’hash viene cancellato dopo 90 giorni.',
+  'privacy.retentionLogs':
+    'Le voci dei log di sicurezza degli account eliminati vengono cancellate dopo 365 giorni.',
+  'privacy.retentionTokens':
+    'I token di accesso (sessioni di login) e i token email (verifica dell’email, recupero password) scaduti o già usati vengono cancellati ogni giorno.',
   'privacy.backups':
     'Facciamo backup giornalieri del database conservati per 7 giorni: i dati eliminati spariscono anche dai backup entro 7 giorni.',
   'privacy.processorsTitle': 'Fornitori',

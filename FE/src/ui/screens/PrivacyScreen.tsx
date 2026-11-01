@@ -28,6 +28,11 @@ export default function PrivacyScreen() {
           <p>{t('privacy.purpose')}</p>
           <h3>{t('privacy.retentionTitle')}</h3>
           <p>{t('privacy.retention')}</p>
+          <ul>
+            <li>{t('privacy.retentionIp')}</li>
+            <li>{t('privacy.retentionLogs')}</li>
+            <li>{t('privacy.retentionTokens')}</li>
+          </ul>
           <p>{t('privacy.backups')}</p>
           <h3>{t('privacy.processorsTitle')}</h3>
           <p>{t('privacy.processors1')}</p>

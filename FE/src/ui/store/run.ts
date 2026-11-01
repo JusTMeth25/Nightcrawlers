@@ -41,7 +41,12 @@ export interface RunDeps {
   api: ApiClient
   session: { getState(): SessionState }
   getOptions(): GameOptions
+  /** Wait before the automatic retry of a 409 on end (injectable for tests). */
+  sleep?(ms: number): Promise<void>
 }
+
+/** A 409 on end may be a transient DB lock conflict: retried once after this delay. */
+export const END_CONFLICT_RETRY_MS = 1000
 
 /** An online result not yet accepted by the server that can still be sent (retry or new login). */
 export function hasUnsentResult(s: Pick<RunState, 'config' | 'result' | 'outcome' | 'canRetry'>): boolean {
@@ -66,6 +71,7 @@ const cleared = {
 
 export function createRunStore(deps: RunDeps) {
   const { api, session } = deps
+  const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)))
   let submitting: Promise<void> | null = null
 
   return create<RunState>()((set, get) => {
@@ -83,8 +89,18 @@ export function createRunStore(deps: RunDeps) {
       set({ submitting: true, submitError: null, needsLogin: false })
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { runId: _ignored, ...body } = result
+      const runId = config.runId
       try {
-        const res = await api.endRun(config.runId, body)
+        let res: EndRunResponse
+        try {
+          res = await api.endRun(runId, body)
+        } catch (error) {
+          // 409 is either a closed run (final) or a lock conflict (transient): retry once
+          if (!isApiError(error, 409)) throw error
+          await sleep(END_CONFLICT_RETRY_MS)
+          if (get().config !== config) return
+          res = await api.endRun(runId, body)
+        }
         if (get().config !== config) return
         session.getState().setSave(res.save)
         set({ outcome: res, submitting: false, submitError: null, canRetry: true })
@@ -95,7 +111,8 @@ export function createRunStore(deps: RunDeps) {
         if (isApiError(error, 401) && session.getState().status !== 'authenticated') {
           set({ submitting: false, needsLogin: true, submitError: t('gameOver.loginRequired'), canRetry: true })
         } else if (isApiError(error, 404) || isApiError(error, 409)) {
-          // the run is no longer ACTIVE on the server: nothing to retry; refresh the save shown elsewhere
+          // 404, or 409 again after the automatic retry: the server closed the run (abandoned);
+          // nothing to retry; refresh the save shown elsewhere
           set({ submitting: false, submitError: t('gameOver.runClosed'), canRetry: false })
           void session.getState().reloadSave().catch(() => {})
         } else {
@@ -161,7 +178,7 @@ export function createRunStore(deps: RunDeps) {
         const { config, result } = get()
         if (!config || config.mode !== 'online' || !config.runId || result) return
         if (session.getState().status !== 'authenticated') return
-        // never blocks the game: network errors wait for the next checkpoint
+        // never blocks the game: network errors and 429 (too frequent) wait for the next checkpoint
         api.checkpoint(config.runId, c).catch((error: unknown) => {
           if (isApiError(error, 422)) console.warn('[run] checkpoint rejected: the server flagged the run')
         })
