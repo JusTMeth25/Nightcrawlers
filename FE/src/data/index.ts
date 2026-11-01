@@ -53,7 +53,10 @@ export interface Balance {
     clockSkewSec: number
     maxKillsPerSec: number
     maxLevelPerMinute: number
+    /** allowance per minute for €$ not tied to kills (chest cards, boss bags) */
     maxEurodollarsPerMinute: number
+    /** €$ a single kill can drop at most (largest bag); interval cap = kills x this + minutes x maxEurodollarsPerMinute */
+    maxEurodollarsPerKill: number
     checkpointEverySec: number
   }
   player: { invulnerabilitySec: number; pickupRadius: number }

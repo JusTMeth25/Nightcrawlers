@@ -1,0 +1,22 @@
+# Copy to application-local.properties (ignored by git) and fill in your own values.
+# Run with: ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+spring.datasource.url=jdbc:postgresql://localhost:5432/nightcrawlers
+spring.datasource.username=CHANGE_ME_APP_USER
+spring.datasource.password=CHANGE_ME_APP_PASSWORD
+spring.flyway.user=CHANGE_ME_OWNER_USER
+spring.flyway.password=CHANGE_ME_OWNER_PASSWORD
+
+# At least 32 bytes, random (for example: openssl rand -base64 48)
+app.jwt.secret=CHANGE_ME_AT_LEAST_32_BYTES_RANDOM_SECRET
+app.ip-hash-salt=CHANGE_ME_RANDOM_SALT
+app.cors.allowed-origins=http://localhost:5173
+app.frontend-url=http://localhost:5173
+app.mail.from=Nightcrawlers <no-reply@localhost>
+# Plain HTTP on the local network (phone testing): cookies without the Secure attribute.
+app.cookies.secure=false
+
+# Mailpit on localhost
+spring.mail.host=localhost
+spring.mail.port=1025
+spring.mail.properties.mail.smtp.auth=false
+spring.mail.properties.mail.smtp.starttls.enable=false

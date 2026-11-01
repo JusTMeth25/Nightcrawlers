@@ -1,0 +1,12 @@
+.banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem 1rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--nc-magenta);
+  background: rgb(255 42 109 / 12%);
+  font-size: 0.85rem;
+  text-align: center;
+}

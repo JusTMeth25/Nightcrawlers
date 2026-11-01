@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { gameBus } from '@shared/events'
 import { NeonButton } from '../components/NeonButton'
+import { OptionsPanel } from '../components/OptionsPanel'
 import { Panel } from '../components/Panel'
 import { t } from '../i18n/it'
 import { useGamepadNav } from '../nav/useGamepadNav'
@@ -93,7 +94,7 @@ export function PauseMenu() {
         )}
         {view === 'options' && (
           <Panel title={t('pause.options')}>
-            <p>{t('pause.optionsSoon')}</p>
+            <OptionsPanel />
             <NeonButton onClick={() => setView('main')}>{t('app.back')}</NeonButton>
           </Panel>
         )}

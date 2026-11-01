@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { getCharacter, getSkill } from '@data'
 import { gameBus } from '@shared/events'
 import type { CharacterId, HudState } from '@shared/types'
@@ -12,8 +12,8 @@ import { SkillButtonHint } from './SkillButtonHint'
 import { Timer } from './Timer'
 import { XpBar } from './XpBar'
 
-/** React overlay over the canvas; it follows 'hud:update' (max 10 Hz). */
-export function Hud({ characterId }: { characterId?: CharacterId }) {
+/** React overlay over the canvas; it follows 'hud:update' (max 10 Hz). `controls` go next to the pause button. */
+export function Hud({ characterId, controls }: { characterId?: CharacterId; controls?: ReactNode }) {
   const [hud, setHud] = useState<HudState | null>(null)
 
   useEffect(() => gameBus.on('hud:update', setHud), [])
@@ -58,11 +58,16 @@ export function Hud({ characterId }: { characterId?: CharacterId }) {
       )}
       <div className={styles.topRight}>
         {hud?.fps != null && <span className={styles.fps}>{t('hud.fps', { fps: Math.round(hud.fps) })}</span>}
+        {controls}
         <button
           type="button"
           className={styles.pause}
           aria-label={t('hud.pause')}
-          onClick={() => gameBus.emit('pause', undefined)}
+          onClick={(e) => {
+            // no lingering focus: Space (skill) must not press the button again
+            e.currentTarget.blur()
+            gameBus.emit('pause', undefined)
+          }}
         >
           II
         </button>

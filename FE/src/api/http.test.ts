@@ -268,4 +268,20 @@ describe('real ApiClient', () => {
     expect(lost).toHaveBeenCalledTimes(1)
     expect(bridge.getToken()).toBeNull()
   })
+  it('DELETE /me with a wrong password (403) never refreshes and keeps the session', async () => {
+    const bridge = createAuthBridge()
+    bridge.setToken('valid')
+    const lost = vi.fn()
+    bridge.onAuthLost(lost)
+    const urls: string[] = []
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      urls.push(`${init?.method ?? 'GET'} ${String(input)}`)
+      return problem(403, 'Password errata')
+    })
+    const api = createRealApi({ auth: bridge, fetchImpl: fetchImpl as typeof fetch })
+    await expect(api.deleteAccount({ password: 'wrong-password-1' })).rejects.toMatchObject({ status: 403 })
+    expect(urls).toEqual([`DELETE ${API.me}`])
+    expect(lost).not.toHaveBeenCalled()
+    expect(bridge.getToken()).toBe('valid')
+  })
 })

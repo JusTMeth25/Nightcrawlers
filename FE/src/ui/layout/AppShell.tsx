@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router'
+import { VerifyBanner } from '../components/VerifyBanner'
 import { useSession } from '../store/session'
 import { Footer } from './Footer'
 import styles from './AppShell.module.css'
@@ -11,15 +12,20 @@ export function AppShell() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
 
+  // during a run (and on its result) the expiry waits: the run ends first and the game-over
+  // screen asks to log in again, keeping the result for a retry
+  const runScreen = pathname === '/play' || pathname === '/game-over'
+
   useEffect(() => {
-    if (!sessionExpired) return
+    if (!sessionExpired || runScreen) return
     clearExpired()
     navigate('/login', { replace: true, state: { expired: true } })
-  }, [sessionExpired, clearExpired, navigate])
+  }, [sessionExpired, runScreen, clearExpired, navigate])
 
   const inGame = pathname === '/play'
   return (
     <div className={styles.shell}>
+      {!inGame && <VerifyBanner />}
       <main className={styles.main}>
         <Outlet />
       </main>
@@ -28,7 +34,7 @@ export function AppShell() {
   )
 }
 
-/** Guards /ripperdoc and /account: guests go to /login. */
+/** Guards /account: guests go to /login. */
 export function RequireAuth() {
   const status = useSession((s) => s.status)
   const { pathname } = useLocation()
