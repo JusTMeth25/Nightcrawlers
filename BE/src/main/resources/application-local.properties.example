@@ -20,3 +20,6 @@ spring.mail.host=localhost
 spring.mail.port=1025
 spring.mail.properties.mail.smtp.auth=false
 spring.mail.properties.mail.smtp.starttls.enable=false
+
+# Daily token cleanup (Spring cron, server time); default 03:30.
+# app.cleanup.cron=0 30 3 * * *

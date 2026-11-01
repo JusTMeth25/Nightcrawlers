@@ -18,8 +18,8 @@ class ApplicationIT {
     Flyway flyway;
 
     @Test
-    void contextStartsAndAppliesInitialMigration() {
+    void contextStartsAndAppliesAllMigrations() {
         assertThat(Arrays.stream(flyway.info().applied()).map(MigrationInfo::getVersion).map(Object::toString))
-                .contains("1");
+                .contains("1", "2");
     }
 }
