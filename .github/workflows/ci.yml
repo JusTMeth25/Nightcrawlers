@@ -1,26 +1,82 @@
 name: CI
 
+# Private repository: 2000 free Actions minutes per month. Jobs run only for the parts that
+# changed, superseded runs are cancelled, e2e runs only for main (pushes and PRs), and the
+# OWASP dependency-check runs weekly in dependency-check.yml.
 on:
   push:
     branches: [main]
+    paths-ignore: ["docs/**", "**/*.md", "assets-src/**", ".github/dependabot.yml", ".github/workflows/dependency-check.yml"]
   pull_request:
+    paths-ignore: ["docs/**", "**/*.md", "assets-src/**", ".github/dependabot.yml", ".github/workflows/dependency-check.yml"]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 env:
   NODE_VERSION: "24"
   JAVA_VERSION: "25"
 
 jobs:
+  changes:
+    name: Changed areas
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      fe: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.fe == 'true' }}
+      be: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.be == 'true' }}
+      tools: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.tools == 'true' }}
+      gamedata: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.gamedata == 'true' }}
+      e2e: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.e2e == 'true' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v4
+        id: filter
+        if: github.event_name != 'workflow_dispatch'
+        with:
+          # Shared contracts and game data are used by both FE and BE: they run both.
+          filters: |
+            shared: &shared
+              - FE/src/data/**
+              - FE/src/shared/**
+              - BE/src/main/resources/gamedata/**
+              - tools/sync-gamedata.mjs
+              - .github/workflows/ci.yml
+            fe:
+              - *shared
+              - FE/**
+            be:
+              - *shared
+              - BE/**
+            tools:
+              - tools/**
+              - .github/workflows/ci.yml
+            gamedata:
+              - *shared
+            e2e:
+              - FE/**
+              - BE/**
+              - e2e/**
+              - db/**
+              - Caddyfile
+              - docker-compose*.yml
+              - .dockerignore
+              - .github/workflows/ci.yml
+
   fe:
     name: Frontend
+    needs: changes
+    if: needs.changes.outputs.fe == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: FE
@@ -45,17 +101,21 @@ jobs:
         run: npm audit --omit=dev --audit-level=high
       - name: npm audit (all dependencies, report only)
         run: npm audit || true
+      # artifacts share the 500 MB private storage quota with GHCR: only on failure
       - uses: actions/upload-artifact@v7
-        if: always()
+        if: failure()
         with:
           name: fe-coverage
           path: FE/coverage/
           if-no-files-found: ignore
-          retention-days: 14
+          retention-days: 7
 
   be:
     name: Backend
+    needs: changes
+    if: needs.changes.outputs.be == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: BE
@@ -68,19 +128,23 @@ jobs:
           cache: maven
       # Testcontainers uses the runner's Docker daemon.
       - run: chmod +x mvnw && ./mvnw -B -ntp verify
+      # artifacts share the 500 MB private storage quota with GHCR: only on failure
       - uses: actions/upload-artifact@v7
-        if: always()
+        if: failure()
         with:
           name: be-reports
           path: |
             BE/target/site/jacoco/
             BE/target/surefire-reports/
           if-no-files-found: ignore
-          retention-days: 14
+          retention-days: 7
 
   tools:
     name: Tools tests
+    needs: changes
+    if: needs.changes.outputs.tools == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -94,7 +158,10 @@ jobs:
 
   gamedata:
     name: Game data in sync
+    needs: changes
+    if: needs.changes.outputs.gamedata == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -102,12 +169,12 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - run: node tools/sync-gamedata.mjs --check
 
-  security:
-    name: Security scans
+  secrets:
+    name: Secret scan (gitleaks)
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     env:
       GITLEAKS_VERSION: "8.30.1"
-      DEPENDENCY_CHECK_VERSION: "13.0.0"
     steps:
       - uses: actions/checkout@v7
         with:
@@ -118,41 +185,16 @@ jobs:
             "ghcr.io/gitleaks/gitleaks:v${GITLEAKS_VERSION}" -c \
             'git config --global --add safe.directory /repo &&
              gitleaks git /repo --config /repo/.gitleaks.toml --redact --no-banner --exit-code 1'
-      - uses: actions/setup-java@v6
-        with:
-          distribution: temurin
-          java-version: ${{ env.JAVA_VERSION }}
-          cache: maven
-      - name: Cache the NVD database
-        uses: actions/cache@v6
-        with:
-          path: ~/.m2/repository/org/owasp/dependency-check-data
-          key: nvd-${{ runner.os }}-${{ github.run_id }}
-          restore-keys: nvd-${{ runner.os }}-
-      # Without NVD_API_KEY the first NVD download is very slow (public rate limit).
-      # OSS Index now requires an account: disabled, the NVD data is the source.
-      - name: OWASP dependency-check (Maven, fails on CVSS >= 7)
-        working-directory: BE
-        env:
-          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
-        run: |
-          chmod +x mvnw
-          ./mvnw -B -ntp "org.owasp:dependency-check-maven:${DEPENDENCY_CHECK_VERSION}:check" \
-            -DfailBuildOnCVSS=7 -DossindexAnalyzerEnabled=false -DretireJsAnalyzerEnabled=false \
-            -DnodeAnalyzerEnabled=false -DnodeAuditAnalyzerEnabled=false \
-            -Dformats=HTML,JSON ${NVD_API_KEY:+-DnvdApiKey="$NVD_API_KEY"}
-      - uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: dependency-check-report
-          path: BE/target/dependency-check-report.*
-          if-no-files-found: ignore
-          retention-days: 14
 
   e2e:
     name: End-to-end (production build)
+    needs: changes
+    # Only for main: pushes to main and pull requests targeting main.
+    if: >-
+      needs.changes.outputs.e2e == 'true' &&
+      (github.ref == 'refs/heads/main' || github.base_ref == 'main')
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 30
     env:
       COMPOSE: >-
         docker compose -p nc-e2e --env-file e2e.env
@@ -185,6 +227,11 @@ jobs:
           cache-dependency-path: e2e/package-lock.json
       - run: npm ci
         working-directory: e2e
+      - name: Cache Playwright browsers
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('e2e/package-lock.json') }}
       - run: npx playwright install --with-deps chromium webkit
         working-directory: e2e
       - run: npm run typecheck
@@ -198,8 +245,9 @@ jobs:
       - name: Stack logs
         if: failure()
         run: $COMPOSE logs --no-color > stack.log 2>&1 || true
+      # artifacts share the 500 MB private storage quota with GHCR: only on failure
       - uses: actions/upload-artifact@v7
-        if: always()
+        if: failure()
         with:
           name: playwright-report
           path: |
@@ -207,7 +255,7 @@ jobs:
             e2e/test-results/
             stack.log
           if-no-files-found: ignore
-          retention-days: 14
+          retention-days: 7
       - name: Stop the stack
         if: always()
         run: $COMPOSE down -v

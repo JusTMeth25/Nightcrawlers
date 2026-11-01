@@ -53,9 +53,9 @@ jobs:
           ref: ${{ env.DEPLOY_SHA }}
       - name: Image name
         id: name
-        run: echo "image=ghcr.io/${OWNER,,}/nightcrawlers-${{ matrix.image }}" >> "$GITHUB_OUTPUT"
+        run: echo "image=ghcr.io/${REPO,,}-${{ matrix.image }}" >> "$GITHUB_OUTPUT"
         env:
-          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.repository }}
       - uses: docker/setup-qemu-action@v4
         with:
           platforms: arm64
@@ -71,6 +71,9 @@ jobs:
           file: ${{ matrix.file }}
           platforms: linux/arm64
           push: true
+          # one manifest per tag (no attestation manifests): untagged leftovers would use GHCR quota
+          provenance: false
+          sbom: false
           build-args: |
             VITE_PRIVACY_EMAIL=${{ vars.VITE_PRIVACY_EMAIL }}
           tags: |
@@ -90,6 +93,8 @@ jobs:
     permissions:
       contents: read
       packages: read
+    outputs:
+      previous: ${{ steps.previous.outputs.tag }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -110,13 +115,23 @@ jobs:
         run: |
           tar czf - docker-compose.yml db/init ops | ssh -i ~/.ssh/id_deploy -o BatchMode=yes \
             "$SSH_USER@$SSH_HOST" 'tar xzf - -C /opt/nightcrawlers && chmod 755 /opt/nightcrawlers/ops/*.sh /opt/nightcrawlers/db/init/*.sh'
+      - name: Previous good tag
+        id: previous
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          tag="$(ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$SSH_USER@$SSH_HOST" \
+            'cat /opt/nightcrawlers/.last-good-tag 2>/dev/null || true' | tr -cd 'A-Za-z0-9_.-')"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "previous good tag: ${tag:-none}"
       - name: Pull and start ${{ env.DEPLOY_SHA }} (rollback on failure)
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.repository }}
         run: |
           # The job token can read the (private) packages while the job runs. It travels on stdin,
           # never on a command line, and the VM keeps no registry credential (logout at the end).
@@ -124,7 +139,7 @@ jobs:
             "set -e
              docker login ghcr.io -u '$GHCR_USER' --password-stdin >/dev/null
              trap 'docker logout ghcr.io >/dev/null' EXIT
-             GHCR_OWNER='${OWNER,,}' /opt/nightcrawlers/ops/deploy.sh '$DEPLOY_SHA'"
+             IMAGE_PREFIX='ghcr.io/${REPO,,}' /opt/nightcrawlers/ops/deploy.sh '$DEPLOY_SHA'"
       - name: Public health check
         if: vars.PUBLIC_URL != ''
         env:
@@ -133,3 +148,45 @@ jobs:
       - name: Remove SSH key
         if: always()
         run: rm -f ~/.ssh/id_deploy
+
+  # Private GHCR storage is free up to 500 MB (shared with Actions artifacts): after a successful
+  # deploy keep only the 3 newest versions of each image, plus the deployed and the previous good
+  # tag (rollback target) even when older; delete everything else, untagged versions included.
+  cleanup:
+    name: Prune old GHCR versions
+    needs: deploy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      packages: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      OWNER: ${{ github.repository_owner }}
+      OWNER_TYPE: ${{ github.event.repository.owner.type }}
+      REPO: ${{ github.event.repository.name }}
+      PREVIOUS: ${{ needs.deploy.outputs.previous }}
+      KEEP: "3"
+    steps:
+      - name: Delete old versions
+        run: |
+          scope=users
+          [ "$OWNER_TYPE" = Organization ] && scope=orgs
+          for image in web backend; do
+            pkg="${REPO,,}-${image}"
+            base="/${scope}/${OWNER}/packages/container/${pkg}/versions"
+            # id, tags; newest first
+            gh api --paginate "$base" \
+              --jq '.[] | [.id, .created_at, ((.metadata.container.tags // []) | join(","))] | @tsv' \
+              | sort -t$'\t' -k2,2r > versions.tsv
+            n=0
+            while IFS=$'\t' read -r id _ tags; do
+              n=$((n + 1))
+              if [ "$n" -le "$KEEP" ] || [[ ",$tags," == *",$DEPLOY_SHA,"* ]] \
+                || { [ -n "$PREVIOUS" ] && [[ ",$tags," == *",$PREVIOUS,"* ]]; }; then
+                echo "keep   $pkg $id ${tags:-<untagged>}"
+              else
+                echo "delete $pkg $id ${tags:-<untagged>}"
+                gh api -X DELETE "$base/$id"
+              fi
+            done < versions.tsv
+          done
