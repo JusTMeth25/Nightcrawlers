@@ -59,6 +59,7 @@ public class RunService {
     private static final Logger log = LoggerFactory.getLogger(RunService.class);
     static final String GREED = "greed";
     static final int BEST_LIMIT = 10;
+    static final String EVOLUTION_SUFFIX = "_evo";
 
     private final RunRecordRepository runs;
     private final RunCheckpointRepository checkpoints;
@@ -235,7 +236,7 @@ public class RunService {
             }
         });
         enemies.forEach(id -> addEntry(known, userId, CodexEntry.Type.ENEMY, id, now));
-        new LinkedHashSet<>(request.weaponsSeen())
+        request.weaponsSeen().stream().map(id -> codexWeaponId(gameData, id)).distinct()
                 .forEach(id -> addEntry(known, userId, CodexEntry.Type.WEAPON, id, now));
     }
 
@@ -256,6 +257,17 @@ public class RunService {
         List<String> fresh = unlockEvaluator.newUnlocks(progress, already);
         fresh.forEach(characterId -> unlocked.save(new UnlockedCharacter(userId, characterId, now)));
         return fresh;
+    }
+
+    /** The Codex lists base weapons (contract {@code WeaponId}): an evolution counts as its base. */
+    static String codexWeaponId(GameData gameData, String weaponId) {
+        if (weaponId.endsWith(EVOLUTION_SUFFIX)) {
+            String base = weaponId.substring(0, weaponId.length() - EVOLUTION_SUFFIX.length());
+            if (gameData.isWeapon(base)) {
+                return base;
+            }
+        }
+        return weaponId;
     }
 
     /** Whole seconds of game time, floored; validation already rejects negative values. */
