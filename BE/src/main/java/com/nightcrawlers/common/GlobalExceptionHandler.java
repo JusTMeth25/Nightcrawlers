@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -114,10 +115,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return "unknown";
     }
 
-    /** Concurrent change of the same row (optimistic lock on {@code @Version}). */
-    @ExceptionHandler(OptimisticLockingFailureException.class)
-    ResponseEntity<ProblemDetail> handleStale(OptimisticLockingFailureException ex) {
-        log.info("Optimistic lock conflict");
+    /**
+     * Concurrent change of the same row: optimistic lock on {@code @Version}, lock timeout or
+     * deadlock victim. The client can simply retry.
+     */
+    @ExceptionHandler({ OptimisticLockingFailureException.class, PessimisticLockingFailureException.class })
+    ResponseEntity<ProblemDetail> handleStale(Exception ex) {
+        log.info("Lock conflict: {}", ex.getClass().getSimpleName());
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONFLICT);
         problem.setTitle("Conflitto");
         problem.setDetail("I dati sono stati modificati da un'altra richiesta. Riprova.");

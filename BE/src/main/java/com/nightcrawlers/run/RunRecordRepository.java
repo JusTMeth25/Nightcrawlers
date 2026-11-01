@@ -23,6 +23,11 @@ public interface RunRecordRepository extends JpaRepository<RunRecord, UUID> {
 
     List<RunRecord> findByUserId(UUID userId);
 
+    /** Row-locks every run of the user (account deletion), in a stable order. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select r from RunRecord r where r.userId = :userId order by r.id")
+    List<RunRecord> lockAllForUser(@Param("userId") UUID userId);
+
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("""
             update RunRecord r set r.status = com.nightcrawlers.run.RunRecord.Status.ABANDONED, r.endedAt = :now

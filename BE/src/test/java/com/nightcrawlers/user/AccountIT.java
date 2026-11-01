@@ -51,6 +51,10 @@ class AccountIT {
             "unlocked_characters", "ripperdoc_upgrades", "enemy_kill_stats", "character_stats", "codex_entries",
             "runs", "audit_log");
 
+    static final String END_BODY = """
+            {"characterId":"david","durationSec":605,"kills":300,"killsByEnemy":{"maelstrom":300},
+             "level":20,"eurodollarsCollected":800,"weaponsSeen":["pistol"],"enemiesSeen":["maelstrom"]}""";
+
     @Autowired
     MockMvc mvc;
     @Autowired
@@ -209,6 +213,48 @@ class AccountIT {
         assertThat(refreshTokens.findByUserId(player.id())).allSatisfy(t -> assertThat(t.getRevokedAt()).isNull());
 
         deleteMe(player.session(), player.account().password()).andExpect(status().isNoContent());
+    }
+
+    @Test
+    void deletionRacingTheEndOfARunNeverFails() throws Exception {
+        for (int round = 0; round < 3; round++) {
+            Player player = playerWithProgress();
+            String started = mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                            .post("/api/runs/start").header("Authorization", player.session().bearer())
+                            .contentType(MediaType.APPLICATION_JSON).content("{\"characterId\":\"david\"}"))
+                    .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+            String runId = com.jayway.jsonpath.JsonPath.read(started, "$.runId");
+            clock.advance(java.time.Duration.ofSeconds(610));
+            java.util.concurrent.CountDownLatch go = new java.util.concurrent.CountDownLatch(1);
+
+            var end = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+                try {
+                    go.await();
+                    return mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                            .post("/api/runs/" + runId + "/end").header("Authorization", player.session().bearer())
+                            .contentType(MediaType.APPLICATION_JSON).content(END_BODY))
+                            .andReturn().getResponse().getStatus();
+                } catch (Exception e) {
+                    throw new IllegalStateException(e);
+                }
+            });
+            var deletion = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+                try {
+                    go.await();
+                    return deleteMe(player.session(), player.account().password()).andReturn().getResponse()
+                            .getStatus();
+                } catch (Exception e) {
+                    throw new IllegalStateException(e);
+                }
+            });
+            go.countDown();
+
+            assertThat(deletion.join()).isEqualTo(204);
+            assertThat(end.join()).isIn(200, 404);
+            assertThat(users.findById(player.id())).isEmpty();
+            assertThat(rows("player_saves", player.id())).isZero();
+            clock.reset();
+        }
     }
 
     @Test

@@ -25,6 +25,7 @@ import com.nightcrawlers.run.RunCheckpoint;
 import com.nightcrawlers.run.RunCheckpointRepository;
 import com.nightcrawlers.run.RunRecord;
 import com.nightcrawlers.run.RunRecordRepository;
+import com.nightcrawlers.save.PlayerSaveRepository;
 import com.nightcrawlers.save.SaveService;
 import com.nightcrawlers.user.AccountExport.AuditExport;
 import com.nightcrawlers.user.AccountExport.CheckpointExport;
@@ -46,10 +47,11 @@ public class AccountService {
     private final AuditService audit;
     private final PasswordEncoder passwordEncoder;
     private final Clock clock;
+    private final PlayerSaveRepository saveRows;
 
     public AccountService(UserRepository users, SaveService saves, RunRecordRepository runs,
             RunCheckpointRepository checkpoints, RefreshTokenRepository refreshTokens, AuditLogRepository auditLog,
-            AuditService audit, PasswordEncoder passwordEncoder, Clock clock) {
+            AuditService audit, PasswordEncoder passwordEncoder, Clock clock, PlayerSaveRepository saveRows) {
         this.users = users;
         this.saves = saves;
         this.runs = runs;
@@ -59,6 +61,7 @@ public class AccountService {
         this.audit = audit;
         this.passwordEncoder = passwordEncoder;
         this.clock = clock;
+        this.saveRows = saveRows;
     }
 
     @Transactional(readOnly = true)
@@ -109,7 +112,12 @@ public class AccountService {
             registerWrongPassword(userId, now, http);
             throw new ApiException(HttpStatus.FORBIDDEN, "Password errata", "La password non è corretta.");
         }
-        users.delete(user);
+        // Lock order shared with start (user -> runs) and end/purchase (run -> save): no deadlock.
+        User locked = users.findByIdForUpdate(userId).orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED,
+                "Non autenticato", "Accesso richiesto o sessione scaduta."));
+        runs.lockAllForUser(userId);
+        saveRows.findForUpdate(userId);
+        users.delete(locked);
         users.flush();
         audit.record(AuditEvent.ACCOUNT_DELETED, null, http);
     }

@@ -111,6 +111,16 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void lockFailuresAreConflicts() throws Exception {
+        mvc.perform(get("/probe/lock-timeout"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.title").value("Conflitto"));
+        mvc.perform(get("/probe/deadlock"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.title").value("Conflitto"));
+    }
+
+    @Test
     void integrityViolationIsLoggedWithoutPersonalData(CapturedOutput output) throws Exception {
         mvc.perform(get("/probe/duplicate"))
                 .andExpect(status().isConflict())
@@ -151,6 +161,16 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/probe/stale")
         String stale() {
             throw new org.springframework.orm.ObjectOptimisticLockingFailureException("PlayerSave", "id");
+        }
+
+        @GetMapping("/probe/lock-timeout")
+        String lockTimeout() {
+            throw new org.springframework.dao.CannotAcquireLockException("lock timeout");
+        }
+
+        @GetMapping("/probe/deadlock")
+        String deadlock() {
+            throw new org.springframework.dao.PessimisticLockingFailureException("deadlock detected");
         }
 
         @GetMapping("/probe/boom")
