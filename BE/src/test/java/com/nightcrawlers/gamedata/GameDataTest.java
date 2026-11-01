@@ -62,6 +62,8 @@ class GameDataTest {
         assertThat(data.antiCheat().maxKillsPerSec()).isEqualTo(40);
         assertThat(data.antiCheat().maxLevelPerMinute()).isEqualTo(10);
         assertThat(data.antiCheat().maxEurodollarsPerMinute()).isEqualTo(300);
+        assertThat(data.antiCheat().checkpointEverySec()).isEqualTo(60);
+        assertThat(data.antiCheat().maxEurodollarsPerKill()).isEqualTo(50);
     }
 
     @Test

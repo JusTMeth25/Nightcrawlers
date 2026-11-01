@@ -91,6 +91,36 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void unexpectedExceptionIsLoggedWithoutItsMessageButWithAnErrorId(CapturedOutput output) throws Exception {
+        String body = mvc.perform(get("/probe/personal"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.errorId").isString())
+                .andReturn().getResponse().getContentAsString();
+        String errorId = com.jayway.jsonpath.JsonPath.read(body, "$.errorId");
+
+        assertThat(output).contains(errorId).contains("IllegalArgumentException").contains("ProbeController")
+                .doesNotContain("mario.rossi@mail.it");
+    }
+
+    @Test
+    void optimisticLockFailureIsAConflict() throws Exception {
+        mvc.perform(get("/probe/stale"))
+                .andExpect(status().isConflict())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.title").value("Conflitto"));
+    }
+
+    @Test
+    void lockFailuresAreConflicts() throws Exception {
+        mvc.perform(get("/probe/lock-timeout"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.title").value("Conflitto"));
+        mvc.perform(get("/probe/deadlock"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.title").value("Conflitto"));
+    }
+
+    @Test
     void integrityViolationIsLoggedWithoutPersonalData(CapturedOutput output) throws Exception {
         mvc.perform(get("/probe/duplicate"))
                 .andExpect(status().isConflict())
@@ -120,6 +150,27 @@ class GlobalExceptionHandlerTest {
                     + "Detail: Key (email)=(mario.rossi@mail.it) already exists.";
             throw new DataIntegrityViolationException(detail,
                     new ConstraintViolationException(detail, new SQLException(detail, "23505"), "ux_users_email"));
+        }
+
+        @GetMapping("/probe/personal")
+        String personal() {
+            throw new IllegalStateException("wrapper",
+                    new IllegalArgumentException("Utente mario.rossi@mail.it non valido"));
+        }
+
+        @GetMapping("/probe/stale")
+        String stale() {
+            throw new org.springframework.orm.ObjectOptimisticLockingFailureException("PlayerSave", "id");
+        }
+
+        @GetMapping("/probe/lock-timeout")
+        String lockTimeout() {
+            throw new org.springframework.dao.CannotAcquireLockException("lock timeout");
+        }
+
+        @GetMapping("/probe/deadlock")
+        String deadlock() {
+            throw new org.springframework.dao.PessimisticLockingFailureException("deadlock detected");
         }
 
         @GetMapping("/probe/boom")

@@ -3,11 +3,14 @@ package com.nightcrawlers.common;
 import java.net.URI;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.UUID;
 
 import org.hibernate.exception.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -112,12 +115,64 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return "unknown";
     }
 
+    /**
+     * Concurrent change of the same row: optimistic lock on {@code @Version}, lock timeout or
+     * deadlock victim. The client can simply retry.
+     */
+    @ExceptionHandler({ OptimisticLockingFailureException.class, PessimisticLockingFailureException.class })
+    ResponseEntity<ProblemDetail> handleStale(Exception ex) {
+        log.info("Lock conflict: {}", ex.getClass().getSimpleName());
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONFLICT);
+        problem.setTitle("Conflitto");
+        problem.setDetail("I dati sono stati modificati da un'altra richiesta. Riprova.");
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(withType(problem));
+    }
+
+    /**
+     * Exception messages can carry personal data (emails, usernames, SQL parameters), so only
+     * the exception classes and the code location are logged, under an {@code errorId} that is
+     * also returned to the client for support requests.
+     */
     @ExceptionHandler(Exception.class)
     ResponseEntity<ProblemDetail> handleUnexpected(Exception ex) {
-        log.error("Unhandled exception", ex);
+        String errorId = UUID.randomUUID().toString();
+        log.error("Unhandled exception [errorId={}]: {} at {}", errorId, classChain(ex), location(ex));
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.INTERNAL_SERVER_ERROR);
         problem.setTitle("Errore interno");
         problem.setDetail("Si è verificato un errore imprevisto.");
+        problem.setProperty("errorId", errorId);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(withType(problem));
+    }
+
+    /** {@code Outer <- Cause <- RootCause}, class names only. */
+    static String classChain(Throwable ex) {
+        StringBuilder chain = new StringBuilder();
+        int depth = 0;
+        for (Throwable t = ex; t != null && depth < 10; t = t.getCause() == t ? null : t.getCause(), depth++) {
+            if (!chain.isEmpty()) {
+                chain.append(" <- ");
+            }
+            chain.append(t.getClass().getName());
+        }
+        return chain.toString();
+    }
+
+    /** The innermost application frame of the chain, or the top frame when there is none. */
+    static String location(Throwable ex) {
+        String found = null;
+        int depth = 0;
+        for (Throwable t = ex; t != null && depth < 10; t = t.getCause() == t ? null : t.getCause(), depth++) {
+            for (StackTraceElement frame : t.getStackTrace()) {
+                if (frame.getClassName().startsWith("com.nightcrawlers.")) {
+                    found = frame.toString();
+                    break;
+                }
+            }
+        }
+        if (found != null) {
+            return found;
+        }
+        StackTraceElement[] top = ex.getStackTrace();
+        return top.length > 0 ? top[0].toString() : "unknown";
     }
 }

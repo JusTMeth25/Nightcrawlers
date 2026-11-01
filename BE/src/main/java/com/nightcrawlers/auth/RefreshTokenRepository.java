@@ -37,4 +37,16 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("update RefreshToken t set t.revokedAt = :now where t.userId = :userId and t.revokedAt is null")
     int revokeAllForUser(@Param("userId") UUID userId, @Param("now") Instant now);
+
+    /**
+     * Deletes whole families that can no longer be used (every token expired or revoked). A
+     * used token of a live family is kept: presenting it again must still revoke the family.
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = """
+            DELETE FROM refresh_tokens t
+            WHERE NOT EXISTS (SELECT 1 FROM refresh_tokens x
+                              WHERE x.family_id = t.family_id AND x.revoked_at IS NULL AND x.expires_at > :now)""",
+            nativeQuery = true)
+    int deleteDeadFamilies(@Param("now") Instant now);
 }

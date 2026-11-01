@@ -122,12 +122,7 @@ public class AuthService {
             throw invalidCredentials();
         }
         User user = found.get();
-        if (user.getLockedUntil() != null && user.getLockedUntil().isAfter(now)) {
-            long seconds = Math.max(1, (Duration.between(now, user.getLockedUntil()).toMillis() + 999) / 1000);
-            throw new ApiException(HttpStatus.LOCKED, "Account temporaneamente bloccato",
-                    "Troppi tentativi falliti. Riprova tra " + seconds + " secondi.")
-                    .withHeader(HttpHeaders.RETRY_AFTER, Long.toString(seconds));
-        }
+        requireNotLocked(user, now);
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             int failures = users.incrementFailedLogins(user.getId());
             Duration lock = lockDuration(failures);
@@ -197,8 +192,18 @@ public class AuthService {
         audit.record(AuditEvent.LOGOUT_ALL, userId, http);
     }
 
+    /** 423 with {@code Retry-After} while the account is locked after repeated wrong passwords. */
+    public static void requireNotLocked(User user, Instant now) {
+        if (user.getLockedUntil() != null && user.getLockedUntil().isAfter(now)) {
+            long seconds = Math.max(1, (Duration.between(now, user.getLockedUntil()).toMillis() + 999) / 1000);
+            throw new ApiException(HttpStatus.LOCKED, "Account temporaneamente bloccato",
+                    "Troppi tentativi falliti. Riprova tra " + seconds + " secondi.")
+                    .withHeader(HttpHeaders.RETRY_AFTER, Long.toString(seconds));
+        }
+    }
+
     /** Progressive lock (spec 4.5): 1 minute at the 5th failure, 5 minutes up to the 10th, then 15. */
-    static Duration lockDuration(int failures) {
+    public static Duration lockDuration(int failures) {
         if (failures <= FREE_FAILURES) {
             return null;
         }
