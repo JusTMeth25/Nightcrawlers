@@ -5,6 +5,7 @@ info:
   description: >
     REST API for accounts, saves, runs and Ripperdoc upgrades.
     All errors use application/problem+json (RFC 9457).
+    Any endpoint may answer 409 "Conflitto" on a database lock conflict (retry later).
   license:
     name: Proprietary (non-commercial fan project)
     identifier: LicenseRef-Proprietary
@@ -174,7 +175,10 @@ paths:
       tags: [account]
       operationId: deleteMe
       summary: Delete the account and all its data
-      description: Wrong password answers 403 (not 401, which the client reserves for an expired session).
+      description: >
+        Wrong password answers 403 (not 401, which the client reserves for an expired session).
+        Wrong passwords count toward the same lock as login: while locked the answer is 423 with Retry-After,
+        and reaching the lock revokes all the user's sessions.
       requestBody:
         required: true
         content:
@@ -185,6 +189,8 @@ paths:
         '400': { $ref: '#/components/responses/Problem' }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '423': { $ref: '#/components/responses/Locked' }
 
   /api/me/export:
     get:
@@ -241,6 +247,10 @@ paths:
       tags: [runs]
       operationId: checkpointRun
       summary: Record intermediate progress (every 60 s of game time)
+      description: >
+        429 when less than 30 s of real time passed since the previous checkpoint (or the start),
+        or when the run already has (real minutes since start + 5) checkpoints; nothing is stored and the run is not flagged.
+        422 when the progress is implausible (the run becomes FLAGGED).
       parameters:
         - $ref: '#/components/parameters/RunId'
       requestBody:
@@ -254,6 +264,7 @@ paths:
         '401': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
         '422': { $ref: '#/components/responses/Problem' }
 
   /api/runs/{id}/end:
@@ -261,6 +272,9 @@ paths:
       tags: [runs]
       operationId: endRun
       summary: End the run; rewards are computed by the server
+      description: >
+        Idempotent: repeating end on an ENDED run returns 200 with the stored outcome (nothing paid twice);
+        on a FLAGGED run 200 with flagged true. 409 only for an ABANDONED run or a lock conflict.
       parameters:
         - $ref: '#/components/parameters/RunId'
       requestBody:
