@@ -1,2 +1,7 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Files executed or mounted inside Linux containers must keep LF endings
+*.sh text eol=lf
+Caddyfile text eol=lf
+BE/mvnw text eol=lf

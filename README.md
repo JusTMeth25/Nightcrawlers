@@ -19,6 +19,13 @@ Roguelike survivors-like per browser con orde infinite, ambientato nell'universo
 - PostgreSQL 18 (database `nightcrawlers`)
 - Docker Desktop (test di integrazione backend e stack Docker Compose)
 
+## Documentazione
+
+- `docs/dev-setup.md` — ambiente di sviluppo locale e stack Docker
+- `docs/deploy.md` — deploy su Oracle Cloud, DuckDNS, Brevo, backup
+- `docs/api/openapi.yaml` — contratto API
+- `e2e/README.md` — test end-to-end
+
 ## Sviluppo
 
 Frontend:
