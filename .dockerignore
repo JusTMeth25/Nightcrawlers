@@ -1,0 +1,11 @@
+# Build context of FE/Dockerfile is the repository root: send only what the web image needs.
+*
+!Caddyfile
+!FE/
+FE/node_modules/
+FE/dist/
+FE/coverage/
+FE/.vite/
+FE/.env
+FE/.env.*
+FE/Dockerfile

@@ -1,0 +1,90 @@
+# Nightcrawlers edge: TLS, static FE build, /api reverse proxy, security headers.
+#
+# Environment (set by docker compose):
+#   DOMAIN     site address: "nightcrawlers.duckdns.org" (prod), "localhost" (dev),
+#              "http://localhost" (e2e, plain HTTP)
+#   CADDY_TLS  acme (default) | internal (local CA, dev) | none (plain HTTP site)
+#   ACME_EMAIL Let's Encrypt account email (acme only)
+#   ACME_CA    ACME directory; the Let's Encrypt staging URL for the first deploy
+{
+	admin 127.0.0.1:2019
+	# No trusted_proxies: X-Forwarded-* from clients are never trusted.
+	servers {
+		protocols h1 h2 h3
+	}
+}
+
+(tls-acme) {
+	tls {$ACME_EMAIL} {
+		ca {$ACME_CA:https://acme-v02.api.letsencrypt.org/directory}
+	}
+}
+
+(tls-internal) {
+	tls internal
+}
+
+(tls-none) {
+}
+
+{$DOMAIN} {
+	import tls-{$CADDY_TLS:acme}
+
+	encode zstd gzip
+
+	# Applies to every response; the backend sets its own (stricter) CSP on /api.
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+		-Via
+	}
+
+	# Health and other actuator endpoints are reachable only inside the docker network.
+	@actuator path /actuator /actuator/*
+	handle @actuator {
+		respond 404
+	}
+
+	# API: passed through untouched (no path rewriting: the backend rejects non-canonical paths).
+	# Caddy replaces X-Forwarded-For with the real client address (clients are not trusted
+	# proxies) and the RFC 7239 Forwarded header is dropped; the backend reads only XFF,
+	# and only from this container's address (TRUSTED_PROXIES).
+	handle /api/* {
+		reverse_proxy backend:8080 {
+			header_up -Forwarded
+			header_up -X-Real-IP
+		}
+	}
+
+	handle {
+		root * /srv
+
+		header {
+			Content-Security-Policy "default-src 'self'; img-src 'self' data: blob:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+			X-Frame-Options "DENY"
+			Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+			Cross-Origin-Opener-Policy "same-origin"
+		}
+
+		# Vite output with a content hash in the name: cache forever.
+		@hashed path_regexp hashed ^/assets/[^/]+-[A-Za-z0-9_-]{8,}\.(js|css)$
+		header @hashed Cache-Control "public, max-age=31536000, immutable"
+
+		# Everything else (index.html, atlases, favicon) is not hashed: always revalidate
+		# (ETag/Last-Modified make that a cheap 304).
+		@unhashed not path_regexp ^/assets/[^/]+-[A-Za-z0-9_-]{8,}\.(js|css)$
+		header @unhashed Cache-Control "public, no-cache"
+
+		# Static files under /assets must exist; other paths fall back to the SPA.
+		@assets path /assets/*
+		handle @assets {
+			file_server
+		}
+		handle {
+			try_files {path} /index.html
+			file_server
+		}
+	}
+}

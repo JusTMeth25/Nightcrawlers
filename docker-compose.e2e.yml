@@ -1,0 +1,18 @@
+# End-to-end stack (CI and local): production images built from this checkout, served by Caddy
+# over plain HTTP, backend with the e2e profile (high rate limits, non-Secure cookies so the
+# refresh cookie works over http://localhost) and Mailpit as SMTP.
+#   docker compose -p nc-e2e --env-file <throwaway env> \
+#     -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.e2e.yml up -d --build --wait
+#   cd e2e && E2E_BASE_URL=http://localhost:${HTTP_PORT} MAILPIT_URL=http://localhost:${MAILPIT_UI_PORT} npx playwright test
+services:
+  web:
+    environment:
+      DOMAIN: http://localhost
+      CADDY_TLS: none
+
+  backend:
+    environment:
+      SPRING_PROFILES_ACTIVE: e2e
+      # the e2e profile points SMTP at localhost (backend on the host); here Mailpit is a container
+      SPRING_MAIL_HOST: mailpit
+      SPRING_MAIL_PORT: "1025"
