@@ -261,6 +261,8 @@ export class EnemyPool {
       }
       this.pendingDt[i] += dt
       const onScreen = inView.contains(this.x[i], this.y[i])
+      // off-screen sprites are hidden: the renderer skips them entirely
+      if (s.visible !== onScreen) s.setVisible(onScreen)
       if (!onScreen && (i + frame) % 3 !== 0) continue
       const step = Math.min(this.pendingDt[i], 0.3) * this.slow
       this.pendingDt[i] = 0
@@ -273,7 +275,9 @@ export class EnemyPool {
       this.kbx[i] *= damp
       this.kby[i] *= damp
       s.setPosition(this.x[i], this.y[i])
-      s.setDepth(actorDepth(this.y[i], py))
+      // every depth write queues a display-list sort: write only real changes
+      const depth = Math.round(actorDepth(this.y[i], py))
+      if (s.depth !== depth) s.setDepth(depth)
     }
   }
 

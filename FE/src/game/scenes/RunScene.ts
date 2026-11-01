@@ -423,7 +423,7 @@ export class RunScene extends Phaser.Scene implements SkillHost {
     this.psychosis = tickPsychosis(this.psychosis, dt)
     this.frenzyOverlay.update(dt, isFrenzy(this.psychosis))
     // these two can open a level-up or a chest: stepFrame then skips player damage
-    this.pickups.update(dt, this.player.x, this.player.y, this.stats.magnet, PICKUP_RADIUS, this.collect)
+    this.pickups.update(dt, this.player.x, this.player.y, this.stats.magnet, PICKUP_RADIUS, this.collect, this.inView)
     this.chests.update(dt, this.player.x, this.player.y, this.openChest)
   }
 
