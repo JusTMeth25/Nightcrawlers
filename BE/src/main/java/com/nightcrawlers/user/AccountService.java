@@ -1,6 +1,7 @@
 package com.nightcrawlers.user;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
@@ -13,6 +14,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.nightcrawlers.auth.AuthService;
 import com.nightcrawlers.auth.RefreshTokenRepository;
 import com.nightcrawlers.common.ApiException;
 import com.nightcrawlers.common.audit.AuditEvent;
@@ -95,18 +97,36 @@ public class AccountService {
 
     /**
      * Deletes the account after checking its password. A wrong password is 403, not 401: the
-     * client reserves 401 for an expired session. Every row of the user goes with it (ON DELETE
+     * client reserves 401 for an expired session; a locked account is 423 with Retry-After. Every row of the user goes with it (ON DELETE
      * CASCADE); audit rows stay with {@code user_id} set to null.
      */
-    @Transactional
+    @Transactional(noRollbackFor = ApiException.class)
     public void delete(UUID userId, String password, HttpServletRequest http) {
+        Instant now = clock.instant();
         User user = user(userId);
+        AuthService.requireNotLocked(user, now);
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
+            registerWrongPassword(userId, now, http);
             throw new ApiException(HttpStatus.FORBIDDEN, "Password errata", "La password non è corretta.");
         }
         users.delete(user);
         users.flush();
         audit.record(AuditEvent.ACCOUNT_DELETED, null, http);
+    }
+
+    /**
+     * Wrong passwords share the login failure counter and its progressive lock, so a stolen
+     * access token cannot be used to guess the password. Reaching a lock also ends every session.
+     * The transaction keeps these writes although the request ends with 403.
+     */
+    private void registerWrongPassword(UUID userId, Instant now, HttpServletRequest http) {
+        int failures = users.incrementFailedLogins(userId);
+        Duration lock = AuthService.lockDuration(failures);
+        if (lock != null) {
+            users.lockUntil(userId, now.plus(lock));
+            refreshTokens.revokeAllForUser(userId, now);
+            audit.record(AuditEvent.ACCOUNT_LOCKED, userId, http);
+        }
     }
 
     private User user(UUID userId) {

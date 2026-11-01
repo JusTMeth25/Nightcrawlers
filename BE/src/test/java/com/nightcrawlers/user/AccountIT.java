@@ -177,6 +177,41 @@ class AccountIT {
     }
 
     @Test
+    void repeatedWrongPasswordsLockTheAccountAndRevokeItsSessions() throws Exception {
+        Player player = playerWithProgress();
+        long locksBefore = auditLog.countByEvent(AuditEvent.ACCOUNT_LOCKED);
+
+        for (int i = 1; i <= 5; i++) {
+            deleteMe(player.session(), "Wrong-password-" + i).andExpect(status().isForbidden());
+        }
+
+        // the 5th failure locks for 1 minute, like login: even the right password is refused
+        deleteMe(player.session(), player.account().password())
+                .andExpect(status().isLocked())
+                .andExpect(header().string("Retry-After", org.hamcrest.Matchers.matchesPattern("[1-6]?[0-9]")))
+                .andExpect(jsonPath("$.title").value("Account temporaneamente bloccato"));
+        assertThat(users.findById(player.id())).isPresent();
+        assertThat(refreshTokens.findByUserId(player.id())).isNotEmpty()
+                .allSatisfy(t -> assertThat(t.getRevokedAt()).isNotNull());
+        assertThat(auditLog.countByEvent(AuditEvent.ACCOUNT_LOCKED)).isEqualTo(locksBefore + 1);
+        api.login(player.account().username(), player.account().password()).andExpect(status().isLocked());
+
+        clock.advance(java.time.Duration.ofSeconds(61));
+        deleteMe(player.session(), player.account().password()).andExpect(status().isNoContent());
+    }
+
+    @Test
+    void fewerWrongPasswordsDoNotLock() throws Exception {
+        Player player = playerWithProgress();
+        for (int i = 1; i <= 4; i++) {
+            deleteMe(player.session(), "Wrong-password-" + i).andExpect(status().isForbidden());
+        }
+        assertThat(refreshTokens.findByUserId(player.id())).allSatisfy(t -> assertThat(t.getRevokedAt()).isNull());
+
+        deleteMe(player.session(), player.account().password()).andExpect(status().isNoContent());
+    }
+
+    @Test
     void deleteRequiresAPassword() throws Exception {
         Player player = playerWithProgress();
 
