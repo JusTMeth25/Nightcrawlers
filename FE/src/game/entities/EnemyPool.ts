@@ -51,6 +51,8 @@ export class EnemyPool {
   readonly active: Uint8Array
   readonly elite: Uint8Array
   readonly boss: Uint8Array
+  /** 1 = moved by an external controller (BossController): the pool only applies knockback */
+  readonly controlled: Uint8Array
   readonly defIndex: Uint8Array
   /** hit circle radius, scaled like the sprite (elite, boss) */
   readonly radius: Float32Array
@@ -86,6 +88,7 @@ export class EnemyPool {
     this.active = new Uint8Array(cap)
     this.elite = new Uint8Array(cap)
     this.boss = new Uint8Array(cap)
+    this.controlled = new Uint8Array(cap)
     this.defIndex = new Uint8Array(cap)
     this.radius = new Float32Array(cap)
     this.bodyOff = new Float32Array(cap)
@@ -156,6 +159,7 @@ export class EnemyPool {
     this.defIndex[i] = di
     this.elite[i] = elite
     this.boss[i] = boss
+    this.controlled[i] = 0
     this.x[i] = x
     this.y[i] = y
     this.hp[i] = hp
@@ -260,7 +264,7 @@ export class EnemyPool {
       if (!onScreen && (i + frame) % 3 !== 0) continue
       const step = Math.min(this.pendingDt[i], 0.3) * this.slow
       this.pendingDt[i] = 0
-      if (this.stunLeft[i] <= 0) this.think(i, step, px, py, shoot)
+      if (this.stunLeft[i] <= 0 && !this.controlled[i]) this.think(i, step, px, py, shoot)
       if (onScreen) this.separate(i, step, grid)
       // knockback decays exponentially
       this.x[i] += this.kbx[i] * step
@@ -324,14 +328,18 @@ export class EnemyPool {
     }
     this.x[i] += vx * speed * dt
     this.y[i] += vy * speed * dt
-    const s = this.sprites[i]
+    this.face(i, ux, uy, 'walk')
+  }
+
+  /** Turns enemy i towards (ux, uy) and plays `action` (falls back like every animation). */
+  face(i: number, ux: number, uy: number, action: 'walk' | 'skill' | 'shoot'): void {
     const table = this.tables[this.defIndex[i]]
-    if (table) {
-      const dir = dirOf(ux, uy)
-      const key = table[dir].walk
-      if (key && s.anims.currentAnim?.key !== key) s.play(key)
-      s.setFlipX(dir === 'side' && ux < 0)
-    }
+    if (!table) return
+    const s = this.sprites[i]
+    const dir = dirOf(ux, uy)
+    const key = table[dir][action] ?? table[dir].walk
+    if (key && s.anims.currentAnim?.key !== key) s.play(key)
+    s.setFlipX(dir === 'side' && ux < 0)
   }
 
   private separate(i: number, dt: number, grid: SpatialGrid): void {

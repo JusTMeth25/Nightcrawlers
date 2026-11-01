@@ -35,6 +35,8 @@ import { FxPool } from '../fx/FxPool'
 import { ScreenFx } from '../fx/ScreenFx'
 import { InputManager } from '../input/InputManager'
 import { emptyInput, type InputState } from '../input/InputState'
+import { BossController } from '../enemies/BossController'
+import { bossHp } from '../enemies/bossPatterns'
 import { alertMultipliers, Director, type SpawnOrder } from '../systems/director'
 import { bindSceneEnd } from '../run/lifecycle'
 import { PauseState } from '../run/PauseState'
@@ -110,6 +112,7 @@ export class RunScene extends Phaser.Scene implements SkillHost {
   screen!: ScreenFx
   frenzyOverlay!: FrenzyOverlay
   skills!: SkillSystem
+  bosses!: BossController
   characterColor = 0xffffff
   vfx!: FxPool
   grenades!: Grenades
@@ -157,7 +160,9 @@ export class RunScene extends Phaser.Scene implements SkillHost {
     }
     this.stats = this.computeRunStats()
     if (this.dev.frenzy) this.psychosis = { value: 0, frenzyLeftSec: balance.psychosis.frenzyDurationSec }
-    this.director = new Director(waves, this.rng)
+    const startSec = Math.max(0, this.dev.startSec ?? 0)
+    this.clock = startSec
+    this.director = new Director(waves, this.rng, startSec)
     this.floor = new CityFloor(this, this.run.seed)
     // cosmetic randomness has its own stream: options never change the run
     const cosmetic = createRng(this.run.seed ^ 0x51ab1e)
@@ -174,6 +179,7 @@ export class RunScene extends Phaser.Scene implements SkillHost {
     this.weapons = new WeaponSystem(this, character.color)
     this.syncWeapons()
     this.skills = new SkillSystem(this, getSkill(character.skill))
+    this.bosses = new BossController(this)
     this.pickups = new PickupPool(this, PICKUP_CAP)
     this.chests = new Chests(this)
     this.pauseState = new PauseState(gameBus, () => this.flow.busy)
@@ -309,6 +315,7 @@ export class RunScene extends Phaser.Scene implements SkillHost {
     this.spawnStep(dt)
     const v = cam.worldView
     this.inView.setTo(v.x - VIEW_MARGIN, v.y - VIEW_MARGIN, v.width + VIEW_MARGIN * 2, v.height + VIEW_MARGIN * 2)
+    this.bosses.update(dt)
     this.enemies.fillGrid(this.grid)
     this.enemies.update(dt, this.frame, this.player.x, this.player.y, this.inView, this.grid, this.enemyShot)
     this.enemies.fillGrid(this.grid)
@@ -445,18 +452,51 @@ export class RunScene extends Phaser.Scene implements SkillHost {
     const v = this.cameras.main.worldView
     const def = getEnemy(order.enemyId)
     const alert = alertMultipliers(this.clock)
-    const bossHp = order.kind === 'boss' ? balance.boss.hpGrowth ** (order.bossIndex ?? 0) : 1
+    const boss = order.kind === 'boss'
+    const bossIndex = order.bossIndex ?? 0
+    // bossHp already includes the alert HP multiplier
+    const hpMult = boss ? bossHp(def.hp, bossIndex, this.clock) / def.hp : alert.hp
     const pts = formationPositions(order.formation, order.count, v.centerX, v.centerY, v.width, v.height, this.rng)
     for (const p of pts) {
-      this.enemies.spawn(
+      const slot = this.enemies.spawn(
         def,
         p.x,
         p.y,
-        { elite: order.kind === 'elite', boss: order.kind === 'boss', hpMult: alert.hp * bossHp, damageMult: alert.damage },
+        { elite: order.kind === 'elite', boss, hpMult, damageMult: alert.damage },
         this.player.x,
         this.player.y,
       )
+      if (slot >= 0) this.onEnemySpawned(slot)
+      if (slot >= 0 && boss) this.bosses.add(slot, bossIndex)
     }
+  }
+
+  /** Codex: an enemy counts as seen once it spawns. */
+  protected onEnemySpawned(slot: number): void {
+    this.enemiesSeen.add(this.enemies.def(slot).id)
+  }
+
+  spawnAround(enemyId: EnemyId, x: number, y: number, count: number, radius: number): void {
+    const def = getEnemy(enemyId)
+    const alert = alertMultipliers(this.clock)
+    for (let k = 0; k < count; k++) {
+      const a = (k / count) * Math.PI * 2
+      const slot = this.enemies.spawn(
+        def,
+        x + Math.cos(a) * radius,
+        y + Math.sin(a) * radius,
+        { hpMult: alert.hp, damageMult: alert.damage },
+        this.player.x,
+        this.player.y,
+      )
+      if (slot >= 0) this.onEnemySpawned(slot)
+    }
+  }
+
+  hurtPlayer(raw: number): void {
+    if (this.dev.stress) return
+    const result = this.player.hurt(raw)
+    if (result !== 'none') this.onPlayerHurt(result)
   }
 
   /** Enemies left far behind come back near the visible edge (spec 3.5). */

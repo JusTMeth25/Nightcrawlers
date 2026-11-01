@@ -17,6 +17,8 @@ export interface DevOptions {
   weapons?: WeaponId[]
   /** start them evolved */
   evolved?: boolean
+  /** game clock at start, seconds (harness `?t=595` shows the first boss at 10:00) */
+  startSec?: number
   /** start in cyberpsychosis */
   frenzy?: boolean
 }

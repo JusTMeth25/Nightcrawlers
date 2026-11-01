@@ -2,6 +2,7 @@
 //   ?c=<characterId>  ?seed=<n>  ?fps=1 (FPS counter)  ?stress=<n> (keep n enemies alive)
 //   ?weapons=all (first 6 weapons at level 8) or ?weapons=drone,heavy_rifle  ?evolved=1 (evolved)
 //   ?auto=1 (pick the first card and close chests automatically)  ?frenzy=1 (start in cyberpsychosis)
+//   ?t=<sec> (start the game clock there, e.g. ?t=595 for the first boss)
 // Until plan Task 15 wires GameCanvas, the harness mounts the Phaser game directly.
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -35,6 +36,7 @@ const dev: DevOptions = {
   weapons: devWeapons,
   evolved: params.get('evolved') === '1',
   frenzy: params.get('frenzy') === '1',
+  startSec: Math.max(0, Number(params.get('t') ?? 0) || 0),
 }
 
 createRoot(document.getElementById('root')!).render(

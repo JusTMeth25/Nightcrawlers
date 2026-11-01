@@ -12,6 +12,9 @@ export const TEX_ARC = 'tex_arc'
 export const TEX_DRONE = 'tex_drone'
 export const TEX_GRENADE = 'tex_grenade'
 export const TEX_PIXEL = 'tex_pixel'
+export const TEX_WEDGE = 'tex_wedge'
+/** reach of the wedge texture (60 degree cone, apex at the left middle) */
+export const WEDGE_RADIUS = 64
 /** radius of the ring texture: scale = wanted radius / RING_RADIUS */
 export const RING_RADIUS = 32
 /** beam texture length: scaleX = wanted length / BEAM_LENGTH */
@@ -91,6 +94,15 @@ export class BootScene extends Phaser.Scene {
     g.fillStyle(0xffffff, 1)
     g.fillRect(0, 0, 4, 4)
     g.generateTexture(TEX_PIXEL, 4, 4)
+    g.clear()
+    // boss cone telegraph: 60 degree wedge
+    g.fillStyle(0xffffff, 0.35)
+    g.slice(0, WEDGE_RADIUS, WEDGE_RADIUS, -Math.PI / 6, Math.PI / 6, false)
+    g.fillPath()
+    g.lineStyle(2, 0xffffff, 1)
+    g.slice(0, WEDGE_RADIUS, WEDGE_RADIUS - 1, -Math.PI / 6, Math.PI / 6, false)
+    g.strokePath()
+    g.generateTexture(TEX_WEDGE, WEDGE_RADIUS, WEDGE_RADIUS * 2)
     g.destroy()
     this.scene.start('Preload')
   }
