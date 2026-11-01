@@ -65,3 +65,19 @@ test('logout from all devices returns to the title screen', async ({ page, reque
   await expect(page).toHaveURL(/\/$/, { timeout: 5_000 })
   await expect(page.getByRole('heading', { name: 'NIGHTCRAWLERS' })).toBeVisible()
 })
+
+// Regression: each page load rotates the refresh token; reloading again before the rotation
+// response arrived used to present the old token, count as reuse and log the user out.
+test('two quick reloads keep the session', async ({ page, request }) => {
+  const user = newUser('rld')
+  await createVerifiedUser(request, user)
+  await loginViaUi(page, user)
+  await page.goto('/')
+  await expect(page.getByText(`Connesso come ${user.username}`)).toBeVisible()
+
+  // second reload starts while the first bootstrap refresh may still be in flight
+  await page.reload({ waitUntil: 'commit' })
+  await page.reload({ waitUntil: 'commit' })
+  await page.reload()
+  await expect(page.getByText(`Connesso come ${user.username}`)).toBeVisible()
+})
