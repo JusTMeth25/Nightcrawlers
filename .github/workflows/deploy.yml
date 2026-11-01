@@ -1,6 +1,8 @@
 name: Deploy
 
-# After a green CI run on main, or by hand (Actions > Deploy > Run workflow).
+# After a green CI run on main, or by hand (Actions > Deploy > Run workflow) from main only.
+# Everything that pushes images or uses the SSH secrets runs in the "production" environment,
+# whose deployment branch rule allows main only (docs/deploy.md).
 on:
   workflow_run:
     workflows: [CI]
@@ -16,31 +18,31 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # Commit to deploy: the one CI tested, or the dispatched ref.
+  # Commit to deploy: the one CI tested, or main's head when dispatched.
   DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
 
 jobs:
-  images:
-    name: Build ${{ matrix.image }} (linux/arm64)
+  release:
+    name: Build (linux/arm64) and deploy
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_branch == 'main'))
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: production
     permissions:
       contents: read
       packages: write
-    strategy:
-      matrix:
-        include:
-          - image: web
-            context: .
-            file: FE/Dockerfile
-          - image: backend
-            context: BE
-            file: BE/Dockerfile
+    outputs:
+      previous: ${{ steps.previous.outputs.tag }}
+    env:
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_USER: ${{ secrets.SSH_USER }}
     steps:
       - name: Privacy contact is configured
-        if: matrix.image == 'web'
         env:
           VITE_PRIVACY_EMAIL: ${{ vars.VITE_PRIVACY_EMAIL }}
         run: |
@@ -48,58 +50,58 @@ jobs:
             echo "::error::Set the repository variable VITE_PRIVACY_EMAIL (privacy contact) before deploying."
             exit 1
           fi
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.DEPLOY_SHA }}
-      - name: Image name
+      - name: Image names
         id: name
-        run: echo "image=ghcr.io/${REPO,,}-${{ matrix.image }}" >> "$GITHUB_OUTPUT"
         env:
           REPO: ${{ github.repository }}
-      - uses: docker/setup-qemu-action@v4
+        run: echo "prefix=ghcr.io/${REPO,,}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
         with:
           platforms: arm64
-      - uses: docker/setup-buildx-action@v4
-      - uses: docker/login-action@v4
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v7
+      # One manifest per tag (no attestation manifests: untagged leftovers would use GHCR quota).
+      # Only SHA tags: no moving "latest".
+      - name: Build and push backend
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
-          context: ${{ matrix.context }}
-          file: ${{ matrix.file }}
+          context: BE
+          file: BE/Dockerfile
           platforms: linux/arm64
           push: true
-          # one manifest per tag (no attestation manifests): untagged leftovers would use GHCR quota
+          provenance: false
+          sbom: false
+          tags: ${{ steps.name.outputs.prefix }}-backend:${{ env.DEPLOY_SHA }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ env.DEPLOY_SHA }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+      - name: Build and push web
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: FE/Dockerfile
+          platforms: linux/arm64
+          push: true
           provenance: false
           sbom: false
           build-args: |
             VITE_PRIVACY_EMAIL=${{ vars.VITE_PRIVACY_EMAIL }}
-          tags: |
-            ${{ steps.name.outputs.image }}:${{ env.DEPLOY_SHA }}
-            ${{ steps.name.outputs.image }}:latest
+          tags: ${{ steps.name.outputs.prefix }}-web:${{ env.DEPLOY_SHA }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ env.DEPLOY_SHA }}
-          cache-from: type=gha,scope=${{ matrix.image }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
-
-  deploy:
-    name: Deploy to the VM
-    needs: images
-    runs-on: ubuntu-24.04
-    environment: production
-    permissions:
-      contents: read
-      packages: read
-    outputs:
-      previous: ${{ steps.previous.outputs.tag }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ env.DEPLOY_SHA }}
-      - name: SSH setup
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+      - name: SSH setup (pinned host key)
         env:
           SSH_KEY: ${{ secrets.SSH_KEY }}
           SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
@@ -107,39 +109,43 @@ jobs:
           install -m 700 -d ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
-      - name: Copy compose stack and scripts
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-        run: |
-          tar czf - docker-compose.yml db/init ops | ssh -i ~/.ssh/id_deploy -o BatchMode=yes \
-            "$SSH_USER@$SSH_HOST" 'tar xzf - -C /opt/nightcrawlers && chmod 755 /opt/nightcrawlers/ops/*.sh /opt/nightcrawlers/db/init/*.sh'
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts_deploy
+          {
+            echo "Host deploy-target"
+            echo "  HostName $SSH_HOST"
+            echo "  User $SSH_USER"
+            echo "  IdentityFile ~/.ssh/id_deploy"
+            echo "  IdentitiesOnly yes"
+            echo "  BatchMode yes"
+            echo "  StrictHostKeyChecking yes"
+            echo "  UserKnownHostsFile ~/.ssh/known_hosts_deploy"
+            echo "  ConnectTimeout 20"
+          } > ~/.ssh/config
+          chmod 600 ~/.ssh/config
       - name: Previous good tag
         id: previous
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_USER: ${{ secrets.SSH_USER }}
         run: |
-          tag="$(ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$SSH_USER@$SSH_HOST" \
-            'cat /opt/nightcrawlers/.last-good-tag 2>/dev/null || true' | tr -cd 'A-Za-z0-9_.-')"
+          tag="$(ssh deploy-target 'cat /opt/nightcrawlers/.last-good-tag 2>/dev/null || true' | tr -cd 'A-Za-z0-9_.-')"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "previous good tag: ${tag:-none}"
-      - name: Pull and start ${{ env.DEPLOY_SHA }} (rollback on failure)
+      - name: Copy compose stack and scripts
+        run: |
+          tar czf - docker-compose.yml db/init ops | ssh deploy-target \
+            'tar xzf - -C /opt/nightcrawlers && chmod 755 /opt/nightcrawlers/ops/*.sh /opt/nightcrawlers/db/init/*.sh'
+      - name: Pull and start ${{ env.DEPLOY_SHA }} (pre-deploy dump, rollback on failure)
         env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_USER: ${{ secrets.SSH_USER }}
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
+          PREFIX: ${{ steps.name.outputs.prefix }}
         run: |
           # The job token can read the (private) packages while the job runs. It travels on stdin,
           # never on a command line, and the VM keeps no registry credential (logout at the end).
-          printf '%s' "$GHCR_TOKEN" | ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$SSH_USER@$SSH_HOST" \
+          # shellcheck disable=SC2029 # user, prefix and SHA are expanded here on purpose
+          printf '%s' "$GHCR_TOKEN" | ssh deploy-target \
             "set -e
              docker login ghcr.io -u '$GHCR_USER' --password-stdin >/dev/null
              trap 'docker logout ghcr.io >/dev/null' EXIT
-             IMAGE_PREFIX='ghcr.io/${REPO,,}' /opt/nightcrawlers/ops/deploy.sh '$DEPLOY_SHA'"
+             IMAGE_PREFIX='$PREFIX' /opt/nightcrawlers/ops/deploy.sh '$DEPLOY_SHA'"
       - name: Public health check
         if: vars.PUBLIC_URL != ''
         env:
@@ -154,7 +160,7 @@ jobs:
   # tag (rollback target) even when older; delete everything else, untagged versions included.
   cleanup:
     name: Prune old GHCR versions
-    needs: deploy
+    needs: release
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -164,7 +170,7 @@ jobs:
       OWNER: ${{ github.repository_owner }}
       OWNER_TYPE: ${{ github.event.repository.owner.type }}
       REPO: ${{ github.event.repository.name }}
-      PREVIOUS: ${{ needs.deploy.outputs.previous }}
+      PREVIOUS: ${{ needs.release.outputs.previous }}
       KEEP: "3"
     steps:
       - name: Delete old versions
@@ -174,7 +180,7 @@ jobs:
           for image in web backend; do
             pkg="${REPO,,}-${image}"
             base="/${scope}/${OWNER}/packages/container/${pkg}/versions"
-            # id, tags; newest first
+            # id, created_at, tags; newest first
             gh api --paginate "$base" \
               --jq '.[] | [.id, .created_at, ((.metadata.container.tags // []) | join(","))] | @tsv' \
               | sort -t$'\t' -k2,2r > versions.tsv
