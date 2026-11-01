@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clampDeltaSec, MAX_FRAME_MS, stepFrame, type FrameHost } from './frame'
+import { clampDeltaSec, MAX_FRAME_MS, stepFrame, type FrameHost, runSteps } from './frame'
 
 function host(over: Partial<FrameHost> = {}) {
   const calls: string[] = []
@@ -55,5 +55,28 @@ describe('stepFrame', () => {
     }
     stepFrame(16, h)
     expect(h.calls).toEqual(['simulate'])
+  })
+})
+
+describe('runSteps', () => {
+  it('stops before the next step once the player died (no level-up during death)', () => {
+    let dead = false
+    const ran: string[] = []
+    const steps = [
+      () => ran.push('move'),
+      () => {
+        ran.push('boss')
+        dead = true
+      },
+      () => ran.push('pickups'),
+    ]
+    runSteps(steps, 0.016, () => dead)
+    expect(ran).toEqual(['move', 'boss'])
+  })
+
+  it('runs every step while nothing stops it', () => {
+    const ran: number[] = []
+    runSteps([(dt) => ran.push(dt), (dt) => ran.push(dt * 2)], 1, () => false)
+    expect(ran).toEqual([1, 2])
   })
 })

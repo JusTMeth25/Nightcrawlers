@@ -101,11 +101,25 @@ export class PickupPool {
     for (let i = 0; i < this.cap; i++) if (this.active[i] && this.kind[i] === PICKUP_XP) this.pulled[i] = 1
   }
 
-  update(dt: number, px: number, py: number, magnet: number, collectRadius: number, collect: CollectFn): void {
+  /** `view` (optional): pickups outside it are hidden so the renderer skips them. */
+  update(
+    dt: number,
+    px: number,
+    py: number,
+    magnet: number,
+    collectRadius: number,
+    collect: CollectFn,
+    view?: { contains(x: number, y: number): boolean },
+  ): void {
     const m2 = magnet * magnet
     const c2 = collectRadius * collectRadius
     for (let i = 0; i < this.cap; i++) {
       if (!this.active[i]) continue
+      if (view) {
+        const show = view.contains(this.x[i], this.y[i])
+        const sp = this.sprites[i]
+        if (sp.visible !== show) sp.setVisible(show)
+      }
       const dx = px - this.x[i]
       const dy = py - this.y[i]
       const d2 = dx * dx + dy * dy

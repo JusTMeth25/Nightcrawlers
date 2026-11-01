@@ -1,28 +1,11 @@
-// Stub: the Engine agent replaces this with the Phaser game (plan 02, Task 15).
-// The props are final: React mounts the game with a RunConfig and gets the RunResult back.
-import type { GameCanvasProps, RunResult } from '@shared/types'
+// The only export towards React: mounts the Phaser run for `config` and reports the end through
+// `onEnd` (also published on the bus as run:end). Everything else flows through gameBus.
+import { useRef } from 'react'
+import type { GameCanvasProps } from '@shared/types'
+import { useGame } from './run/useGame'
 
 export default function GameCanvas({ config, onEnd }: GameCanvasProps) {
-  const endRun = () => {
-    const result: RunResult = {
-      runId: config.runId,
-      characterId: config.characterId,
-      durationSec: 0,
-      kills: 0,
-      killsByEnemy: {},
-      level: 1,
-      eurodollarsCollected: 0,
-      weaponsSeen: [],
-      enemiesSeen: [],
-    }
-    onEnd(result)
-  }
-
-  return (
-    <div data-testid="game-canvas">
-      <button type="button" onClick={endRun}>
-        Termina run (stub)
-      </button>
-    </div>
-  )
+  const ref = useRef<HTMLDivElement>(null)
+  useGame(ref, config, onEnd)
+  return <div ref={ref} data-testid="game-canvas" style={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh' }} />
 }

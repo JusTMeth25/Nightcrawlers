@@ -1,13 +1,16 @@
 // Runs every owned weapon: cooldowns, targeting, behaviours and player-projectile hits.
-import { getWeapon, weapons } from '@data/index'
+import { getWeapon } from '@data/index'
 import type { Stats, WeaponBehavior, WeaponId, WeaponLevelStats } from '@shared/types'
 import { OWNER_PLAYER } from '../entities/ProjectilePool'
 import type { InputState } from '../input/InputState'
 import type { Inventory } from '../systems/inventory'
 import { weaponStats } from '../systems/weapons'
-import { BODY_OFFSET, ENEMY_RADIUS } from '../world/view'
 import { createConeBehavior } from './behaviors/cone'
+import { createDroneBehavior } from './behaviors/drone'
+import { createLobBehavior } from './behaviors/lob'
+import { createMeleeArcBehavior } from './behaviors/meleeArc'
 import { createOrbitBehavior } from './behaviors/orbit'
+import { createPierceBeamBehavior } from './behaviors/pierceBeam'
 import { createProjectileBehavior } from './behaviors/projectile'
 import { aimDirection, type Vec } from './targeting'
 import type { Behavior, CombatHost, WeaponRuntime } from './types'
@@ -20,14 +23,12 @@ const WEAPON_COLORS: Partial<Record<WeaponId, number>> = {
   minigun: 0xffd166,
   monowire: 0x9dfcff,
   smart_pistol: 0x7cffb2,
+  grenade_launcher: 0xff9f43,
+  mantis_blades: 0xff5e9c,
+  drone: 0x6fd3ff,
+  heavy_rifle: 0xd6a2ff,
 }
 
-/** Behaviours implemented so far: only these weapons are offered (M1: Tasks 13-16 add the rest). */
-export const IMPLEMENTED_BEHAVIORS: ReadonlySet<WeaponBehavior> = new Set(['projectile', 'cone', 'orbit'])
-
-export function implementedWeapons(): WeaponId[] {
-  return weapons.filter((w) => IMPLEMENTED_BEHAVIORS.has(w.behavior)).map((w) => w.id)
-}
 
 interface Slot extends WeaponRuntime {
   behavior: Behavior
@@ -56,7 +57,6 @@ export class WeaponSystem {
       let slot = this.slots.find((s) => s.def.id === owned.id)
       if (!slot) {
         const behavior = this.createBehavior(def.behavior)
-        if (!behavior) continue
         slot = { owned, def, behavior, cooldownLeft: 0, color: 0xffffff, stats: weaponStats(owned, stats) }
         this.slots.push(slot)
       }
@@ -66,7 +66,7 @@ export class WeaponSystem {
     }
   }
 
-  private createBehavior(kind: WeaponBehavior): Behavior | null {
+  private createBehavior(kind: WeaponBehavior): Behavior {
     switch (kind) {
       case 'projectile':
         return createProjectileBehavior()
@@ -74,9 +74,14 @@ export class WeaponSystem {
         return createConeBehavior()
       case 'orbit':
         return createOrbitBehavior(this.host.gameScene, this.host.enemies.cap)
-      default:
-        // lob, melee_arc, drone, pierce_beam: plan Tasks 13-16
-        return null
+      case 'lob':
+        return createLobBehavior()
+      case 'melee_arc':
+        return createMeleeArcBehavior()
+      case 'drone':
+        return createDroneBehavior(this.host.gameScene)
+      case 'pierce_beam':
+        return createPierceBeamBehavior()
     }
   }
 
@@ -107,7 +112,7 @@ export class WeaponSystem {
     const i = this.host.grid.nearest(this.playerPos.x, this.playerPos.y, NEAREST_RANGE)
     if (i < 0) return null
     this.nearestPos.x = this.host.enemies.x[i]
-    this.nearestPos.y = this.host.enemies.y[i] - BODY_OFFSET
+    this.nearestPos.y = this.host.enemies.bodyY(i)
     return this.nearestPos
   }
 
@@ -116,7 +121,7 @@ export class WeaponSystem {
     const e = this.host.enemies
     for (let i = 0; i < pr.cap; i++) {
       if (!pr.active[i] || pr.owner[i] !== OWNER_PLAYER) continue
-      const n = this.host.grid.queryRadius(pr.x[i], pr.y[i], pr.radius[i] + ENEMY_RADIUS, this.found)
+      const n = e.queryHits(this.host.grid, pr.x[i], pr.y[i], pr.radius[i], this.found)
       if (n === 0) continue
       const speed = Math.hypot(pr.vx[i], pr.vy[i]) || 1
       const kx = (pr.vx[i] / speed) * PROJECTILE_KNOCK

@@ -1,7 +1,10 @@
 // Contracts between the weapon system, its behaviours and the scene that hosts them.
 import type Phaser from 'phaser'
 import type { OwnedWeapon, WeaponDef, WeaponLevelStats } from '@shared/types'
+import type { SfxId } from '../audio/sfxIds'
 import type { EnemyPool } from '../entities/EnemyPool'
+import type { Grenades } from '../entities/Grenades'
+import type { FxPool } from '../fx/FxPool'
 import type { Player } from '../entities/Player'
 import type { ProjectilePool } from '../entities/ProjectilePool'
 import type { InputState } from '../input/InputState'
@@ -17,10 +20,15 @@ export interface CombatHost {
   readonly grid: SpatialGrid
   readonly player: Player
   readonly rng: Rng
+  /** short-lived visual effects */
+  readonly vfx: FxPool
+  readonly grenades: Grenades
   /** game seconds */
   readonly clock: number
   /** Applies a weapon hit (damage formula, numbers, knockback, kill handling). */
   damageEnemy(enemy: number, baseDamage: number, knockX: number, knockY: number): void
+  /** Plays a sound effect (rate-limited by the audio system). */
+  sfx(id: SfxId): void
 }
 
 export interface WeaponRuntime {

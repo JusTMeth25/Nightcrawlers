@@ -10,6 +10,7 @@ export class PauseState {
   private readonly modalOpen: () => boolean
   private readonly reasons = new Set<PauseReason>()
   private readonly off: (() => void)[]
+  private readonly changeListeners = new Set<(paused: boolean) => void>()
 
   /** `modalOpen`: true while a level-up or chest is pending or shown. */
   constructor(bus: EventBus<GameEvents>, modalOpen: () => boolean) {
@@ -30,12 +31,31 @@ export class PauseState {
     if (this.reasons.has(reason)) return
     if (reason === 'menu' && this.modalOpen()) return
     this.reasons.add(reason)
+    if (this.reasons.size === 1) this.notify(true)
     this.bus.emit('game:paused', { reason })
   }
 
   resume(reason: PauseReason): void {
     if (!this.reasons.delete(reason)) return
-    if (this.reasons.size === 0) this.bus.emit('game:resumed', undefined)
+    if (this.reasons.size > 0) return
+    this.notify(false)
+    this.bus.emit('game:resumed', undefined)
+  }
+
+  /**
+   * Called with true when the game freezes and false when it runs again (cosmetics follow it).
+   * `now`: also call it at once with the current state (the game may be paused already).
+   */
+  onChange(fn: (paused: boolean) => void, now = false): () => void {
+    this.changeListeners.add(fn)
+    if (now && this.paused) fn(true)
+    return () => {
+      this.changeListeners.delete(fn)
+    }
+  }
+
+  private notify(paused: boolean): void {
+    for (const fn of this.changeListeners) fn(paused)
   }
 
   /** Esc / Start / touch pause button. */
@@ -47,5 +67,6 @@ export class PauseState {
   dispose(): void {
     for (const off of this.off) off()
     this.off.length = 0
+    this.changeListeners.clear()
   }
 }
