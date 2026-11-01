@@ -6,6 +6,7 @@ import { gameBus } from '@shared/events'
 import {
   DEFAULT_OPTIONS,
   type EnemyId,
+  type GameOptions,
   type LevelUpCard,
   type OwnedWeapon,
   type RunConfig,
@@ -27,6 +28,7 @@ import {
   type PickupKind,
 } from '../entities/PickupPool'
 import { OWNER_ENEMY, ProjectilePool } from '../entities/ProjectilePool'
+import { AudioSystem } from '../audio/AudioSystem'
 import type { SfxId } from '../audio/sfxIds'
 import { Grenades } from '../entities/Grenades'
 import { DamageNumbers } from '../fx/DamageNumbers'
@@ -116,8 +118,8 @@ export class RunScene extends Phaser.Scene implements SkillHost {
   characterColor = 0xffffff
   vfx!: FxPool
   grenades!: Grenades
-  /** sound output (Task 14b); null until the audio system exists */
-  audio: { play(id: SfxId): void } | null = null
+  audio: AudioSystem | null = null
+  private offOptions: (() => void) | null = null
   protected frame = 0
   protected floor!: CityFloor
   protected readonly inView = new Phaser.Geom.Rectangle()
@@ -195,6 +197,7 @@ export class RunScene extends Phaser.Scene implements SkillHost {
       weaponPool: implementedWeapons(),
     })
     this.controls = new InputManager(this)
+    this.createAudio()
 
     const cam = this.cameras.main
     cam.startFollow(this.player.sprite, true)
@@ -202,6 +205,27 @@ export class RunScene extends Phaser.Scene implements SkillHost {
     this.scale.on(Phaser.Scale.Events.RESIZE, this.applyZoom, this)
     this.scene.launch(TOUCH_SCENE_KEY, { touch: this.controls.touch, debug: () => this.debugLine() })
     bindSceneEnd(this.events, (destroying) => this.teardown(destroying))
+  }
+
+  /** Web Audio needs a user gesture: unlock now if the page already had one, else on first input. */
+  private createAudio(): void {
+    if (typeof AudioContext === 'undefined') return
+    const audio = new AudioSystem(() => new AudioContext())
+    this.audio = audio
+    audio.setVolumes(this.run.options.musicVolume, this.run.options.sfxVolume)
+    const nav = navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }
+    if (nav.userActivation?.hasBeenActive) audio.unlock()
+    const unlock = () => audio.unlock()
+    this.input.once(Phaser.Input.Events.POINTER_DOWN, unlock)
+    this.input.keyboard?.once('keydown', unlock)
+    this.offOptions = gameBus.on('options:changed', (o) => this.applyOptions(o))
+  }
+
+  /** Options changed from the pause menu. */
+  applyOptions(o: GameOptions): void {
+    this.run = { ...this.run, options: o }
+    this.audio?.setVolumes(o.musicVolume, o.sfxVolume)
+    this.screen.shakeEnabled = o.screenShake
   }
 
   /** Stats from character, Ripperdoc and the cyberware owned now. */
@@ -333,7 +357,10 @@ export class RunScene extends Phaser.Scene implements SkillHost {
     this.chests.update(dt, this.player.x, this.player.y, this.openChest)
   }
 
-  private readonly openChest = (): void => this.flow.onChestOpened()
+  private readonly openChest = (): void => {
+    this.sfx('chest')
+    this.flow.onChestOpened()
+  }
 
   /** Ranged enemies (kite) fire through the shared projectile pool. */
   protected enemyShot: EnemyShot = (x, y, dx, dy, def, damageMult) => {
@@ -368,6 +395,7 @@ export class RunScene extends Phaser.Scene implements SkillHost {
     const k = e.boss[enemy] ? 0.1 : 1
     const dead = e.hit(enemy, hit.amount, knockX * k, knockY * k)
     this.damageNumbers.show(e.x[enemy], e.y[enemy] - 30, hit.amount, hit.crit)
+    this.sfx(dead ? 'kill' : 'hit')
     if (dead) this.onEnemyKilled(enemy)
   }
 
@@ -409,7 +437,11 @@ export class RunScene extends Phaser.Scene implements SkillHost {
         const next = addXp({ level: this.level, xp: this.xp }, value, this.stats.growth)
         this.level = next.level
         this.xp = next.xp
-        if (next.levelsGained > 0) this.flow.onLevels(next.levelsGained)
+        this.sfx('pickup')
+        if (next.levelsGained > 0) {
+          this.sfx('levelup')
+          this.flow.onLevels(next.levelsGained)
+        }
         break
       }
       case PICKUP_EURO:
@@ -526,6 +558,7 @@ export class RunScene extends Phaser.Scene implements SkillHost {
   }
 
   protected onPlayerHurt(result: 'hit' | 'revived' | 'dead'): void {
+    this.sfx('hurt')
     if (result === 'revived') {
       this.enemies.pushAway(this.player.x, this.player.y, REVIVE_RADIUS, REVIVE_FORCE)
       this.screen.flash(0.25, 0x05d9e8)
@@ -558,6 +591,10 @@ export class RunScene extends Phaser.Scene implements SkillHost {
     this.scale.off(Phaser.Scale.Events.RESIZE, this.applyZoom, this)
     this.controls?.destroy()
     this.weapons?.destroy()
+    this.offOptions?.()
+    this.offOptions = null
+    this.audio?.dispose()
+    this.audio = null
     this.skills?.destroy()
     // on game destroy the scene manager is tearing every scene down already
     if (!destroying) {
