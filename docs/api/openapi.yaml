@@ -343,7 +343,8 @@ components:
       name: refresh_token
       description: >
         Opaque refresh token, HttpOnly; Secure; SameSite=Strict; Path=/api/auth; 30 days.
-        Rotated on every use. Requests using it must send the X-CSRF-Token header equal
+        Rotated on every use. A just-rotated token presented again within 20 s, while its successor is
+        still unused (page reload before the response arrived), gets a new successor instead of revoking the session. Requests using it must send the X-CSRF-Token header equal
         to the XSRF-TOKEN cookie (Secure; SameSite=Strict; Path=/; readable by JS).
 
   parameters:
