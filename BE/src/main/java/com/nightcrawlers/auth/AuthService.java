@@ -24,6 +24,7 @@ import com.nightcrawlers.common.audit.AuditEvent;
 import com.nightcrawlers.common.audit.AuditService;
 import com.nightcrawlers.mail.MailOutbox;
 import com.nightcrawlers.mail.MailTemplates;
+import com.nightcrawlers.mail.RenderedMail;
 import com.nightcrawlers.save.SaveInitializer;
 import com.nightcrawlers.user.Emails;
 import com.nightcrawlers.user.User;
@@ -145,10 +146,10 @@ public class AuthService {
     public void forgotPassword(String normalizedEmail) {
         users.findByEmail(normalizedEmail).ifPresent(user -> {
             String token = emailTokens.issue(user, EmailToken.Purpose.RESET, EMAIL_TOKEN_TTL);
-            String html = templates.render("reset-password", Map.of(
+            RenderedMail body = templates.render("reset-password", Map.of(
                     "username", user.getUsername(),
                     "link", props.frontendUrl() + "/reset-password?token=" + token));
-            mail.queue(user.getEmail(), "Reimposta la password - Nightcrawlers", html);
+            mail.queue(user.getEmail(), "Reimposta la password - Nightcrawlers", body);
         });
     }
 
@@ -235,16 +236,16 @@ public class AuthService {
 
     void sendVerification(User user) {
         String token = emailTokens.issue(user, EmailToken.Purpose.VERIFY, EMAIL_TOKEN_TTL);
-        String html = templates.render("verify-email", Map.of(
+        RenderedMail body = templates.render("verify-email", Map.of(
                 "username", user.getUsername(),
                 "link", props.frontendUrl() + "/verify-email?token=" + token));
-        mail.queue(user.getEmail(), "Conferma il tuo indirizzo email - Nightcrawlers", html);
+        mail.queue(user.getEmail(), "Conferma il tuo indirizzo email - Nightcrawlers", body);
     }
 
     private void sendAlreadyRegistered(User user) {
-        String html = templates.render("already-registered", Map.of(
+        RenderedMail body = templates.render("already-registered", Map.of(
                 "username", user.getUsername(),
                 "link", props.frontendUrl() + "/forgot-password"));
-        mail.queue(user.getEmail(), "Tentativo di registrazione - Nightcrawlers", html);
+        mail.queue(user.getEmail(), "Tentativo di registrazione - Nightcrawlers", body);
     }
 }

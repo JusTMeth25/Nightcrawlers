@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: mail(
+        'Conferma la tua email per salvare run, eurodollari e sblocchi.',
+        'Conferma la tua email',
+        ~{::#content},
+        'Conferma email',
+        'Il link scade tra 30 minuti. Se non hai creato un account su Nightcrawlers, ignora questo messaggio.')}">
+<body>
+<div id="content">
+  <p style="margin:0 0 12px 0;">Ciao <strong style="color:#f5e663;" th:text="${username}">netrunner</strong>,</p>
+  <p style="margin:0 0 12px 0;">il tuo profilo &egrave; quasi pronto. Conferma l&rsquo;indirizzo email per salvare sul server
+    i progressi delle tue run, gli eurodollari e i personaggi sbloccati.</p>
+</div>
+</body>
+</html>

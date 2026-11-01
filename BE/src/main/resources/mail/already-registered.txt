@@ -1,0 +1,14 @@
+NIGHTCRAWLERS
+// trasmissione criptata
+
+Ciao [[${username}]],
+
+qualcuno ha provato a registrarsi con il tuo indirizzo email, che ha già un account.
+Se sei stato tu e non ricordi la password, puoi reimpostarla qui:
+[[${link}]]
+
+Se non sei stato tu, puoi ignorare questo messaggio: il tuo account non è stato modificato.
+
+--
+Nightcrawlers - gioco fan non ufficiale e non commerciale.
+Non affiliato a CD Projekt né a Studio Trigger.

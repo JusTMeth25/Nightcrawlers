@@ -17,7 +17,7 @@ public class MailOutbox {
         this.events = events;
     }
 
-    public void queue(String to, String subject, String html) {
-        events.publishEvent(new MailMessage(to, subject, html));
+    public void queue(String to, String subject, RenderedMail body) {
+        events.publishEvent(new MailMessage(to, subject, body));
     }
 }
