@@ -243,6 +243,8 @@ export class RunScene extends Phaser.Scene implements SkillHost {
     const unlock = () => audio.unlock()
     this.input.once(Phaser.Input.Events.POINTER_DOWN, unlock)
     this.input.keyboard?.once('keydown', unlock)
+    // gamepad presses may not count as a gesture everywhere, but they are worth a try
+    this.input.gamepad?.on('down', unlock)
   }
 
   /** Options changed from the pause menu. */

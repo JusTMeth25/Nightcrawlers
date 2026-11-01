@@ -101,4 +101,19 @@ describe('AudioSystem', () => {
     audio.play('hit')
     expect(ctx.sources).toBe(0)
   })
+
+  it('resumes a suspended context when an effect plays (iOS interruption, gamepad-only player)', () => {
+    const { ctx, audio } = setup()
+    ctx.resume.mockClear()
+    ctx.state = 'suspended'
+    audio.play('hit')
+    expect(ctx.resume).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not ask a running context to resume', () => {
+    const { ctx, audio } = setup()
+    ctx.resume.mockClear()
+    audio.play('hit')
+    expect(ctx.resume).not.toHaveBeenCalled()
+  })
 })

@@ -16,6 +16,7 @@ export class AudioSystem {
   private music = 0.7
   private sfx = 0.8
   private disposed = false
+  private resuming = false
   /** end times of the voices playing, per effect */
   private readonly voices = new Map<SfxId, number[]>()
 
@@ -41,7 +42,20 @@ export class AudioSystem {
       this.musicGain.connect(this.ctx.destination)
       this.applyVolumes()
     }
-    if (this.ctx.state === 'suspended') void this.ctx.resume()
+    this.resumeIfSuspended()
+  }
+
+  /** iOS suspends the context on interruptions; a pad-only player never sent a gesture. */
+  private resumeIfSuspended(): void {
+    const ctx = this.ctx
+    if (!ctx || ctx.state !== 'suspended' || this.resuming) return
+    this.resuming = true
+    ctx
+      .resume()
+      .catch(() => {})
+      .finally(() => {
+        this.resuming = false
+      })
   }
 
   setVolumes(music: number, sfx: number): void {
@@ -70,6 +84,7 @@ export class AudioSystem {
   play(id: SfxId): void {
     const ctx = this.ctx
     if (!ctx || !this.sfxGain || this.disposed || this.sfx <= 0) return
+    this.resumeIfSuspended()
     if (this.activeVoices(id) >= MAX_VOICES) return
     const length = playSynth(ctx, this.sfxGain, id)
     this.voices.get(id)?.push(ctx.currentTime + length)
