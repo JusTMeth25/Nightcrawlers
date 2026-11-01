@@ -263,12 +263,19 @@ export const it = {
   'privacy.data2': 'Hash della password (Argon2id): la password in chiaro non viene mai salvata.',
   'privacy.data3': 'Progressi di gioco: €$, sblocchi, Ripperdoc, statistiche e run.',
   'privacy.data4': 'Indirizzo IP salvato solo come hash con salt nei log di sicurezza.',
+  'privacy.data5': 'Per ogni sessione di accesso (refresh token) salviamo lo user agent del browser, per riconoscere i dispositivi.',
   'privacy.purposeTitle': 'Finalità',
   'privacy.purpose':
     'Gestire l’account, salvare i progressi, proteggere il servizio da abusi (limiti di tentativi, controllo delle run).',
   'privacy.retentionTitle': 'Conservazione',
   'privacy.retention':
     'I dati restano finché l’account esiste. Eliminando l’account vengono cancellati account, salvataggio e run; i log di sicurezza con IP hashato hanno durata limitata.',
+  'privacy.backups':
+    'Facciamo backup giornalieri del database conservati per 7 giorni: i dati eliminati spariscono anche dai backup entro 7 giorni.',
+  'privacy.processorsTitle': 'Fornitori',
+  'privacy.processors1':
+    'Le email (verifica e reimpostazione password) sono inviate tramite Brevo (Sendinblue SAS, UE), che agisce come responsabile del trattamento.',
+  'privacy.processors2': 'Il servizio è ospitato su Oracle Cloud (regione UE).',
   'privacy.rightsTitle': 'I tuoi diritti',
   'privacy.rights':
     'Dalla pagina Account puoi esportare tutti i tuoi dati in JSON e cancellare l’account in ogni momento.',
@@ -278,7 +285,7 @@ export const it = {
   'privacy.guestTitle': 'Modalità ospite',
   'privacy.guest': 'Da ospite non inviamo dati al server: tutto resta in memoria e si perde chiudendo la pagina.',
   'privacy.contactTitle': 'Contatti',
-  'privacy.contact': 'Per domande sui dati scrivi all’indirizzo indicato nel repository del progetto.',
+  'privacy.contact': 'Per richieste sulla privacy scrivi a: {email}',
 } as const
 
 export type TextKey = keyof typeof it
