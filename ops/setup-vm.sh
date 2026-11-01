@@ -2,7 +2,8 @@
 # One-time (and re-runnable) hardening and setup of the Nightcrawlers VM:
 # Oracle Cloud Ampere A1, Ubuntu 24.04 (arm64). Run as root from the admin account:
 #
-#   sudo DEPLOY_SSH_PUBKEY="ssh-ed25519 AAAA... github-deploy" bash ops/setup-vm.sh
+#   sudo DEPLOY_SSH_PUBKEY="ssh-ed25519 AAAA... github-deploy" bash setup-vm.sh
+#   (with init-secrets.sh in the same directory)
 #
 # What it does (idempotent: running it again converges to the same state):
 #   - security updates installed automatically (unattended-upgrades)
@@ -10,7 +11,8 @@
 #   - firewall: ufw and Oracle's iptables rules allow only 22, 80, 443
 #   - fail2ban on sshd
 #   - Docker Engine + compose plugin from Docker's apt repository, log rotation
-#   - /opt/nightcrawlers (owned by deploy) with .env (mode 600) and backups/
+#   - /opt/nightcrawlers (owned by deploy) with backups/ and .env (mode 600): secrets generated
+#     on the server by ops/init-secrets.sh, never chosen by hand
 #   - daily database backup at 03:30 (ops/backup.sh)
 #
 # Keep a second SSH session open while running it the first time.
@@ -151,9 +153,13 @@ ufw --force enable
 
 log "Application directory"
 install -d -m 750 -o "$DEPLOY_USER" -g "$DEPLOY_USER" "$APP_DIR" "$APP_DIR/backups" "$APP_DIR/ops" "$APP_DIR/db"
-if [[ ! -e "$APP_DIR/.env" ]]; then
-    install -m 600 -o "$DEPLOY_USER" -g "$DEPLOY_USER" /dev/null "$APP_DIR/.env"
-    echo "created empty $APP_DIR/.env: fill it from .env.example"
+# .env with generated secrets and production defaults (ops/init-secrets.sh, copied next to this script)
+init_secrets="$(dirname "$(readlink -f "$0")")/init-secrets.sh"
+if [[ -f "$init_secrets" ]]; then
+    APP_DIR="$APP_DIR" ENV_OWNER="$DEPLOY_USER" bash "$init_secrets"
+else
+    echo "WARNING: $init_secrets not found: copy it next to setup-vm.sh and rerun" >&2
+    [[ -e "$APP_DIR/.env" ]] || install -m 600 /dev/null "$APP_DIR/.env"
 fi
 chown "$DEPLOY_USER:$DEPLOY_USER" "$APP_DIR/.env"
 chmod 600 "$APP_DIR/.env"
@@ -168,5 +174,5 @@ EOF
 chmod 644 /etc/cron.d/nightcrawlers-backup
 
 log "Done"
-echo "Next: fill $APP_DIR/.env (chmod 600), then run the Deploy workflow."
+echo "Next: put the Brevo SMTP login/key and the DuckDNS token in $APP_DIR/.env, then run the Deploy workflow."
 echo "Docker: $(docker --version) / $(docker compose version)"
