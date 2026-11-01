@@ -6,7 +6,8 @@
     "test": "node --test",
     "sync-gamedata": "node sync-gamedata.mjs",
     "check-gamedata": "node sync-gamedata.mjs --check",
-    "sprites": "node sprites/build.mjs"
+    "sprites": "node sprites/build.mjs",
+    "icons": "node icons/build.mjs"
   },
   "devDependencies": {
     "sharp": "^0.35.5"
