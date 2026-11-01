@@ -163,15 +163,31 @@ describe('run store', () => {
     expect(run.getState().outcome).not.toBeNull()
   })
 
-  it('endRun 401 asks to log in again and keeps the result', async () => {
+  it('endRun 401 after the refresh failed asks to log in again and keeps the result', async () => {
+    const { auth, api, session, run } = setup()
+    await session.getState().login({ login: DEMO_LOGIN, password: DEMO_PASSWORD })
+    run.getState().select('david')
+    await run.getState().start()
+    vi.spyOn(api, 'endRun').mockImplementationOnce(async () => {
+      auth.authLost() // the HTTP layer could not refresh
+      throw new ApiError(401, null, null)
+    })
+    await run.getState().finish(result(run.getState().config!.runId))
+    expect(run.getState().needsLogin).toBe(true)
+    expect(run.getState().result).not.toBeNull()
+  })
+
+  it('endRun 401 while still logged in is a plain failure (no login loop)', async () => {
     const { api, session, run } = setup()
     await session.getState().login({ login: DEMO_LOGIN, password: DEMO_PASSWORD })
     run.getState().select('david')
     await run.getState().start()
     vi.spyOn(api, 'endRun').mockRejectedValueOnce(new ApiError(401, null, null))
     await run.getState().finish(result(run.getState().config!.runId))
-    expect(run.getState().needsLogin).toBe(true)
-    expect(run.getState().result).not.toBeNull()
+    expect(session.getState().status).toBe('authenticated')
+    expect(run.getState().needsLogin).toBe(false)
+    expect(run.getState().submitError).toMatch(/Invio del risultato non riuscito/)
+    expect(run.getState().canRetry).toBe(true)
   })
 
   it('endRun 409 (run closed on the server) is final: no retry', async () => {

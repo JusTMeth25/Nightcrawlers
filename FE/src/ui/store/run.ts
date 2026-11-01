@@ -84,7 +84,9 @@ export function createRunStore(deps: RunDeps) {
         set({ outcome: res, submitting: false, submitError: null, canRetry: true })
       } catch (error) {
         if (get().config !== config) return
-        if (isApiError(error, 401)) {
+        // 401 means "log in again" only when the session is really gone; otherwise asking to log in
+        // would make the game-over screen resend in a loop
+        if (isApiError(error, 401) && session.getState().status !== 'authenticated') {
           set({ submitting: false, needsLogin: true, submitError: t('gameOver.loginRequired'), canRetry: true })
         } else if (isApiError(error, 404) || isApiError(error, 409)) {
           // the run is no longer ACTIVE on the server: nothing to retry; refresh the save shown elsewhere
