@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
 import { api } from '../../api'
 import { isApiError } from '../../api/errors'
@@ -57,6 +57,21 @@ export default function AccountScreen() {
   const [passwordError, setPasswordError] = useState<string | null>(null)
   const navRef = useGamepadNav({ onBack: () => (confirming ? setConfirming(false) : navigate('/')) })
 
+  // the session ends only once the title screen has replaced /account (this screen unmounts):
+  // signing out first would let RequireAuth re-render /account as guest and redirect to /login.
+  // The router commits navigations in a transition, so ordering the calls is not enough.
+  const signOutOnLeave = useRef(false)
+  useEffect(
+    () => () => {
+      if (signOutOnLeave.current) signOutLocally()
+    },
+    [signOutLocally],
+  )
+  const leaveSignedOut = () => {
+    signOutOnLeave.current = true
+    navigate('/', { replace: true })
+  }
+
   if (!user) return null
 
   const run = async (kind: Exclude<Busy, null>, action: () => Promise<void>) => {
@@ -82,8 +97,7 @@ export default function AccountScreen() {
   const onLogoutAll = () =>
     run('logoutAll', async () => {
       await api.logoutAll()
-      navigate('/', { replace: true })
-      signOutLocally()
+      leaveSignedOut()
     })
 
   const onExport = () =>
@@ -102,8 +116,7 @@ export default function AccountScreen() {
     setError(null)
     try {
       await api.deleteAccount({ password })
-      navigate('/', { replace: true })
-      signOutLocally()
+      leaveSignedOut()
     } catch (err) {
       setError(deleteErrorText(err))
       setPassword('')

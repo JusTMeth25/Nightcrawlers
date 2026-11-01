@@ -23,11 +23,13 @@ vi.mock('../../api', async () => {
   }
 })
 
+/** Same guard as the app: /account under RequireAuth, guests are sent to /login. */
 function renderAccount() {
   const router = createMemoryRouter(
     [
-      { path: '/account', element: <AccountScreen /> },
+      { element: <RequireAuth />, children: [{ path: '/account', element: <AccountScreen /> }] },
       { path: '/', element: <p>title screen</p> },
+      { path: '/login', element: <p>login screen</p> },
     ],
     { initialEntries: ['/account'] },
   )
@@ -43,6 +45,15 @@ afterEach(async () => {
   vi.restoreAllMocks()
   await useSession.getState().logout()
 })
+
+/** The sign-out navigation must win over the RequireAuth redirect to /login. */
+async function expectSignedOutAtHome(router: ReturnType<typeof renderAccount>) {
+  await vi.waitFor(() => expect(useSession.getState().status).toBe('guest'))
+  await new Promise((resolve) => setTimeout(resolve, 20))
+  expect(router.state.location.pathname).toBe('/')
+  expect(screen.getByText('title screen')).toBeInTheDocument()
+  expect(screen.queryByText('login screen')).not.toBeInTheDocument()
+}
 
 async function askDelete(password: string) {
   const u = userEvent.setup()
@@ -97,13 +108,12 @@ describe('AccountScreen', () => {
     expect(useSession.getState().status).toBe('guest')
   })
 
-  it('logout from all devices calls logoutAll', async () => {
+  it('logout from all devices calls logoutAll and lands on the title screen (not /login)', async () => {
     const logoutAll = vi.spyOn(api, 'logoutAll')
-    renderAccount()
+    const router = renderAccount()
     await userEvent.setup().click(screen.getByRole('button', { name: 'Esci da tutti i dispositivi' }))
-    expect(await screen.findByText('title screen')).toBeInTheDocument()
+    await expectSignedOutAtHome(router)
     expect(logoutAll).toHaveBeenCalledTimes(1)
-    expect(useSession.getState().status).toBe('guest')
   })
 
   it('an unverified user sees the status and can resend the email', async () => {
@@ -185,8 +195,6 @@ describe('AccountScreen', () => {
   it('deletes the account with the right password and goes home as guest', async () => {
     const router = renderAccount()
     await askDelete(DEMO_PASSWORD)
-    expect(await screen.findByText('title screen')).toBeInTheDocument()
-    expect(router.state.location.pathname).toBe('/')
-    expect(useSession.getState().status).toBe('guest')
+    await expectSignedOutAtHome(router)
   })
 })
