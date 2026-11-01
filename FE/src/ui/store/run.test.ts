@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_OPTIONS, type RunResult } from '@shared/types'
 import type { ApiClient } from '../../api/ApiClient'
 import { createAuthBridge } from '../../api/auth'
-import { ApiError } from '../../api/errors'
+import { ApiError, problemError } from '../../api/errors'
 import { DEMO_LOGIN, DEMO_PASSWORD, MockApi, UNVERIFIED_LOGIN } from '../../api/mock/MockApi'
 import { createRunStore, hasUnsentResult } from './run'
 import { createSessionStore } from './session'
@@ -124,6 +124,33 @@ describe('run store', () => {
     expect(() => run.getState().onCheckpoint(c)).not.toThrow()
     await vi.waitFor(() => expect(warn).toHaveBeenCalledTimes(1))
     expect(checkpoint).toHaveBeenCalledTimes(2)
+  })
+
+  it('a rate-limited checkpoint (429) is ignored silently and the run goes on', async () => {
+    const { api, session, run } = setup()
+    await session.getState().login({ login: DEMO_LOGIN, password: DEMO_PASSWORD })
+    run.getState().select('david')
+    await run.getState().start()
+    const config = run.getState().config
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const checkpoint = vi
+      .spyOn(api, 'checkpoint')
+      .mockRejectedValueOnce(problemError(429, 'Checkpoint troppo frequente', undefined, 5))
+    const c = { elapsedSec: 0, kills: 10, level: 3, eurodollars: 5 }
+    expect(() => run.getState().onCheckpoint(c)).not.toThrow()
+    expect(checkpoint).toHaveBeenCalledTimes(1)
+    await checkpoint.mock.results[0].value.catch(() => {})
+    await new Promise((r) => setTimeout(r, 0))
+    expect(warn).not.toHaveBeenCalled()
+    expect(error).not.toHaveBeenCalled()
+    expect(run.getState()).toMatchObject({ config, result: null, outcome: null, submitError: null })
+
+    // the next checkpoint is sent normally and the run still ends with its result
+    run.getState().onCheckpoint(c)
+    expect(checkpoint).toHaveBeenCalledTimes(2)
+    await run.getState().finish(result(config!.runId))
+    expect(run.getState().outcome).not.toBeNull()
   })
 
   it('guest checkpoints and results never call the API', async () => {

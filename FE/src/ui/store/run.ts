@@ -161,7 +161,7 @@ export function createRunStore(deps: RunDeps) {
         const { config, result } = get()
         if (!config || config.mode !== 'online' || !config.runId || result) return
         if (session.getState().status !== 'authenticated') return
-        // never blocks the game: network errors wait for the next checkpoint
+        // never blocks the game: network errors and 429 (too frequent) wait for the next checkpoint
         api.checkpoint(config.runId, c).catch((error: unknown) => {
           if (isApiError(error, 422)) console.warn('[run] checkpoint rejected: the server flagged the run')
         })
