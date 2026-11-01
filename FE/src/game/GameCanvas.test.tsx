@@ -1,5 +1,5 @@
 import { StrictMode } from 'react'
-import { cleanup, render } from '@testing-library/react'
+import { cleanup, render, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { gameBus } from '@shared/events'
 import { DEFAULT_OPTIONS, type RunConfig, type RunResult } from '@shared/types'
@@ -63,13 +63,14 @@ describe('GameCanvas', () => {
     expect(getByTestId('game-canvas')).toBeInTheDocument()
   })
 
-  it('keeps a single live Phaser game under StrictMode and destroys it on unmount', () => {
+  it('keeps a single live Phaser game under StrictMode and destroys it on unmount', async () => {
     const { unmount } = render(
       <StrictMode>
         <GameCanvas config={config} onEnd={() => {}} />
       </StrictMode>,
     )
-    expect(games.created).toBeGreaterThanOrEqual(1)
+    // Phaser loads lazily
+    await waitFor(() => expect(games.created).toBeGreaterThanOrEqual(1), { timeout: 10000 })
     expect(games.maxAlive).toBe(1)
     expect(games.alive).toBe(1)
     unmount()
