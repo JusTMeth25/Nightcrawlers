@@ -43,6 +43,10 @@ interface MockRun {
   characterId: CharacterId
   startedAt: number
   ended: boolean
+  /** true when a checkpoint flagged the run */
+  flagged?: boolean
+  /** stored outcome of an ended run, replayed when the client ends it again */
+  outcome?: EndRunResponse
 }
 
 function emptySave(): SaveDto {
@@ -329,6 +333,7 @@ export class MockApi implements ApiClient {
     const realSec = (Date.now() - run.startedAt) / 1000
     if (c.elapsedSec > realSec + balance.antiCheat.clockSkewSec) {
       run.ended = true
+      run.flagged = true
       throw problemError(422, 'Checkpoint non plausibile')
     }
   }
@@ -336,6 +341,13 @@ export class MockApi implements ApiClient {
   async endRun(runId: string, r: EndRunRequest): Promise<EndRunResponse> {
     await this.delay()
     const entry = this.current()
+    // ending is idempotent: ENDED replays the stored outcome, FLAGGED answers flagged: true;
+    // only an abandoned run (ended by a newer start) answers 409
+    const known = this.runs.get(runId)
+    if (known && known.userId === entry.user.id && known.ended) {
+      if (known.outcome) return structuredClone(known.outcome)
+      if (known.flagged) return { eurodollarsAwarded: 0, newUnlocks: [], flagged: true, save: structuredClone(entry.save) }
+    }
     const run = this.activeRun(entry, runId)
     run.ended = true
     const save = entry.save
@@ -376,7 +388,8 @@ export class MockApi implements ApiClient {
       level: r.level,
       endedAt: new Date().toISOString(),
     })
-    return { eurodollarsAwarded: awarded, newUnlocks, flagged: false, save: structuredClone(save) }
+    run.outcome = { eurodollarsAwarded: awarded, newUnlocks, flagged: false, save: structuredClone(save) }
+    return structuredClone(run.outcome)
   }
 
   async bestRuns(): Promise<BestRunDto[]> {

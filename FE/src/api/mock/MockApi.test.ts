@@ -83,4 +83,46 @@ describe('MockApi', () => {
     auth.setToken(res.accessToken)
     await expect(api.deleteAccount({ password: 'nope-nope-nope' })).rejects.toMatchObject({ status: 403 })
   })
+  it('ending a run twice replays the stored outcome; an abandoned run answers 409', async () => {
+    const { api, auth } = setup()
+    auth.setToken((await api.login({ login: DEMO_LOGIN, password: DEMO_PASSWORD })).accessToken)
+    const body = {
+      characterId: 'david' as const,
+      durationSec: 120,
+      kills: 30,
+      killsByEnemy: { maelstrom: 30 },
+      level: 5,
+      eurodollarsCollected: 0,
+      weaponsSeen: [],
+      enemiesSeen: [],
+    }
+    const { runId } = await api.startRun({ characterId: 'david' })
+    const first = await api.endRun(runId, body)
+    const replay = await api.endRun(runId, body)
+    expect(replay).toEqual(first)
+
+    const abandoned = await api.startRun({ characterId: 'david' })
+    await api.startRun({ characterId: 'david' })
+    await expect(api.endRun(abandoned.runId, body)).rejects.toMatchObject({ status: 409 })
+  })
+
+  it('ending a flagged run answers 200 with flagged: true and no reward', async () => {
+    const { api, auth } = setup()
+    auth.setToken((await api.login({ login: DEMO_LOGIN, password: DEMO_PASSWORD })).accessToken)
+    const { runId } = await api.startRun({ characterId: 'david' })
+    await expect(api.checkpoint(runId, { elapsedSec: 9999, kills: 0, level: 1, eurodollars: 0 })).rejects.toMatchObject({
+      status: 422,
+    })
+    const res = await api.endRun(runId, {
+      characterId: 'david',
+      durationSec: 9999,
+      kills: 0,
+      killsByEnemy: {},
+      level: 1,
+      eurodollarsCollected: 0,
+      weaponsSeen: [],
+      enemiesSeen: [],
+    })
+    expect(res).toMatchObject({ flagged: true, eurodollarsAwarded: 0, newUnlocks: [] })
+  })
 })

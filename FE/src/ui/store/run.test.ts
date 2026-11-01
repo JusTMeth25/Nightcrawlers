@@ -11,8 +11,9 @@ function setup() {
   const auth = createAuthBridge()
   const api = new MockApi({ auth, latencyMs: 0, log: () => {} })
   const session = createSessionStore({ api: api as ApiClient, auth })
-  const run = createRunStore({ api, session, getOptions: () => ({ ...DEFAULT_OPTIONS, autoAim: true }) })
-  return { auth, api, session, run }
+  const sleep = vi.fn((ms: number) => Promise.resolve(ms).then(() => {}))
+  const run = createRunStore({ api, session, getOptions: () => ({ ...DEFAULT_OPTIONS, autoAim: true }), sleep })
+  return { auth, api, session, run, sleep }
 }
 
 function result(runId: string | null): RunResult {
@@ -217,15 +218,59 @@ describe('run store', () => {
     expect(run.getState().canRetry).toBe(true)
   })
 
-  it('endRun 409 (run closed on the server) is final: no retry', async () => {
+  it('endRun 409 twice (run closed on the server) is final after one automatic retry', async () => {
+    const { api, session, run, sleep } = setup()
+    await session.getState().login({ login: DEMO_LOGIN, password: DEMO_PASSWORD })
+    run.getState().select('david')
+    await run.getState().start()
+    const endRun = vi
+      .spyOn(api, 'endRun')
+      .mockRejectedValueOnce(new ApiError(409, null, null))
+      .mockRejectedValueOnce(new ApiError(409, null, null))
+    await run.getState().finish(result(run.getState().config!.runId))
+    expect(endRun).toHaveBeenCalledTimes(2)
+    expect(sleep).toHaveBeenCalledTimes(1)
+    expect(run.getState().submitError).toMatch(/Il server ha già chiuso questa run/)
+    expect(run.getState().canRetry).toBe(false)
+  })
+
+  it('endRun 409 once (transient lock conflict) is retried after about 1 s and succeeds', async () => {
+    const { api, session, run, sleep } = setup()
+    await session.getState().login({ login: DEMO_LOGIN, password: DEMO_PASSWORD })
+    run.getState().select('david')
+    await run.getState().start()
+    const endRun = vi.spyOn(api, 'endRun').mockRejectedValueOnce(problemError(409, 'Conflitto'))
+    const setSave = vi.spyOn(session.getState(), 'setSave')
+    await run.getState().finish(result(run.getState().config!.runId))
+    expect(sleep).toHaveBeenCalledWith(1000)
+    expect(endRun).toHaveBeenCalledTimes(2)
+    expect(run.getState().submitError).toBeNull()
+    expect(run.getState().outcome).not.toBeNull()
+    expect(setSave).toHaveBeenCalledTimes(1)
+  })
+
+  it('a lost end response: retrySubmit gets the stored outcome (200 replay) and shows it', async () => {
     const { api, session, run } = setup()
     await session.getState().login({ login: DEMO_LOGIN, password: DEMO_PASSWORD })
     run.getState().select('david')
     await run.getState().start()
-    vi.spyOn(api, 'endRun').mockRejectedValueOnce(new ApiError(409, null, null))
+    const realEnd = api.endRun.bind(api)
+    // the server ends the run, but the response never reaches the client
+    const endRun = vi.spyOn(api, 'endRun').mockImplementationOnce(async (id, body) => {
+      await realEnd(id, body)
+      throw network()
+    })
     await run.getState().finish(result(run.getState().config!.runId))
-    expect(run.getState().submitError).toBeTruthy()
-    expect(run.getState().canRetry).toBe(false)
+    expect(run.getState().outcome).toBeNull()
+    expect(run.getState().canRetry).toBe(true)
+
+    const setSave = vi.spyOn(session.getState(), 'setSave')
+    await run.getState().retrySubmit()
+    expect(endRun).toHaveBeenCalledTimes(2)
+    expect(run.getState().submitError).toBeNull()
+    expect(run.getState().outcome?.eurodollarsAwarded).toBeGreaterThan(0)
+    expect(setSave).toHaveBeenCalledTimes(1)
+    expect(setSave).toHaveBeenCalledWith(run.getState().outcome!.save)
   })
   it('guest seed stays within the contract range (0..2147483646)', async () => {
     const { session, run } = setup()
