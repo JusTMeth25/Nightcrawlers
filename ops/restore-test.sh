@@ -43,5 +43,6 @@ q() { docker exec "$name" psql -U postgres -d restore -tAc "$1"; }
 users="$(q 'select count(*) from users')"
 saves="$(q 'select count(*) from player_saves')"
 runs="$(q 'select count(*) from runs')"
-migration="$(q 'select max(version::int) from flyway_schema_history where success')"
+# latest applied migration by install order: versions may be dotted (1.10), compared as text
+migration="$(q 'select version from flyway_schema_history where success and version is not null order by installed_rank desc limit 1')"
 echo "restore OK: users=$users player_saves=$saves runs=$runs flyway_version=$migration"
