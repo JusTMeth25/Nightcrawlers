@@ -1,0 +1,7 @@
+target/
+**/*.iml
+.idea/
+.vscode/
+src/main/resources/application-local.properties
+**/application-local.properties
+Dockerfile

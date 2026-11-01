@@ -1,0 +1,10 @@
+# gitleaks configuration: the built-in rules, plus an allowlist for the placeholder values
+# that are meant to be committed (never real secrets).
+title = "nightcrawlers"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Documented placeholders"
+regexes = ['''CHANGE_ME[A-Za-z0-9_]*''']

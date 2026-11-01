@@ -1,0 +1,149 @@
+# Nightcrawlers production stack (Oracle Cloud VM, /opt/nightcrawlers).
+#   docker compose pull && docker compose up -d --wait
+# Values come from .env next to this file (see .env.example). Only web publishes ports.
+name: nightcrawlers
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  web:
+    image: ${IMAGE_PREFIX:-ghcr.io/justmeth25/nightcrawlers}-web:${TAG:-latest}
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+      - "${HTTPS_PORT:-443}:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+      CADDY_TLS: ${CADDY_TLS:-acme}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+      ACME_CA: ${ACME_CA:-https://acme-v02.api.letsencrypt.org/directory}
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      edge:
+        # Fixed address: the backend trusts X-Forwarded-For only from here (TRUSTED_PROXIES).
+        ipv4_address: 172.30.0.10
+    # Only NET_BIND_SERVICE, and only because the caddy binary has it as a file capability
+    # (execve needs it in the bounding set); the bind itself works without it, see FE/Dockerfile.
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    mem_limit: 256m
+    security_opt: ["no-new-privileges:true"]
+    read_only: true
+    tmpfs: [/tmp]
+    logging: *logging
+
+  backend:
+    image: ${IMAGE_PREFIX:-ghcr.io/justmeth25/nightcrawlers}-backend:${TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-nightcrawlers}
+      DB_OWNER_USER: ${DB_OWNER_USER:-nc_owner}
+      DB_OWNER_PASSWORD: ${DB_OWNER_PASSWORD:?set DB_OWNER_PASSWORD in .env}
+      DB_APP_USER: ${DB_APP_USER:-nc_app}
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD:?set DB_APP_PASSWORD in .env}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      IP_HASH_SALT: ${IP_HASH_SALT:?set IP_HASH_SALT in .env}
+      ALLOWED_ORIGINS: ${PUBLIC_URL:?set PUBLIC_URL in .env}
+      FRONTEND_URL: ${PUBLIC_URL}
+      TRUSTED_PROXIES: 172[.]30[.]0[.]10
+      SMTP_HOST: ${SMTP_HOST:-smtp-relay.brevo.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_AUTH: ${SMTP_AUTH:-true}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
+      MAIL_FROM: ${MAIL_FROM:?set MAIL_FROM in .env}
+      TZ: ${TZ:-Europe/Rome}
+    networks:
+      - edge
+      - data
+    # 12 GB VM shared by nothing else: 1.5 GB for the JVM (heap = 75%, about 1.1 GB; the rest
+    # covers metaspace, thread stacks and direct buffers). Plenty for this API, room for Postgres.
+    mem_limit: 1536m
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    read_only: true
+    tmpfs: [/tmp]
+    logging: *logging
+
+  db:
+    image: postgres:18
+    restart: unless-stopped
+    # Small OLTP database next to a 1.5 GB JVM on a 12 GB VM: 2 GB for Postgres, a quarter of it
+    # as shared_buffers, the OS page cache does the rest. Hikari opens 10 connections.
+    command:
+      - postgres
+      - -c
+      - shared_buffers=512MB
+      - -c
+      - effective_cache_size=1536MB
+      - -c
+      - work_mem=8MB
+      - -c
+      - maintenance_work_mem=128MB
+      - -c
+      - max_connections=50
+    mem_limit: 2g
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-nightcrawlers}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      DB_OWNER_USER: ${DB_OWNER_USER:-nc_owner}
+      DB_OWNER_PASSWORD: ${DB_OWNER_PASSWORD}
+      DB_APP_USER: ${DB_APP_USER:-nc_app}
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD}
+      TZ: ${TZ:-Europe/Rome}
+    volumes:
+      # PostgreSQL 18 images keep PGDATA in a versioned subdirectory of /var/lib/postgresql.
+      - pgdata:/var/lib/postgresql
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    shm_size: 256mb
+    security_opt: ["no-new-privileges:true"]
+    logging: *logging
+
+  duckdns:
+    image: lscr.io/linuxserver/duckdns:version-8aabc87c
+    restart: unless-stopped
+    environment:
+      SUBDOMAINS: ${DUCKDNS_SUBDOMAIN:-}
+      TOKEN: ${DUCKDNS_TOKEN:-}
+      UPDATE_IP: ipv4
+      LOG_FILE: "false"
+      TZ: ${TZ:-Europe/Rome}
+    networks:
+      - updater
+    mem_limit: 64m
+    logging: *logging
+
+networks:
+  edge:
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+  # No route outside: only the backend talks to the database.
+  data:
+    internal: true
+  updater: {}
+
+volumes:
+  caddy_data:
+  caddy_config:
+  pgdata:

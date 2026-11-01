@@ -1,0 +1,56 @@
+name: Dependency check
+
+# OWASP dependency-check of the backend's Maven dependencies, weekly and on demand (not on every
+# push: the NVD download is slow and the private repository has 2000 free minutes per month).
+on:
+  schedule:
+    - cron: "17 4 * * 1" # Mondays 04:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependency-check
+  cancel-in-progress: true
+
+jobs:
+  owasp:
+    name: OWASP dependency-check (Maven, fails on CVSS >= 7)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      DEPENDENCY_CHECK_VERSION: "13.0.0"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+      # The NVD database is restored from the previous run and only updated incrementally.
+      - name: Cache the NVD database
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.m2/repository/org/owasp/dependency-check-data
+          key: nvd-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: nvd-${{ runner.os }}-
+      # NVD_API_KEY (secret, optional) avoids the slow public rate limit.
+      # OSS Index now requires an account: disabled, NVD is the source.
+      - name: dependency-check
+        working-directory: BE
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: |
+          chmod +x mvnw
+          ./mvnw -B -ntp "org.owasp:dependency-check-maven:${DEPENDENCY_CHECK_VERSION}:check" \
+            -DfailBuildOnCVSS=7 -DossindexAnalyzerEnabled=false -DretireJsAnalyzerEnabled=false \
+            -DnodeAnalyzerEnabled=false -DnodeAuditAnalyzerEnabled=false \
+            -Dformats=HTML,JSON ${NVD_API_KEY:+-DnvdApiKey="$NVD_API_KEY"}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: dependency-check-report
+          path: BE/target/dependency-check-report.html
+          if-no-files-found: ignore
+          retention-days: 7

@@ -1,0 +1,42 @@
+# Local production-like stack: images built from this checkout, https://localhost with Caddy's
+# internal CA (tls internal), Mailpit instead of Brevo, no DuckDNS.
+#   cp .env.example .env    # then fill in local throwaway values (see docs/dev-setup.md)
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build --wait
+# App: https://localhost (or https://localhost:${HTTPS_PORT}), mail: http://localhost:8025
+services:
+  web:
+    image: nightcrawlers-web:dev
+    build:
+      context: .
+      dockerfile: FE/Dockerfile
+      args:
+        VITE_PRIVACY_EMAIL: ${VITE_PRIVACY_EMAIL:-}
+    environment:
+      DOMAIN: localhost
+      CADDY_TLS: internal
+
+  backend:
+    image: nightcrawlers-backend:dev
+    build:
+      context: BE
+    depends_on:
+      mailpit:
+        condition: service_started
+    environment:
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_USERNAME: ""
+      SMTP_PASSWORD: ""
+      SMTP_AUTH: "false"
+      SMTP_STARTTLS: "false"
+
+  mailpit:
+    image: axllent/mailpit:v1.33.0
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"
+    networks:
+      - edge
+
+  duckdns:
+    profiles: [disabled]
