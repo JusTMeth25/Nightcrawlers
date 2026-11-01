@@ -1,0 +1,16 @@
+{
+  "name": "nightcrawlers-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:chromium": "playwright test --project=chromium",
+    "report": "playwright show-report",
+    "typecheck": "tsc"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.0",
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0"
+  }
+}
