@@ -4,8 +4,12 @@
 import type Phaser from 'phaser'
 import { LAYER, layerDepth } from '../render/depth'
 import { RING_RADIUS, TEX_RING } from '../scenes/BootScene'
+import { FxSlots } from './fxSlots'
 
-const POOL = 192
+const GENERAL = 192
+/** telegraph slots: other effects can never overwrite a boss warning */
+const RESERVED = 32
+const POOL = GENERAL + RESERVED
 
 export interface FxOptions {
   /** extra scale reached at the end of the life (0 = constant size) */
@@ -19,6 +23,8 @@ export interface FxOptions {
   /** keep full alpha until this share of the life is left (telegraph pulses) */
   hold?: number
   depth?: number
+  /** boss telegraph: use a reserved slot, tagged with `owner` so it can be cancelled */
+  telegraphOwner?: number
 }
 
 export class FxPool {
@@ -30,7 +36,8 @@ export class FxPool {
   private readonly grow = new Float32Array(POOL)
   private readonly alpha0 = new Float32Array(POOL)
   private readonly hold = new Float32Array(POOL)
-  private cursor = 0
+  private readonly owner = new Int32Array(POOL).fill(-1)
+  private readonly slots = new FxSlots(GENERAL, RESERVED)
 
   constructor(scene: Phaser.Scene) {
     for (let i = 0; i < POOL; i++) {
@@ -51,8 +58,10 @@ export class FxPool {
     lifeSec: number,
     opts?: FxOptions,
   ): Phaser.GameObjects.Image {
-    const i = this.cursor
-    this.cursor = (i + 1) % POOL
+    const owner = opts?.telegraphOwner
+    let i = owner !== undefined ? this.slots.takeReserved() : -1
+    if (i < 0) i = this.slots.take()
+    this.owner[i] = i >= GENERAL && owner !== undefined ? owner : -1
     this.life[i] = lifeSec
     this.maxLife[i] = lifeSec > 0 ? lifeSec : 1
     this.sx[i] = scaleX
@@ -77,9 +86,23 @@ export class FxPool {
   }
 
   /** Ring of `radius` world units (explosions, shockwaves, quickhack). */
-  ring(x: number, y: number, radius: number, color: number, lifeSec: number, grow = 0.35): void {
+  ring(x: number, y: number, radius: number, color: number, lifeSec: number, grow = 0.35, telegraphOwner?: number): void {
     const s = radius / RING_RADIUS / (1 + grow)
-    this.show(TEX_RING, undefined, x, y, 0, s, s, color, lifeSec, { grow })
+    this.show(TEX_RING, undefined, x, y, 0, s, s, color, lifeSec, { grow, telegraphOwner })
+  }
+
+  /** Removes every telegraph of `owner` at once (boss stunned or gone). */
+  cancelTelegraphs(owner: number): void {
+    for (let i = GENERAL; i < POOL; i++) if (this.owner[i] === owner && this.life[i] > 0) this.end(i)
+  }
+
+  private end(i: number): void {
+    this.life[i] = 0
+    this.images[i].setVisible(false)
+    if (i >= GENERAL) {
+      this.owner[i] = -1
+      this.slots.release(i)
+    }
   }
 
   update(dt: number): void {
@@ -88,7 +111,7 @@ export class FxPool {
       this.life[i] -= dt
       const img = this.images[i]
       if (this.life[i] <= 0) {
-        img.setVisible(false)
+        this.end(i)
         continue
       }
       const f = this.life[i] / this.maxLife[i]

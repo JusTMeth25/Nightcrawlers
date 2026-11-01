@@ -16,6 +16,7 @@ export const charge: Pattern = {
       originY: 0.5,
       hold: 0.25,
       alpha: 0.6,
+      telegraphOwner: boss.slot,
     })
   },
 

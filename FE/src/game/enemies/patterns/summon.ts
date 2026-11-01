@@ -12,7 +12,7 @@ export const summon: Pattern = {
     const y = e.y[boss.slot]
     for (let k = 0; k < COUNT; k++) {
       const a = (k / COUNT) * Math.PI * 2
-      host.vfx.ring(x + Math.cos(a) * RADIUS, y + Math.sin(a) * RADIUS, 14, COLOR, sec, 0)
+      host.vfx.ring(x + Math.cos(a) * RADIUS, y + Math.sin(a) * RADIUS, 14, COLOR, sec, 0, boss.slot)
     }
   },
 

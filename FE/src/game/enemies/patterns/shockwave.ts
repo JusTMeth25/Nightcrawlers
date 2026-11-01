@@ -8,7 +8,7 @@ const COLOR = 0xff0054
 export const shockwave: Pattern = {
   telegraph(host, boss, sec) {
     const e = host.enemies
-    host.vfx.ring(e.x[boss.slot], e.y[boss.slot], SHOCKWAVE_RADIUS, COLOR, sec, 0)
+    host.vfx.ring(e.x[boss.slot], e.y[boss.slot], SHOCKWAVE_RADIUS, COLOR, sec, 0, boss.slot)
   },
 
   attack(host, boss) {

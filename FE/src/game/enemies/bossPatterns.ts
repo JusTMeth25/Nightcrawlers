@@ -30,7 +30,10 @@ export function bossHp(baseHp: number, bossIndex: number, tSec: number): number 
 
 export type BossPhase = 'chase' | 'telegraph' | 'attack'
 /** what changed in this update */
-export type BossEvent = 'none' | 'telegraph' | 'attack' | 'recover'
+export type BossEvent = 'none' | 'telegraph' | 'attack' | 'recover' | 'cancel'
+
+/** after a cancelled telegraph the boss tries the same pattern again this soon */
+export const RETRY_SEC = 0.3
 
 export class BossBrain {
   phase: BossPhase = 'chase'
@@ -54,6 +57,15 @@ export class BossBrain {
     return this.left
   }
 
+  /** Stunned during a telegraph: back to chasing, the same pattern comes next. */
+  cancelTelegraph(): boolean {
+    if (this.phase !== 'telegraph') return false
+    this.phase = 'chase'
+    this.left = RETRY_SEC
+    this.next = (this.next - 1 + this.patterns.length) % this.patterns.length
+    return true
+  }
+
   update(dt: number): BossEvent {
     this.left -= dt
     if (this.left > 0) return 'none'
@@ -74,4 +86,13 @@ export class BossBrain {
         return 'recover'
     }
   }
+}
+
+/**
+ * One boss step. A stun freezes the boss; a stun during a telegraph cancels it ('cancel'), so an
+ * attack always follows a full telegraph that was on screen right before it.
+ */
+export function stepBoss(brain: BossBrain, dt: number, stunned: boolean): BossEvent {
+  if (stunned) return brain.cancelTelegraph() ? 'cancel' : 'none'
+  return brain.update(dt)
 }

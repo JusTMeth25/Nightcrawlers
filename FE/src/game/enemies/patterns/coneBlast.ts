@@ -17,7 +17,13 @@ export const coneBlast: Pattern = {
     const e = host.enemies
     const a = Math.atan2(boss.dirY, boss.dirX)
     const s = REACH / WEDGE_RADIUS
-    host.vfx.show(TEX_WEDGE, undefined, e.x[boss.slot], e.bodyY(boss.slot), a, s, s, COLOR, sec, { originX: 0, originY: 0.5, hold: 0.25, alpha: 0.7 })
+    host.vfx.show(TEX_WEDGE, undefined, e.x[boss.slot], e.bodyY(boss.slot), a, s, s, COLOR, sec, {
+      originX: 0,
+      originY: 0.5,
+      hold: 0.25,
+      alpha: 0.7,
+      telegraphOwner: boss.slot,
+    })
   },
 
   attack(host, boss) {

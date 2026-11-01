@@ -1,7 +1,7 @@
 // Drives every boss on the field (plan Task 14): chase, then a 0.8 s telegraph, then one of its
 // patterns, in turn. The pool keeps owning HP, knockback and contact damage; the chest on death
 // comes from the scene's loot rules. bossHp01 feeds HudState.
-import { BossBrain, bossPatternsFor, type PatternId } from './bossPatterns'
+import { BossBrain, bossPatternsFor, stepBoss, type PatternId } from './bossPatterns'
 import { charge } from './patterns/charge'
 import { coneBlast } from './patterns/coneBlast'
 import { shockwave } from './patterns/shockwave'
@@ -57,17 +57,21 @@ export class BossController {
     // forget bosses that died (their slot may already hold another enemy)
     for (let k = this.bosses.length - 1; k >= 0; k--) {
       const b = this.bosses[k]
-      if (!e.active[b.slot] || e.gen[b.slot] !== b.gen) this.bosses.splice(k, 1)
+      if (e.active[b.slot] && e.gen[b.slot] === b.gen) continue
+      host.vfx.cancelTelegraphs(b.slot)
+      this.bosses.splice(k, 1)
     }
     const step = dt * e.slow
     for (const b of this.bosses) {
       const i = b.slot
+      const brain = b.brain
+      // a stun freezes the boss and cancels a telegraph: it is shown again in full afterwards
+      const ev = stepBoss(brain, step, e.stunned(i))
+      if (ev === 'cancel') host.vfx.cancelTelegraphs(i)
       if (e.stunned(i)) continue
       const dx = p.x - e.x[i]
       const dy = p.y - e.y[i]
       const d = Math.hypot(dx, dy) || 1
-      const brain = b.brain
-      const ev = brain.update(step)
       const pattern = PATTERNS[brain.pattern]
       if (ev === 'telegraph') {
         b.dirX = dx / d
