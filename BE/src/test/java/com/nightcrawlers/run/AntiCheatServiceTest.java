@@ -123,10 +123,10 @@ class AntiCheatServiceTest {
 
     @Test
     void shortCheckpointIntervalIsWidenedButStillLimited() {
-        Optional<RunCheckpoint> prev = previous(60, 0, 3, 0);
-        assertThat(antiCheat.checkCheckpoint(run, prev, cp(63, 2400, 13, 0), at(64))).isEqualTo(Verdict.OK);
-        assertThat(antiCheat.checkCheckpoint(run, prev, cp(63, 2401, 3, 0), at(64)).flagged()).isTrue();
-        assertThat(antiCheat.checkCheckpoint(run, prev, cp(63, 0, 14, 0), at(64)).flagged()).isTrue();
+        Optional<RunCheckpoint> prev = previous(60, 0, 1, 0);
+        assertThat(antiCheat.checkCheckpoint(run, prev, cp(63, 2400, 11, 0), at(64))).isEqualTo(Verdict.OK);
+        assertThat(antiCheat.checkCheckpoint(run, prev, cp(63, 2401, 1, 0), at(64)).flagged()).isTrue();
+        assertThat(antiCheat.checkCheckpoint(run, prev, cp(63, 0, 12, 0), at(64)).flagged()).isTrue();
     }
 
     @Test
@@ -196,5 +196,33 @@ class AntiCheatServiceTest {
         EndRunRequest request = new EndRunRequest("david", Double.POSITIVE_INFINITY, 0L, Map.of(), 1, 0L, List.of(),
                 List.of());
         assertThat(antiCheat.checkEnd(run, Optional.empty(), request, at(101)).flagged()).isTrue();
+    }
+
+    @Test
+    void totalsAreAlsoLimitedFromTheStartOfTheRun() {
+        // each interval alone fits its widened window, but not the run as a whole (40 kills/s over 61 s)
+        Optional<RunCheckpoint> prev = previous(60, 2400, 11, 0);
+        assertThat(antiCheat.checkCheckpoint(run, prev, cp(61, 4800, 11, 0), at(62)).flagged()).isTrue();
+        assertThat(antiCheat.checkCheckpoint(run, prev, cp(61, 2400, 21, 0), at(62)).flagged()).isTrue();
+        assertThat(antiCheat.checkEnd(run, prev, end(61, 4800, Map.of("maelstrom", 4800L)), at(62)).flagged())
+                .isTrue();
+        // an honest pace stays within both limits
+        assertThat(antiCheat.checkCheckpoint(run, prev, cp(120, 4800, 20, 0), at(121))).isEqualTo(Verdict.OK);
+    }
+
+    @Test
+    void checkpointsCloserThanHalfAPeriodMustWait() {
+        assertThat(antiCheat.checkpointWaitSeconds(run, Optional.empty(), at(29))).isPositive();
+        assertThat(antiCheat.checkpointWaitSeconds(run, Optional.empty(), at(30))).isZero();
+        Optional<RunCheckpoint> prev = previous(60, 0, 1, 0);
+        assertThat(antiCheat.checkpointWaitSeconds(run, prev, at(89))).isEqualTo(1);
+        assertThat(antiCheat.checkpointWaitSeconds(run, prev, at(90))).isZero();
+        assertThat(antiCheat.checkpointWaitSeconds(run, prev, at(150))).isZero();
+    }
+
+    @Test
+    void checkpointsPerRunAreCappedByRealMinutesPlusFive() {
+        assertThat(antiCheat.maxCheckpoints(run, at(0))).isEqualTo(5);
+        assertThat(antiCheat.maxCheckpoints(run, at(125))).isEqualTo(7);
     }
 }

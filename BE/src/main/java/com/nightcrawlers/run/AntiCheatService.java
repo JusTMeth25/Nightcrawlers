@@ -19,7 +19,8 @@ import com.nightcrawlers.run.dto.EndRunRequest;
  * interval is measured from the previous accepted checkpoint, or from the start of the run
  * (0 s, 0 kills, level 1, 0 €$). Rates use game time (it can never exceed real time + skew)
  * over a window of at least {@code checkpointEverySec}; the €$ cap of a window is
- * {@code Δkills * maxEurodollarsPerKill + window/60 * maxEurodollarsPerMinute}.
+ * {@code Δkills * maxEurodollarsPerKill + window/60 * maxEurodollarsPerMinute}. The same limits
+ * apply to the totals since the start, so many short windows cannot add up to more.
  */
 @Service
 public class AntiCheatService {
@@ -49,13 +50,30 @@ public class AntiCheatService {
         this.limits = gameData.antiCheat();
     }
 
+    /**
+     * Seconds the client must still wait before its next checkpoint: real time since the previous
+     * checkpoint (or the start) must be at least half a checkpoint period. 0 when allowed.
+     */
+    public long checkpointWaitSeconds(RunRecord run, Optional<RunCheckpoint> previous, Instant now) {
+        Instant since = previous.map(RunCheckpoint::getAt).orElse(run.getStartedAt());
+        long minimumMillis = (long) (limits.checkpointEverySec() * 1000 / 2);
+        long waitMillis = minimumMillis - Duration.between(since, now).toMillis();
+        return waitMillis <= 0 ? 0 : (waitMillis + 999) / 1000;
+    }
+
+    /** Upper bound on the stored checkpoints of a run: one per real minute, plus 5. */
+    public long maxCheckpoints(RunRecord run, Instant now) {
+        return Math.max(0, Duration.between(run.getStartedAt(), now).toMinutes()) + 5;
+    }
+
     public Verdict checkCheckpoint(RunRecord run, Optional<RunCheckpoint> previous, CheckpointRequest request,
             Instant now) {
         Progress current = new Progress(request.elapsedSec(), request.kills(), request.level(),
                 request.eurodollars());
         return firstFlag(
                 checkTime(run, current.elapsedSec(), now),
-                () -> checkInterval(from(previous), current));
+                () -> checkInterval(from(previous), current),
+                () -> checkInterval(START, current));
     }
 
     public Verdict checkEnd(RunRecord run, Optional<RunCheckpoint> last, EndRunRequest request, Instant now) {
@@ -66,7 +84,8 @@ public class AntiCheatService {
                 () -> checkTime(run, current.elapsedSec(), now),
                 () -> checkIds(request),
                 () -> checkKillSum(request.killsByEnemy(), request.kills()),
-                () -> checkInterval(from(last), current));
+                () -> checkInterval(from(last), current),
+                () -> checkInterval(START, current));
     }
 
     @SafeVarargs

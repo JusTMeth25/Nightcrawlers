@@ -12,5 +12,7 @@ public interface RunCheckpointRepository extends JpaRepository<RunCheckpoint, Lo
     /** The last accepted checkpoint (ids grow with insertion). */
     Optional<RunCheckpoint> findFirstByRunIdOrderByIdDesc(UUID runId);
 
+    long countByRunId(UUID runId);
+
     List<RunCheckpoint> findByRunIdInOrderByIdAsc(Collection<UUID> runIds);
 }

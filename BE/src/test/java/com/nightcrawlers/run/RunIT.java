@@ -8,6 +8,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -68,6 +69,8 @@ class RunIT {
     AuditLogRepository auditLog;
     @Autowired
     RewardCalculator rewards;
+    @Autowired
+    RunCheckpointRepository checkpoints;
 
     TestApi api;
 
@@ -292,14 +295,14 @@ class RunIT {
         Account account = api.registerVerified();
         Session session = api.loginSession(account);
         String runId = startRun(session);
-        clock.advance(Duration.ofSeconds(10));
+        clock.advance(Duration.ofSeconds(31));
 
-        // 60 s of game time after 10 s of real time
+        // 60 s of game time after 31 s of real time
         checkpoint(session, runId, FIRST_CHECKPOINT)
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.title").value("Checkpoint non plausibile"));
-        clock.advance(Duration.ofSeconds(600));
+        clock.advance(Duration.ofSeconds(580));
 
         end(session, runId, VALID_END)
                 .andExpect(status().isOk())
@@ -315,6 +318,56 @@ class RunIT {
         assertThat(stored.getEurodollarsAwarded()).isZero();
         assertThat(auditLog.findByUserId(userId(account))).extracting(AuditLog::getEvent)
                 .contains(AuditEvent.RUN_FLAGGED);
+    }
+
+    @Test
+    void checkpointsTooCloseTogetherAreRejectedWithoutState() throws Exception {
+        Session session = verifiedSession();
+        String runId = startRun(session);
+        clock.advance(Duration.ofSeconds(10));
+
+        checkpoint(session, runId, "{\"elapsedSec\":10,\"kills\":5,\"level\":1,\"eurodollars\":0}")
+                .andExpect(status().isTooManyRequests())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.title").value("Checkpoint troppo frequente"))
+                .andExpect(header().exists("Retry-After"));
+        assertThat(run(runId).getFlagReason()).isNull();
+        assertThat(checkpoints.countByRunId(UUID.fromString(runId))).isZero();
+
+        clock.advance(Duration.ofSeconds(25));
+        checkpoint(session, runId, "{\"elapsedSec\":35,\"kills\":5,\"level\":1,\"eurodollars\":0}")
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void honestCheckpointCadenceIsNeverRejected() throws Exception {
+        Session session = verifiedSession();
+        String runId = startRun(session);
+        for (int minute = 1; minute <= 8; minute++) {
+            clock.advance(Duration.ofSeconds(60));
+            checkpoint(session, runId, "{\"elapsedSec\":%d,\"kills\":%d,\"level\":%d,\"eurodollars\":%d}"
+                    .formatted(minute * 60 - 1, minute * 300, minute * 3, minute * 250))
+                    .andExpect(status().isNoContent());
+        }
+        assertThat(run(runId).getFlagReason()).isNull();
+    }
+
+    @Test
+    void checkpointsPerRunAreCapped() throws Exception {
+        Session session = verifiedSession();
+        String runId = startRun(session);
+        for (int i = 1; i <= 10; i++) {
+            clock.advance(Duration.ofSeconds(31));
+            checkpoint(session, runId, "{\"elapsedSec\":%d,\"kills\":0,\"level\":1,\"eurodollars\":0}"
+                    .formatted(i * 31)).andExpect(status().isNoContent());
+        }
+        clock.advance(Duration.ofSeconds(31));
+
+        // 341 s of real time: at most 5 + 5 checkpoints
+        checkpoint(session, runId, "{\"elapsedSec\":341,\"kills\":0,\"level\":1,\"eurodollars\":0}")
+                .andExpect(status().isTooManyRequests());
+        assertThat(checkpoints.countByRunId(UUID.fromString(runId))).isEqualTo(10);
+        assertThat(run(runId).getFlagReason()).isNull();
     }
 
     @Test

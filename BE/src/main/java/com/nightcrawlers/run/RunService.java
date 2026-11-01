@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -125,13 +126,21 @@ public class RunService {
     }
 
     /**
-     * Stores a plausible checkpoint. An implausible one answers 422 and marks the run, which
+     * Stores a plausible checkpoint. Checkpoints closer than half a period in real time, or beyond
+     * the per-run cap, answer 429 without any change. An implausible one answers 422 and marks the run, which
      * is then flagged at its end; the mark must survive the error, hence {@code noRollbackFor}.
      */
     @Transactional(noRollbackFor = ApiException.class)
     public void checkpoint(UUID userId, UUID runId, CheckpointRequest request, Instant now) {
         RunRecord run = activeRun(userId, runId);
         Optional<RunCheckpoint> previous = checkpoints.findFirstByRunIdOrderByIdDesc(runId);
+        long wait = antiCheat.checkpointWaitSeconds(run, previous, now);
+        if (wait > 0 || checkpoints.countByRunId(runId) >= antiCheat.maxCheckpoints(run, now)) {
+            // Flood protection only: nothing is stored and the run is not flagged.
+            throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "Checkpoint troppo frequente",
+                    "Invia un checkpoint al massimo ogni minuto di gioco.")
+                    .withHeader(HttpHeaders.RETRY_AFTER, Long.toString(Math.max(wait, 1)));
+        }
         Verdict verdict = antiCheat.checkCheckpoint(run, previous, request, now);
         if (verdict.flagged()) {
             if (run.getFlagReason() == null) {
