@@ -65,7 +65,8 @@
     "maxKillsPerSec": 40,
     "maxLevelPerMinute": 10,
     "maxEurodollarsPerMinute": 300,
-    "checkpointEverySec": 60
+    "checkpointEverySec": 60,
+    "maxEurodollarsPerKill": 50
   },
   "player": {
     "invulnerabilitySec": 0.7,

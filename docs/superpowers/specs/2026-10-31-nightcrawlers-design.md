@@ -319,7 +319,7 @@ Un utente con email non verificata può fare login e giocare, ma `/runs/start` e
 Il gioco gira nel client, quindi il server non può verificare ogni azione. Mitigazioni:
 
 - `/runs/start` genera `seed` e `startedAt` lato server. Al massimo una run `ACTIVE` per utente; avviarne un'altra chiude la precedente come `ABANDONED`.
-- Checkpoint ogni 60 s: il server rifiuta checkpoint con tempo trascorso superiore al tempo reale + 5 s o con crescita di uccisioni, livello e €$ oltre i limiti per fase definiti in `balance.json`.
+- Checkpoint ogni 60 s: il server rifiuta checkpoint con tempo trascorso superiore al tempo reale + 5 s o con crescita di uccisioni, livello e €$ oltre i limiti di `balance.json`. I limiti di tasso si applicano su una finestra di almeno `checkpointEverySec` secondi (l'ultimo intervallo prima della fine, spesso breve, usa `max(Δt, checkpointEverySec)`). Il limite €$ per intervallo è `Δkills × maxEurodollarsPerKill + Δminuti × maxEurodollarsPerMinute`, così cresce con la difficoltà infinita senza segnalare giocatori onesti.
 - `/runs/{id}/end`: run `ACTIVE`, durata coerente con il tempo reale e con l'ultimo checkpoint, personaggio sbloccato.
 - €$ assegnati **calcolati dal server** con una formula limitata su durata e uccisioni, moltiplicata per il bonus `greed`; il valore inviato dal client serve solo come controllo.
 - Run non plausibili: stato `FLAGGED`, nessuna ricompensa, audit log.
