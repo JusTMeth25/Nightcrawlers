@@ -43,8 +43,8 @@ updates:
     schedule: { interval: weekly }
     ignore:
       # base images stay on their LTS line (Ubuntu 24.04, Node 24, Temurin 25); majors are planned upgrades
-      - dependency-name: ubuntu
-        update-types: ["version-update:semver-major"]
+      - dependency-name: ubuntu  # interim releases (24.10, 25.04) are not LTS
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
       - dependency-name: node
         update-types: ["version-update:semver-major"]
       - dependency-name: eclipse-temurin
