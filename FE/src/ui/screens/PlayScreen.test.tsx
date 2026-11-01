@@ -109,4 +109,13 @@ describe('PlayScreen', () => {
     expect(screen.getByRole('alertdialog', { name: 'Ruota il dispositivo' })).toBeInTheDocument()
     expect(pause).toHaveBeenCalled()
   })
+  it('a finished run is never replayed: /play sends to the game over', () => {
+    useRun.setState({
+      config,
+      result: { runId: null, characterId: 'david', durationSec: 61, kills: 3, killsByEnemy: {}, level: 2, eurodollarsCollected: 4, weaponsSeen: [], enemiesSeen: [] },
+    })
+    const router = renderPlay()
+    expect(router.state.location.pathname).toBe('/game-over')
+    expect(screen.queryByTestId('game-canvas')).not.toBeInTheDocument()
+  })
 })

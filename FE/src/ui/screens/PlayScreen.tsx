@@ -30,6 +30,7 @@ function useFullscreen() {
 export default function PlayScreen() {
   const navigate = useNavigate()
   const config = useRun((s) => s.config)
+  const finished = useRun((s) => s.result !== null)
   const finish = useRun((s) => s.finish)
   const onCheckpoint = useRun((s) => s.onCheckpoint)
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -58,6 +59,8 @@ export default function PlayScreen() {
   }
 
   if (!config) return <Navigate to="/select" replace />
+  // the config stays after the end (retry, game over): never restart the same runId/seed
+  if (finished) return <Navigate to="/game-over" replace />
 
   return (
     <div className={styles.play} ref={containerRef}>
