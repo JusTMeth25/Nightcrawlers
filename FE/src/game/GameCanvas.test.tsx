@@ -76,7 +76,7 @@ describe('GameCanvas', () => {
     unmount()
     expect(games.alive).toBe(0)
     expect(games.destroyCalls.every((r) => r === true)).toBe(true)
-  })
+  }, 15_000) // the first lazy import of Phaser is slow on a cold transform cache (CI)
 
   it('calls onEnd once on run:end and never after unmount', () => {
     const onEnd = vi.fn()

@@ -4,12 +4,24 @@ updates:
     directory: /FE
     schedule: { interval: weekly }
     open-pull-requests-limit: 5
+    ignore:
+      # stay on the Node LTS used by CI and Docker; TypeScript 7 (native compiler) waits for typescript-eslint
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     groups:
       fe-minor:
         update-types: [minor, patch]
   - package-ecosystem: npm
     directory: /e2e
     schedule: { interval: weekly }
+    ignore:
+      # stay on the Node LTS used by CI and Docker; TypeScript 7 (native compiler) waits for typescript-eslint
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     groups:
       e2e-minor:
         update-types: [minor, patch]
@@ -29,6 +41,18 @@ updates:
   - package-ecosystem: docker
     directories: [/BE, /FE]
     schedule: { interval: weekly }
+    ignore:
+      # base images stay on their LTS line (Ubuntu 24.04, Node 24, Temurin 25); majors are planned upgrades
+      - dependency-name: ubuntu
+        update-types: ["version-update:semver-major"]
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
+      - dependency-name: eclipse-temurin
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: docker-compose
     directory: /
     schedule: { interval: weekly }
+    ignore:
+      # a PostgreSQL major needs a dump/restore, never an automatic bump
+      - dependency-name: postgres
+        update-types: ["version-update:semver-major"]
