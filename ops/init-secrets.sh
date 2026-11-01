@@ -7,12 +7,15 @@
 #   - leaves CHANGE_ME placeholders for what only you can provide (Brevo SMTP key, DuckDNS token)
 # Idempotent: existing secrets are never regenerated (the DB passwords are fixed when the
 # database volume is first initialised). Called by ops/setup-vm.sh; can be rerun as root.
+# CONTACT_EMAIL (environment): ACME account and verified Brevo sender; the repository keeps
+# only placeholders, the real address lives in this .env.
 set -euo pipefail
 umask 077
 
 APP_DIR="${APP_DIR:-/opt/nightcrawlers}"
 ENV_FILE="${ENV_FILE:-$APP_DIR/.env}"
 OWNER="${ENV_OWNER:-deploy}"
+CONTACT_EMAIL="${CONTACT_EMAIL:-CHANGE_ME@example.com}"
 
 touch "$ENV_FILE"
 chmod 600 "$ENV_FILE"
@@ -46,25 +49,30 @@ secret() { # secret KEY BYTES: generate when absent, empty or a placeholder
 # --- production defaults (not secret)
 default DOMAIN playnightcrawlers.duckdns.org
 default PUBLIC_URL https://playnightcrawlers.duckdns.org
-default ACME_EMAIL lorenzo.melis@yahoo.it
+default ACME_EMAIL "$CONTACT_EMAIL"
 # first deploy on the Let's Encrypt staging CA; switch to production afterwards (docs/deploy.md)
 default ACME_CA https://acme-staging-v02.api.letsencrypt.org/directory
 default CADDY_TLS acme
 default IMAGE_PREFIX ghcr.io/justmeth25/nightcrawlers
-default TAG latest
 default POSTGRES_DB nightcrawlers
 default DB_OWNER_USER nc_owner
 default DB_APP_USER nc_app
 default SMTP_HOST smtp-relay.brevo.com
 default SMTP_PORT 587
-default MAIL_FROM "Nightcrawlers <lorenzo.melis@yahoo.it>"
+default MAIL_FROM "Nightcrawlers <$CONTACT_EMAIL>"
 default DUCKDNS_SUBDOMAIN playnightcrawlers
 default TZ Europe/Rome
 
 # --- secrets generated here, never chosen by hand
-if docker volume inspect nightcrawlers_pgdata >/dev/null 2>&1 \
-    && [[ -z "$(current DB_APP_PASSWORD)" || "$(current DB_APP_PASSWORD)" == CHANGE_ME* ]]; then
-    echo "WARNING: the database volume already exists; new DB passwords will not match it" >&2
+# Regenerating a DB password after the volume exists breaks the login (roles keep the old one);
+# a new JWT_SECRET ends all sessions, a new IP_HASH_SALT changes the audit hashes.
+if docker volume inspect nightcrawlers_pgdata >/dev/null 2>&1; then
+    for key in POSTGRES_PASSWORD DB_OWNER_PASSWORD DB_APP_PASSWORD JWT_SECRET IP_HASH_SALT; do
+        value="$(current "$key")"
+        if [[ -z "$value" || "$value" == CHANGE_ME* ]]; then
+            echo "WARNING: the database volume already exists and $key is missing: a new value is generated" >&2
+        fi
+    done
 fi
 secret POSTGRES_PASSWORD 24
 secret DB_OWNER_PASSWORD 24
@@ -82,7 +90,7 @@ if id "$OWNER" >/dev/null 2>&1 && [[ $EUID -eq 0 ]]; then
 fi
 chmod 600 "$ENV_FILE"
 
-missing="$(grep -E '^[A-Z_]+=CHANGE_ME' "$ENV_FILE" | cut -d= -f1 | tr '\n' ' ' || true)"
+missing="$(grep -E '^[A-Z_]+=.*CHANGE_ME' "$ENV_FILE" | cut -d= -f1 | tr '\n' ' ' || true)"
 if [[ -n "$missing" ]]; then
     echo "still to fill in $ENV_FILE: $missing"
 else
