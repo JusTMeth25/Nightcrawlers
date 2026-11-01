@@ -3,7 +3,7 @@
 # Build context: the repository root (the image needs FE/ and the root Caddyfile), e.g.
 #   docker build -f FE/Dockerfile --build-arg VITE_PRIVACY_EMAIL=privacy@example.org .
 
-FROM --platform=$BUILDPLATFORM node:24-alpine AS build
+FROM --platform=$BUILDPLATFORM node:26-alpine AS build
 WORKDIR /src
 COPY FE/package.json FE/package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
