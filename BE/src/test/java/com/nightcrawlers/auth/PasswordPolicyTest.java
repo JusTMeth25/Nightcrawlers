@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 class PasswordPolicyTest {
@@ -65,5 +66,17 @@ class PasswordPolicyTest {
         assertThat(hash).startsWith("$argon2id$");
         assertThat(encoder.matches("Vy7#kq2!Lp9z", hash)).isTrue();
         assertThat(encoder.matches("Vy7#kq2!Lp9Z", hash)).isFalse();
+    }
+
+    @Test
+    void encoderUsesOwaspMinimumParameters() {
+        String hash = new PasswordConfig().passwordEncoder().encode("Vy7#kq2!Lp9z");
+        assertThat(hash).contains("m=19456,t=2,p=1");
+    }
+
+    @Test
+    void hashesFromTheOldParametersStillMatch() {
+        String legacy = Argon2PasswordEncoder.defaultsForSpringSecurity_v5_8().encode("Vy7#kq2!Lp9z");
+        assertThat(new PasswordConfig().passwordEncoder().matches("Vy7#kq2!Lp9z", legacy)).isTrue();
     }
 }
