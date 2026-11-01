@@ -1,0 +1,146 @@
+[
+  {
+    "id": "max_hp",
+    "name": "Cuore rinforzato",
+    "maxRank": 5,
+    "perRank": {
+      "stat": "maxHp",
+      "op": "mul",
+      "value": 0.1
+    },
+    "baseCost": 200,
+    "costGrowth": 1.6
+  },
+  {
+    "id": "armor",
+    "name": "Placcatura dermica",
+    "maxRank": 3,
+    "perRank": {
+      "stat": "armor",
+      "op": "add",
+      "value": 1
+    },
+    "baseCost": 400,
+    "costGrowth": 1.8
+  },
+  {
+    "id": "regen",
+    "name": "Nanobot riparatori",
+    "maxRank": 5,
+    "perRank": {
+      "stat": "regen",
+      "op": "add",
+      "value": 0.1
+    },
+    "baseCost": 250,
+    "costGrowth": 1.6
+  },
+  {
+    "id": "might",
+    "name": "Potenziatore muscolare",
+    "maxRank": 5,
+    "perRank": {
+      "stat": "might",
+      "op": "mul",
+      "value": 0.05
+    },
+    "baseCost": 300,
+    "costGrowth": 1.7
+  },
+  {
+    "id": "speed",
+    "name": "Attuatori alle gambe",
+    "maxRank": 3,
+    "perRank": {
+      "stat": "speed",
+      "op": "mul",
+      "value": 0.05
+    },
+    "baseCost": 250,
+    "costGrowth": 1.7
+  },
+  {
+    "id": "area",
+    "name": "Amplificatore di campo",
+    "maxRank": 3,
+    "perRank": {
+      "stat": "area",
+      "op": "mul",
+      "value": 0.05
+    },
+    "baseCost": 300,
+    "costGrowth": 1.7
+  },
+  {
+    "id": "cooldown",
+    "name": "Coprocessore tattico",
+    "maxRank": 3,
+    "perRank": {
+      "stat": "cooldown",
+      "op": "mul",
+      "value": -0.03
+    },
+    "baseCost": 500,
+    "costGrowth": 1.9
+  },
+  {
+    "id": "magnet",
+    "name": "Antenna dati",
+    "maxRank": 3,
+    "perRank": {
+      "stat": "magnet",
+      "op": "mul",
+      "value": 0.15
+    },
+    "baseCost": 150,
+    "costGrowth": 1.5
+  },
+  {
+    "id": "luck",
+    "name": "Chip fortuna",
+    "maxRank": 3,
+    "perRank": {
+      "stat": "luck",
+      "op": "mul",
+      "value": 0.1
+    },
+    "baseCost": 300,
+    "costGrowth": 1.7
+  },
+  {
+    "id": "growth",
+    "name": "Acceleratore neurale",
+    "maxRank": 5,
+    "perRank": {
+      "stat": "growth",
+      "op": "mul",
+      "value": 0.03
+    },
+    "baseCost": 250,
+    "costGrowth": 1.6
+  },
+  {
+    "id": "revival",
+    "name": "Secondo cuore",
+    "maxRank": 1,
+    "perRank": {
+      "stat": "revival",
+      "op": "add",
+      "value": 1
+    },
+    "baseCost": 5000,
+    "costGrowth": 1
+  },
+  {
+    "id": "greed",
+    "name": "Contratto fixer",
+    "maxRank": 5,
+    "perRank": {
+      "stat": "greed",
+      "op": "mul",
+      "value": 0.1
+    },
+    "baseCost": 200,
+    "costGrowth": 1.6
+  }
+]
