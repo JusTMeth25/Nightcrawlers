@@ -33,6 +33,9 @@ cp .env.example .env       # valori locali usa e getta, per esempio:
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build --wait
 ```
 
+- Le variabili d'ambiente della shell hanno la precedenza su `.env` (regola di Docker Compose): se nel sistema
+  esistono già `JWT_SECRET`, `MAIL_FROM`, `DB_*` o simili di altri progetti, toglile per la sessione
+  (`env -u JWT_SECRET -u MAIL_FROM docker compose ...`), altrimenti lo stack usa quei valori.
 - App: https://localhost (certificato della CA interna di Caddy: il browser lo segnala come non attendibile).
   Se le porte 80/443 sono occupate: `HTTP_PORT=8088`, `HTTPS_PORT=8443` e `PUBLIC_URL=https://localhost:8443` in `.env`.
 - Email: http://localhost:8025 (`MAILPIT_UI_PORT` per cambiare porta; spegni prima un Mailpit già avviato sulla stessa porta).
