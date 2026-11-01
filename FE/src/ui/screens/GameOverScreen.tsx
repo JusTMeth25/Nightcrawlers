@@ -15,7 +15,8 @@ import styles from './Screens.module.css'
 export default function GameOverScreen() {
   const navigate = useNavigate()
   const navRef = useGamepadNav({ onBack: () => navigate('/') })
-  const { config, result, outcome, submitting, submitError, canRetry, needsLogin, retrySubmit, start } = useRun()
+  const { config, result, outcome, submitting, submitError, canRetry, needsLogin, retrySubmit, start, startError } =
+    useRun()
   const status = useSession((s) => s.status)
   const sessionExpired = useSession((s) => s.sessionExpired)
   const clearExpired = useSession((s) => s.clearExpired)
@@ -39,8 +40,11 @@ export default function GameOverScreen() {
   const playAgain = async () => {
     if (starting) return
     setStarting(true)
+    // the result stays in the store (and on screen) until the new run config arrives
     const res = await start()
-    navigate(res === 'started' ? '/play' : '/select')
+    if (res === 'started') navigate('/play')
+    else if (res === 'needs_verification') navigate('/select', { state: { needsVerification: true } })
+    else setStarting(false)
   }
 
   return (
@@ -114,6 +118,8 @@ export default function GameOverScreen() {
             )}
           </>
         )}
+
+        {startError && <ErrorBanner>{startError}</ErrorBanner>}
 
         <div className={styles.actions}>
           <NeonButton variant={pending ? 'default' : 'primary'} onClick={playAgain} disabled={pending || starting}>

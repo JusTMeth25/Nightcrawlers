@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -125,5 +125,32 @@ describe('GameOverScreen', () => {
   it('without a finished run goes back to the character select', () => {
     const router = renderGameOver()
     expect(router.state.location.pathname).toBe('/select')
+  })
+  it('"Gioca ancora" stays on the game over while starting, then opens the game', async () => {
+    useSession.setState({ status: 'authenticated', user, save })
+    let resolve: (v: 'started') => void = () => {}
+    const start = vi.fn(() => new Promise<'started'>((r) => (resolve = r)))
+    useRun.setState({ config: online, result, outcome: outcome(), start })
+    const router = renderGameOver()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Gioca ancora' }))
+    expect(start).toHaveBeenCalledTimes(1)
+    expect(router.state.location.pathname).toBe('/game-over')
+    expect(screen.getByRole('button', { name: 'Gioca ancora' })).toBeDisabled()
+    await act(async () => resolve('started'))
+    expect(router.state.location.pathname).toBe('/play')
+  })
+
+  it('"Gioca ancora" failing shows the start error and stays on the result', async () => {
+    useSession.setState({ status: 'authenticated', user, save })
+    const start = vi.fn(async () => {
+      useRun.setState({ startError: 'Impossibile contattare il server.' })
+      return 'error' as const
+    })
+    useRun.setState({ config: online, result, outcome: outcome(), start })
+    const router = renderGameOver()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Gioca ancora' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Impossibile contattare il server.')
+    expect(router.state.location.pathname).toBe('/game-over')
+    expect(screen.getByRole('button', { name: 'Gioca ancora' })).toBeEnabled()
   })
 })

@@ -165,6 +165,10 @@ export const it = {
   'select.needsVerification':
     'Verifica la tua email per salvare le run online. Puoi reinviare l’email o giocare subito come ospite (la run non verrà salvata).',
   'select.playAsGuest': 'Gioca come ospite',
+  'select.guestStartersOnly': 'Come ospite puoi usare solo i personaggi iniziali.',
+  'select.unsentResult':
+    'Risultato non inviato: invialo prima di iniziare una nuova run, altrimenti il server la chiuderà senza ricompensa.',
+  'select.openResult': 'Vai al risultato',
 
   'play.fullscreen': 'Schermo intero',
   'play.exitFullscreen': 'Esci da schermo intero',

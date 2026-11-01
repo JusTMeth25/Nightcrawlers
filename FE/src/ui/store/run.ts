@@ -9,7 +9,8 @@ import { t } from '../i18n/it'
 import { useOptions } from './options'
 import { useSession, type SessionState } from './session'
 
-export type StartOutcome = 'started' | 'needs_verification' | 'error'
+/** 'unsent_result': an online result still waits to be sent; a new run would make the server abandon it. */
+export type StartOutcome = 'started' | 'needs_verification' | 'error' | 'unsent_result'
 
 export interface RunState {
   characterId: CharacterId | null
@@ -40,6 +41,11 @@ export interface RunDeps {
   api: ApiClient
   session: { getState(): SessionState }
   getOptions(): GameOptions
+}
+
+/** An online result not yet accepted by the server that can still be sent (retry or new login). */
+export function hasUnsentResult(s: Pick<RunState, 'config' | 'result' | 'outcome' | 'canRetry'>): boolean {
+  return s.config?.mode === 'online' && s.result !== null && s.outcome === null && s.canRetry
 }
 
 function randomSeed() {
@@ -117,12 +123,15 @@ export function createRunStore(deps: RunDeps) {
       async start() {
         const characterId = get().characterId
         if (!characterId) return 'error'
-        set({ ...cleared })
+        if (hasUnsentResult(get())) return 'unsent_result'
         const s = session.getState()
         if (s.status !== 'authenticated') return get().startGuest()
+        // the previous result stays until the new config arrives (the game-over screen keeps showing it)
+        set({ startError: null })
         try {
           const res = await api.startRun({ characterId })
           set({
+            ...cleared,
             config: {
               mode: 'online',
               runId: res.runId,
@@ -143,6 +152,7 @@ export function createRunStore(deps: RunDeps) {
       startGuest() {
         const characterId = get().characterId
         if (!characterId || !getCharacter(characterId).starter) return 'error'
+        if (hasUnsentResult(get())) return 'unsent_result'
         set({ ...cleared, config: guestConfig(characterId) })
         return 'started'
       },

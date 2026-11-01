@@ -4,7 +4,7 @@ import type { ApiClient } from '../../api/ApiClient'
 import { createAuthBridge } from '../../api/auth'
 import { ApiError } from '../../api/errors'
 import { DEMO_LOGIN, DEMO_PASSWORD, MockApi, UNVERIFIED_LOGIN } from '../../api/mock/MockApi'
-import { createRunStore } from './run'
+import { createRunStore, hasUnsentResult } from './run'
 import { createSessionStore } from './session'
 
 function setup() {
@@ -210,5 +210,41 @@ describe('run store', () => {
     run.getState().select('david')
     await run.getState().start()
     expect(run.getState().config!.seed).toBeLessThanOrEqual(2147483646)
+  })
+  it('refuses a new run while an online result is unsent and retryable (it would be abandoned)', async () => {
+    const { api, session, run } = setup()
+    await session.getState().login({ login: DEMO_LOGIN, password: DEMO_PASSWORD })
+    run.getState().select('david')
+    await run.getState().start()
+    vi.spyOn(api, 'endRun').mockRejectedValueOnce(network())
+    await run.getState().finish(result(run.getState().config!.runId))
+    expect(hasUnsentResult(run.getState())).toBe(true)
+    const startRun = vi.spyOn(api, 'startRun')
+    expect(await run.getState().start()).toBe('unsent_result')
+    expect(run.getState().startGuest()).toBe('unsent_result')
+    expect(startRun).not.toHaveBeenCalled()
+    expect(run.getState().result?.kills).toBe(40)
+    // once sent, a new run can start
+    await run.getState().retrySubmit()
+    expect(hasUnsentResult(run.getState())).toBe(false)
+    expect(await run.getState().start()).toBe('started')
+  })
+
+  it('keeps the previous result until the new run config arrives, and on failure', async () => {
+    const { api, session, run } = setup()
+    await session.getState().login({ login: DEMO_LOGIN, password: DEMO_PASSWORD })
+    run.getState().select('david')
+    await run.getState().start()
+    await run.getState().finish(result(run.getState().config!.runId))
+    expect(run.getState().outcome).not.toBeNull()
+    vi.spyOn(api, 'startRun').mockRejectedValueOnce(network())
+    const pending = run.getState().start()
+    expect(run.getState().result).not.toBeNull()
+    expect(await pending).toBe('error')
+    expect(run.getState().result).not.toBeNull()
+    expect(run.getState().startError).toMatch(/Impossibile contattare il server/)
+    expect(await run.getState().start()).toBe('started')
+    expect(run.getState().result).toBeNull()
+    expect(run.getState().startError).toBeNull()
   })
 })
