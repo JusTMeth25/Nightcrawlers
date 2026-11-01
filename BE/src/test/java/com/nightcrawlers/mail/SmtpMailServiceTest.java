@@ -30,7 +30,7 @@ class SmtpMailServiceTest {
     final JavaMailSender sender = mock(JavaMailSender.class);
     final SmtpMailService service = new SmtpMailService(sender, new AppProperties(
             new AppProperties.Jwt("x".repeat(40), Duration.ofMinutes(15)),
-            new AppProperties.Refresh(Duration.ofDays(30)),
+            new AppProperties.Refresh(Duration.ofDays(30), Duration.ofDays(90)),
             new AppProperties.Cors(List.of("http://x")), new AppProperties.Mail("Nightcrawlers <no-reply@x.it>"),
             "http://x", "salt", new AppProperties.Cookies(true)));
 

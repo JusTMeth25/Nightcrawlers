@@ -1,5 +1,6 @@
 package com.nightcrawlers.auth;
 
+import java.time.Clock;
 import java.time.Duration;
 
 import org.springframework.http.HttpHeaders;
@@ -25,14 +26,17 @@ public class AuthCookies {
     static final String REFRESH_PATH = "/api/auth";
 
     private final boolean secure;
-    private final Duration maxAge;
+    private final Clock clock;
 
-    public AuthCookies(AppProperties props) {
+    public AuthCookies(AppProperties props, Clock clock) {
         this.secure = props.cookies().secure();
-        this.maxAge = props.refresh().ttl();
+        this.clock = clock;
     }
 
+    /** Both cookies live exactly as long as the refresh token. */
     public void write(HttpServletResponse response, IssuedRefresh refresh, String csrfToken) {
+        long millis = Duration.between(clock.instant(), refresh.expiresAt()).toMillis();
+        Duration maxAge = Duration.ofSeconds(Math.max(0, (millis + 999) / 1000)); // whole seconds, rounded up
         add(response, ResponseCookie.from(REFRESH, refresh.token())
                 .httpOnly(true).secure(secure).sameSite("Strict").path(REFRESH_PATH).maxAge(maxAge).build());
         add(response, ResponseCookie.from(CSRF, csrfToken)

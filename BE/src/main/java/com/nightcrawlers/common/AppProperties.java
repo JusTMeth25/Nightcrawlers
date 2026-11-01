@@ -27,7 +27,8 @@ public record AppProperties(
     public record Jwt(@NotBlank @Size(min = 32) String secret, @NotNull Duration accessTtl) {
     }
 
-    public record Refresh(@NotNull Duration ttl) {
+    /** {@code ttl}: sliding lifetime of each token; {@code absoluteTtl}: cap for a whole login (family). */
+    public record Refresh(@NotNull Duration ttl, @NotNull Duration absoluteTtl) {
     }
 
     public record Cors(@NotEmpty List<String> allowedOrigins) {

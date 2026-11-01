@@ -155,6 +155,23 @@ class RefreshIT {
     }
 
     @Test
+    void sessionFamilyHasAnAbsoluteLifetimeOfNinetyDays() throws Exception {
+        Session session = api.loginSession(api.register());
+        for (int i = 0; i < 2; i++) {
+            clock.advance(java.time.Duration.ofDays(29));
+            session = TestApi.session(refresh(session).andExpect(status().isOk()).andReturn());
+        }
+        clock.advance(java.time.Duration.ofDays(29)); // day 87: successor capped at day 90
+        MvcResult last = refresh(session).andExpect(status().isOk()).andReturn();
+        String maxAge = TestApi.attributes(TestApi.setCookie(last.getResponse(), "refresh_token").orElseThrow())
+                .stream().filter(a -> a.startsWith("Max-Age=")).findFirst().orElseThrow();
+        assertThat(Long.parseLong(maxAge.substring("Max-Age=".length()))).isLessThanOrEqualTo(3 * 86_400);
+
+        clock.advance(java.time.Duration.ofDays(4)); // day 91
+        refresh(TestApi.session(last)).andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void logoutRevokesTheSessionAndClearsCookies() throws Exception {
         Session session = api.loginSession(api.register());
 

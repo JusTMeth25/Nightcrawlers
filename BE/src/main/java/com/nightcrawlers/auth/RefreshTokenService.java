@@ -47,6 +47,7 @@ public class RefreshTokenService {
     private final UserRepository users;
     private final AuditService audit;
     private final Duration ttl;
+    private final Duration absoluteTtl;
     private final Clock clock;
 
     public RefreshTokenService(RefreshTokenRepository tokens, UserRepository users, AuditService audit,
@@ -55,6 +56,7 @@ public class RefreshTokenService {
         this.users = users;
         this.audit = audit;
         this.ttl = props.refresh().ttl();
+        this.absoluteTtl = props.refresh().absoluteTtl();
         this.clock = clock;
     }
 
@@ -65,6 +67,13 @@ public class RefreshTokenService {
         String token = SecureTokens.newToken();
         UUID family = familyIdOrNull != null ? familyIdOrNull : UUID.randomUUID();
         Instant expiresAt = now.plus(ttl);
+        if (familyIdOrNull != null) {
+            // Rotation slides the expiry, but never past the absolute lifetime of the login.
+            Instant start = tokens.familyStart(familyIdOrNull);
+            if (start != null && start.plus(absoluteTtl).isBefore(expiresAt)) {
+                expiresAt = start.plus(absoluteTtl);
+            }
+        }
         tokens.save(new RefreshToken(user.getId(), family, SecureTokens.sha256Hex(token), now, expiresAt,
                 truncate(userAgent)));
         return new IssuedRefresh(token, expiresAt);

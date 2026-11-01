@@ -16,6 +16,10 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID
 
     List<RefreshToken> findByUserId(UUID userId);
 
+    /** Creation time of the first token of the family, i.e. of the login. */
+    @Query("select min(t.createdAt) from RefreshToken t where t.familyId = :familyId")
+    Instant familyStart(@Param("familyId") UUID familyId);
+
     /**
      * Atomic single use: exactly one of several concurrent callers gets 1; the others wait for
      * the row lock, re-check the condition and get 0.
