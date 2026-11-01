@@ -24,10 +24,17 @@ afterEach(() => {
 })
 
 describe('routes', () => {
-  it.each(['/ripperdoc', '/account'])('%s sends a guest to /login', (path) => {
+  it('/account sends a guest to /login', () => {
     useSession.setState({ status: 'guest' })
-    const router = at(path)
+    const router = at('/account')
     expect(router.state.location.pathname).toBe('/login')
+  })
+
+  it('/ripperdoc stays visible to a guest, disabled with an invite to register', () => {
+    useSession.setState({ status: 'guest' })
+    const router = at('/ripperdoc')
+    expect(router.state.location.pathname).toBe('/ripperdoc')
+    expect(screen.getByText(/riservato agli utenti registrati/)).toBeInTheDocument()
   })
 
   it('lets an authenticated user open /account', () => {

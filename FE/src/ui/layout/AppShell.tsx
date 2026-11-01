@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router'
+import { VerifyBanner } from '../components/VerifyBanner'
 import { useSession } from '../store/session'
 import { Footer } from './Footer'
 import styles from './AppShell.module.css'
@@ -24,6 +25,7 @@ export function AppShell() {
   const inGame = pathname === '/play'
   return (
     <div className={styles.shell}>
+      {!inGame && <VerifyBanner />}
       <main className={styles.main}>
         <Outlet />
       </main>
@@ -32,7 +34,7 @@ export function AppShell() {
   )
 }
 
-/** Guards /ripperdoc and /account: guests go to /login. */
+/** Guards /account: guests go to /login. */
 export function RequireAuth() {
   const status = useSession((s) => s.status)
   const { pathname } = useLocation()
