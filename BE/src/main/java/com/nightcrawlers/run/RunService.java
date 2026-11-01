@@ -155,11 +155,28 @@ public class RunService {
         run.setLastCheckpointAt(now);
     }
 
-    /** Ends the run in one transaction: verdict, reward, save, statistics, Codex and unlocks. */
+    /**
+     * Ends the run in one transaction: verdict, reward, save, statistics, Codex and unlocks.
+     * Idempotent for a lost response: an ENDED or FLAGGED run answers its stored outcome with the
+     * current save; an ABANDONED run is a conflict.
+     */
     @Transactional
     public EndRunResponse end(UUID userId, UUID runId, EndRunRequest request, Instant now,
             HttpServletRequest http) {
-        RunRecord run = activeRun(userId, runId);
+        RunRecord run = runs.findOwnedForUpdate(runId, userId).orElseThrow(RunService::notFound);
+        switch (run.getStatus()) {
+            case ENDED -> {
+                return new EndRunResponse(run.getEurodollarsAwarded(), splitIds(run.getNewUnlocks()), false,
+                        saveService.load(userId));
+            }
+            case FLAGGED -> {
+                return new EndRunResponse(0, List.of(), true, saveService.load(userId));
+            }
+            case ABANDONED -> throw notActive();
+            case ACTIVE -> {
+                // continue below
+            }
+        }
         Verdict verdict = run.getFlagReason() != null
                 ? new Verdict(true, run.getFlagReason())
                 : antiCheat.checkEnd(run, checkpoints.findFirstByRunIdOrderByIdDesc(runId), request, now);
@@ -200,6 +217,7 @@ public class RunService {
         run.setStatus(RunRecord.Status.ENDED);
         run.setEurodollarsAwarded(award);
         List<String> newUnlocks = unlock(userId, save, now);
+        run.setNewUnlocks(newUnlocks.isEmpty() ? null : String.join(",", newUnlocks));
         return new EndRunResponse(award, newUnlocks, false, saveService.load(userId));
     }
 
@@ -214,9 +232,17 @@ public class RunService {
     private RunRecord activeRun(UUID userId, UUID runId) {
         RunRecord run = runs.findOwnedForUpdate(runId, userId).orElseThrow(RunService::notFound);
         if (run.getStatus() != RunRecord.Status.ACTIVE) {
-            throw new ApiException(HttpStatus.CONFLICT, "Run non attiva", "La partita è già terminata.");
+            throw notActive();
         }
         return run;
+    }
+
+    private static ApiException notActive() {
+        return new ApiException(HttpStatus.CONFLICT, "Run non attiva", "La partita è già terminata.");
+    }
+
+    private static List<String> splitIds(String ids) {
+        return ids == null || ids.isEmpty() ? List.of() : List.of(ids.split(","));
     }
 
     static ApiException notFound() {

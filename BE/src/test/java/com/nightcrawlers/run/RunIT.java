@@ -229,20 +229,28 @@ class RunIT {
     }
 
     @Test
-    void endingTwiceIsAConflict() throws Exception {
+    void repeatedEndReturnsTheStoredOutcomeWithoutPayingTwice() throws Exception {
         Session session = verifiedSession();
         String runId = startRun(session);
         clock.advance(Duration.ofSeconds(610));
+        long expected = rewards.compute(605, 300, 0);
         end(session, runId, VALID_END).andExpect(status().isOk());
 
+        // the client lost the first response and retries
         end(session, runId, VALID_END)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.eurodollarsAwarded").value(expected))
+                .andExpect(jsonPath("$.newUnlocks", contains("maine")))
+                .andExpect(jsonPath("$.flagged").value(false))
+                .andExpect(jsonPath("$.save.eurodollars").value(expected))
+                .andExpect(jsonPath("$.save.characterStats.david.runs").value(1));
+        checkpoint(session, runId, FIRST_CHECKPOINT)
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.title").value("Run non attiva"));
-        checkpoint(session, runId, FIRST_CHECKPOINT).andExpect(status().isConflict());
     }
 
     @Test
-    void concurrentEndsLetExactlyOneThrough() throws Exception {
+    void concurrentEndsPayOnce() throws Exception {
         Session session = verifiedSession();
         String runId = startRun(session);
         clock.advance(Duration.ofSeconds(610));
@@ -260,7 +268,7 @@ class RunIT {
                 .toList();
         go.countDown();
 
-        assertThat(calls.stream().map(CompletableFuture::join)).containsExactlyInAnyOrder(200, 409, 409);
+        assertThat(calls.stream().map(CompletableFuture::join)).containsOnly(200);
         mvc.perform(get("/api/save").header("Authorization", session.bearer()))
                 .andExpect(jsonPath("$.eurodollars").value(rewards.compute(605, 300, 0)))
                 .andExpect(jsonPath("$.characterStats.david.runs").value(1));
@@ -312,6 +320,11 @@ class RunIT {
                 .andExpect(jsonPath("$.save.eurodollars").value(0))
                 .andExpect(jsonPath("$.save.totalKills").value(0))
                 .andExpect(jsonPath("$.save.unlockedCharacters", hasSize(3)));
+
+        end(session, runId, VALID_END)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.flagged").value(true))
+                .andExpect(jsonPath("$.eurodollarsAwarded").value(0));
 
         RunRecord stored = run(runId);
         assertThat(stored.getStatus()).isEqualTo(RunRecord.Status.FLAGGED);
@@ -407,6 +420,10 @@ class RunIT {
         assertThat(run(first).getEndedAt()).isNotNull();
         assertThat(run(second).getStatus()).isEqualTo(RunRecord.Status.ACTIVE);
         checkpoint(session, first, FIRST_CHECKPOINT).andExpect(status().isConflict());
+        clock.advance(Duration.ofSeconds(610));
+        end(session, first, VALID_END)
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.title").value("Run non attiva"));
     }
 
     @Test

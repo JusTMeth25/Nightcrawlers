@@ -65,6 +65,10 @@ public class RunRecord {
     @Column(name = "flag_reason", length = 64)
     private String flagReason;
 
+    /** Characters unlocked by this run, comma-separated; null when none. */
+    @Column(name = "new_unlocks", length = 255)
+    private String newUnlocks;
+
     public RunRecord(UUID userId, String characterId, int seed, Instant startedAt) {
         this.id = UUID.randomUUID();
         this.userId = userId;
