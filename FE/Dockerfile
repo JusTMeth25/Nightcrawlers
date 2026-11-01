@@ -17,8 +17,12 @@ RUN npm run build \
     && test ! -e dist/game-dev.html
 
 FROM caddy:2-alpine
-# Run Caddy unprivileged: the binary carries cap_net_bind_service for ports 80/443
-# (compose keeps only that capability). /data holds certificates and ACME state.
+# Run Caddy as an unprivileged user. Binding 80/443 needs no capability: Docker sets
+# net.ipv4.ip_unprivileged_port_start=0 in container network namespaces. But the official binary
+# carries the file capability cap_net_bind_service=ep, and execve of such a file fails unless that
+# capability is in the bounding set: compose therefore drops all capabilities except
+# NET_BIND_SERVICE. (Removing the file capability with setcap -r would copy the 18 MB binary into
+# a new layer, costing GHCR quota on every version.) /data holds certificates and ACME state.
 RUN addgroup -S caddy && adduser -S -G caddy -H -s /sbin/nologin caddy \
     && chown -R caddy:caddy /data /config
 COPY Caddyfile /etc/caddy/Caddyfile
