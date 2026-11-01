@@ -124,7 +124,9 @@ describe('PlayScreen', () => {
       addEventListener: () => {},
       removeEventListener: () => {},
     }))
-    onTestFinished(() => vi.unstubAllGlobals())
+    onTestFinished(() => {
+      vi.unstubAllGlobals()
+    })
     const hud: HudState = {
       timeSec: 1, hp: 100, maxHp: 100, level: 1, xp: 0, xpToNext: 10, kills: 0, eurodollars: 0, psychosis: 0,
       psychosisActive: false, skillCooldown01: 0, weapons: [], cyberware: [], bossHp01: null, maxtacAlert: false, fps: null,
