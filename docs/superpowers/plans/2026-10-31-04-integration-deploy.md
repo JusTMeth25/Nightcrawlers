@@ -116,11 +116,11 @@ Ogni agente riceve un prompt con: percorso del proprio worktree, piano da esegui
 **Files:**
 - Create: `docs/deploy.md`, `ops/backup.sh`, `ops/restore-test.sh`, `ops/setup-vm.sh`
 
-- [ ] **Step 1:** `docs/deploy.md` (eseguito dall'utente, le credenziali non passano dal coordinatore): creazione VM Ampere A1 (Ubuntu 24.04 ARM), consiglio di upgrade dell'account a Pay-As-You-Go con sole risorse Always Free, Security List con 22/80/443, sottodominio e token DuckDNS, dominio verificato e chiave SMTP Brevo, secrets GitHub.
+- [ ] **Step 1:** `docs/deploy.md` (eseguito dall'utente, le credenziali non passano dal coordinatore): creazione VM Ampere A1 (Ubuntu 24.04 ARM), consiglio di upgrade dell'account a Pay-As-You-Go con sole risorse Always Free, Security List con 22/80/443, sottodominio DuckDNS `playnightcrawlers.duckdns.org` e relativo token, dominio verificato e chiave SMTP Brevo, secrets GitHub.
 - [ ] **Step 2:** `ops/setup-vm.sh`: aggiornamenti automatici di sicurezza (`unattended-upgrades`), utente `deploy`, SSH solo con chiave (`PasswordAuthentication no`, `PermitRootLogin no`), `ufw` 22/80/443 (e apertura delle stesse porte in `iptables` di Oracle Ubuntu), `fail2ban`, Docker Engine + plugin compose, directory `/opt/nightcrawlers` con `.env` (permessi 600).
 - [ ] **Step 3:** `ops/backup.sh` (cron giornaliero 03:30): `docker compose exec -T db pg_dump -Fc` → `/opt/nightcrawlers/backups/nc-<data>.dump`, rotazione 7 giorni, upload su Oracle Object Storage con `oci os object put` (bucket privato). `ops/restore-test.sh`: ripristino dell'ultimo dump in un container Postgres temporaneo e conteggio righe di `users`.
 - [ ] **Step 4:** Primo deploy con Caddy su CA staging (`acme_ca https://acme-staging-v02.api.letsencrypt.org/directory` via env), verifica, poi passaggio alla CA di produzione.
-- [ ] **Step 4b:** Chiedere all'utente l'indirizzo email di contatto per la privacy e impostarlo come `VITE_PRIVACY_EMAIL` nel build FE della CD (GitHub Secret/variabile). Rilascio pubblico bloccato finché non è impostato: il valore provvisorio `privacy@nightcrawlers.duckdns.org` non è una casella reale.
+- [ ] **Step 4b:** Impostare `VITE_PRIVACY_EMAIL` nel build FE della CD (variabile del repository) con l'indirizzo di contatto scelto dall'utente (lo stesso mittente Brevo). Rilascio pubblico bloccato finché non è impostato.
 - [ ] **Step 5:** Verifiche finali: `https://<dominio>` con certificato valido; test SSL Labs ≥ A; `securityheaders.com` ≥ A; riavvio VM → servizi di nuovo `healthy` e dati presenti; `ops/restore-test.sh` OK; run completa da desktop, telefono e controller sul dominio pubblico.
 - [ ] **Step 6:** Commit `docs(ops): add deploy runbook, VM setup and backups`.
 
