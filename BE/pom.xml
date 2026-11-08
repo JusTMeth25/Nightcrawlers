@@ -16,7 +16,7 @@
 
 	<properties>
 		<java.version>25</java.version>
-		<bucket4j.version>8.21.0</bucket4j.version>
+		<bucket4j.version>8.22.0</bucket4j.version>
 		<bouncycastle.version>1.86</bouncycastle.version>
 		<jacoco.version>0.8.16</jacoco.version>
 		<jacoco.service.minimum>0.80</jacoco.service.minimum>
