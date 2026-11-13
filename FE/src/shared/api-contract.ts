@@ -1,6 +1,7 @@
 // REST contract between FE and BE. Mirrors docs/api/openapi.yaml (source of truth).
 import type {
   CharacterId,
+  Locale,
   EnemyId,
   RipperdocUpgradeId,
   RunCheckpoint,
@@ -14,6 +15,8 @@ export interface UserDto {
   email: string
   emailVerified: boolean
   createdAt: string
+  /** language of the emails sent to this user */
+  locale: Locale
 }
 export interface AuthResponse {
   accessToken: string
@@ -24,6 +27,11 @@ export interface RegisterRequest {
   username: string
   email: string
   password: string
+  /** language of the emails; the request's Accept-Language when omitted */
+  locale?: Locale
+}
+export interface UpdateLocaleRequest {
+  locale: Locale
 }
 /** login accepts username or email */
 export interface LoginRequest {
@@ -109,6 +117,7 @@ export const API = {
   forgotPassword: '/api/auth/forgot-password',
   resetPassword: '/api/auth/reset-password',
   me: '/api/me',
+  meLocale: '/api/me/locale',
   meExport: '/api/me/export',
   save: '/api/save',
   runStart: '/api/runs/start',

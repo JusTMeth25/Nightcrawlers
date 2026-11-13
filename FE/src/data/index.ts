@@ -93,3 +93,11 @@ export const getRipperdoc: (id: RipperdocUpgradeId) => RipperdocDef = finder(rip
 export function ripperdocCost(def: RipperdocDef, currentRank: number): number {
   return Math.round(def.baseCost * def.costGrowth ** currentRank)
 }
+
+/** Flat translations of the data texts (FE/src/data/i18n/<locale>.json), keyed like weapon.<id>.name. */
+export type DataTexts = Record<string, string>
+
+/** The translated text, or the Italian text of the JSON data when the key is missing. */
+export function dataText(texts: DataTexts | null, key: string, fallback: string): string {
+  return texts?.[key] ?? fallback
+}

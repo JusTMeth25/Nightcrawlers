@@ -175,7 +175,13 @@ export interface RipperdocDef {
   costGrowth: number
 }
 
+/** Languages of the game: Italian is the source of every text. */
+export type Locale = 'it' | 'en' | 'es'
+export const SUPPORTED_LOCALES: readonly Locale[] = ['it', 'en', 'es']
+
 export interface GameOptions {
+  /** interface language (detected from the browser on first start, see ui/i18n/locale.ts) */
+  locale: Locale
   autoAim: boolean
   musicVolume: number
   sfxVolume: number
@@ -257,6 +263,7 @@ export const MAX_WEAPONS = 6
 export const MAX_CYBERWARE = 6
 export const MAX_WEAPON_LEVEL = 8
 export const DEFAULT_OPTIONS: GameOptions = {
+  locale: 'it',
   autoAim: false,
   musicVolume: 0.7,
   sfxVolume: 0.8,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { STARTER_CHARACTERS, type StatKey, type StatModifier, type WeaponId } from '@shared/types'
 import {
+  dataText,
   balance,
   characters,
   cyberware,
@@ -110,5 +111,11 @@ describe('game data', () => {
       expect(statKeys.has(m.stat), m.stat).toBe(true)
       expect(['add', 'mul']).toContain(m.op)
     }
+  })
+
+  it('dataText returns the translation or the Italian fallback', () => {
+    expect(dataText({ 'weapon.pistol.name': 'Pistol' }, 'weapon.pistol.name', 'Pistola')).toBe('Pistol')
+    expect(dataText({}, 'weapon.pistol.name', 'Pistola')).toBe('Pistola')
+    expect(dataText(null, 'weapon.pistol.name', 'Pistola')).toBe('Pistola')
   })
 })

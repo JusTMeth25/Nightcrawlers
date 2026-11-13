@@ -6,6 +6,8 @@ info:
     REST API for accounts, saves, runs and Ripperdoc upgrades.
     All errors use application/problem+json (RFC 9457).
     Any endpoint may answer 409 "Conflitto" on a database lock conflict (retry later).
+    Error titles, details and field messages are localized from the Accept-Language request header
+    (it, en, es; anything else falls back to Italian).
   license:
     name: Proprietary (non-commercial fan project)
     identifier: LicenseRef-Proprietary
@@ -191,6 +193,21 @@ paths:
         '403': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
         '423': { $ref: '#/components/responses/Locked' }
+
+  /api/me/locale:
+    put:
+      tags: [account]
+      operationId: updateLocale
+      summary: Change the language of the emails sent to the user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateLocaleRequest' }
+      responses:
+        '204': { description: Language saved }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
 
   /api/me/export:
     get:
@@ -396,6 +413,14 @@ components:
           schema: { $ref: '#/components/schemas/AuthResponse' }
 
   schemas:
+    Locale:
+      type: string
+      enum: [it, en, es]
+    UpdateLocaleRequest:
+      type: object
+      required: [locale]
+      properties:
+        locale: { $ref: '#/components/schemas/Locale' }
     CharacterId:
       type: string
       enum: [david, lucy, rebecca, maine, kiwi, pilar, dorio, falco]
@@ -411,13 +436,14 @@ components:
 
     UserDto:
       type: object
-      required: [id, username, email, emailVerified, createdAt]
+      required: [id, username, email, emailVerified, createdAt, locale]
       properties:
         id: { type: string, format: uuid }
         username: { type: string }
         email: { type: string, format: email }
         emailVerified: { type: boolean }
         createdAt: { type: string, format: date-time }
+        locale: { $ref: '#/components/schemas/Locale' }
     AuthResponse:
       type: object
       required: [accessToken, expiresInSec, user]
@@ -432,6 +458,9 @@ components:
         username: { type: string, pattern: '^[a-zA-Z0-9_]{3,20}$' }
         email: { type: string, format: email, maxLength: 254 }
         password: { type: string, minLength: 12, maxLength: 128 }
+        locale:
+          $ref: '#/components/schemas/Locale'
+          description: Language of the emails; the request's Accept-Language when omitted.
     LoginRequest:
       type: object
       required: [login, password]
