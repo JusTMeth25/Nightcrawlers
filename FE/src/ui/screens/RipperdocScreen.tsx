@@ -11,6 +11,7 @@ import { Spinner } from '../components/Spinner'
 import { apiErrorText } from '../i18n/apiErrorText'
 import { ripperdocName } from '../i18n/dataText'
 import { t } from '../i18n/it'
+import { formatNumber } from '../i18n/number'
 import { formatModifier } from '../meta/unlockProgress'
 import { useGamepadNav } from '../nav/useGamepadNav'
 import { useSession } from '../store/session'
@@ -97,7 +98,7 @@ export default function RipperdocScreen() {
             >{t('app.retry')}</NeonButton>
           </>
         )}
-        {registered && save && <p className={styles.rowTitle}>{t('ripperdoc.balance', { amount: balance })}</p>}
+        {registered && save && <p className={styles.rowTitle}>{t('ripperdoc.balance', { amount: formatNumber(balance) })}</p>}
         {error && <ErrorBanner>{error}</ErrorBanner>}
         {notice && <ErrorBanner tone="info">{notice}</ErrorBanner>}
 
@@ -121,10 +122,10 @@ export default function RipperdocScreen() {
                     <NeonButton
                       variant="primary"
                       disabled={!canBuy}
-                      aria-label={t('ripperdoc.buyLabel', { name: ripperdocName(def.id), cost })}
+                      aria-label={t('ripperdoc.buyLabel', { name: ripperdocName(def.id), cost: formatNumber(cost) })}
                       onClick={() => void buy(def.id, ripperdocName(def.id))}
                     >
-                      {t('ripperdoc.buy', { cost })}
+                      {t('ripperdoc.buy', { cost: formatNumber(cost) })}
                     </NeonButton>
                   )}
                 </li>

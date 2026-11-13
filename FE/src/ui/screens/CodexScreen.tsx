@@ -4,6 +4,7 @@ import { NeonLink } from '../components/NeonButton'
 import { Panel } from '../components/Panel'
 import { enemyName, evolutionName, weaponDescription, weaponName } from '../i18n/dataText'
 import { t } from '../i18n/it'
+import { formatNumber } from '../i18n/number'
 import { getLocale } from '../i18n/locale'
 import { useGamepadNav } from '../nav/useGamepadNav'
 import { useRun } from '../store/run'
@@ -46,7 +47,7 @@ export default function CodexScreen() {
                     {t('codex.enemyStats', { hp: e.hp, speed: e.speed, damage: e.damage })}
                   </div>
                   {kills[e.id] !== undefined && (
-                    <div>{t('codex.kills', { count: (kills[e.id] ?? 0).toLocaleString(getLocale()) })}</div>
+                    <div>{t('codex.kills', { count: formatNumber(kills[e.id] ?? 0) })}</div>
                   )}
                 </>
               ) : (

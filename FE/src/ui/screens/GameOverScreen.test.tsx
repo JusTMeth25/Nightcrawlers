@@ -4,6 +4,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { EndRunResponse, SaveDto } from '@shared/api-contract'
 import { DEFAULT_OPTIONS, type RunConfig, type RunResult } from '@shared/types'
+import { setLocale } from '../i18n/locale'
 import { useRun } from '../store/run'
 import { useSession } from '../store/session'
 import GameOverScreen from './GameOverScreen'
@@ -59,6 +60,7 @@ function renderGameOver() {
 const initialRun = useRun.getState()
 
 afterEach(() => {
+  setLocale('it')
   vi.restoreAllMocks()
   useRun.setState(initialRun, true)
   useSession.setState({ status: 'unknown', user: null, save: null, accessToken: null, sessionExpired: false })
@@ -74,6 +76,21 @@ describe('GameOverScreen', () => {
     expect(screen.getByText('14')).toBeInTheDocument()
     expect(screen.getByText('€$ accreditati: 150')).toBeInTheDocument()
     expect(screen.getByText('Maine sbloccato')).toBeInTheDocument()
+  })
+
+  it('formats kills and €$ with thousands grouped in the current locale', () => {
+    setLocale('es')
+    useSession.setState({ status: 'authenticated', user, save })
+    useRun.setState({
+      config: online,
+      result: { ...result, kills: 4321, eurodollarsCollected: 1500 },
+      outcome: outcome({ eurodollarsAwarded: 2500, save: { ...save, eurodollars: 12000 } }),
+    })
+    renderGameOver()
+    expect(screen.getByText('4.321')).toBeInTheDocument()
+    expect(screen.getByText('1.500')).toBeInTheDocument()
+    expect(screen.getByText('€$ acreditados: 2.500')).toBeInTheDocument()
+    expect(screen.getByText('Saldo: 12.000 €$')).toBeInTheDocument()
   })
 
   it('warns when the run was flagged', () => {

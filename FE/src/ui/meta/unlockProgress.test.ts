@@ -1,7 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { getCharacter } from '@data'
 import type { SaveDto } from '@shared/api-contract'
-import { characterState, formatModifier, unlockFor, unlockProgress } from './unlockProgress'
+import { setLocale } from '../i18n/locale'
+import { characterState, formatModifier, progressText, unlockFor, unlockProgress } from './unlockProgress'
+
+afterEach(() => setLocale('it'))
 
 function save(patch: Partial<SaveDto> = {}): SaveDto {
   return {
@@ -77,6 +80,18 @@ describe('unlockProgress', () => {
   it('finds the unlock rule of a character (none for starters)', () => {
     expect(unlockFor('david')).toBeNull()
     expect(unlockFor('kiwi')?.rule).toEqual({ type: 'kills', enemyId: 'maxtac', count: 50 })
+  })
+})
+
+describe('progressText', () => {
+  it('groups thousands in every language', () => {
+    const rule = unlockFor('pilar')!.rule
+    const p = unlockProgress(rule, save({ totalEurodollarsEarned: 1234 }))
+    expect(progressText(rule, p)).toBe('Avanzamento: 1.234 / 5.000')
+    setLocale('en')
+    expect(progressText(rule, p)).toBe('Progress: 1,234 / 5,000')
+    setLocale('es')
+    expect(progressText(rule, p)).toBe('Progreso: 1.234 / 5.000')
   })
 })
 

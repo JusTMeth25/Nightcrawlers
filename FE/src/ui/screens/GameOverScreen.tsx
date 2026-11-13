@@ -7,6 +7,7 @@ import { Panel } from '../components/Panel'
 import { Spinner } from '../components/Spinner'
 import { formatTime } from '../hud/format'
 import { t } from '../i18n/it'
+import { formatNumber } from '../i18n/number'
 import { useGamepadNav } from '../nav/useGamepadNav'
 import { useRun } from '../store/run'
 import { useSession } from '../store/session'
@@ -57,7 +58,7 @@ export default function GameOverScreen() {
           </div>
           <div className={styles.stat}>
             <dt>{t('gameOver.kills')}</dt>
-            <dd>{result.kills}</dd>
+            <dd>{formatNumber(result.kills)}</dd>
           </div>
           <div className={styles.stat}>
             <dt>{t('gameOver.level')}</dt>
@@ -65,7 +66,7 @@ export default function GameOverScreen() {
           </div>
           <div className={styles.stat}>
             <dt>{t('gameOver.collected')}</dt>
-            <dd>{result.eurodollarsCollected}</dd>
+            <dd>{formatNumber(result.eurodollarsCollected)}</dd>
           </div>
         </dl>
 
@@ -84,8 +85,8 @@ export default function GameOverScreen() {
 
         {onlineRun && outcome && (
           <section aria-live="polite">
-            <p className={styles.success}>{t('gameOver.awarded', { amount: outcome.eurodollarsAwarded })}</p>
-            <p className={styles.muted}>{t('gameOver.balance', { amount: outcome.save.eurodollars })}</p>
+            <p className={styles.success}>{t('gameOver.awarded', { amount: formatNumber(outcome.eurodollarsAwarded) })}</p>
+            <p className={styles.muted}>{t('gameOver.balance', { amount: formatNumber(outcome.save.eurodollars) })}</p>
             {outcome.newUnlocks.map((id) => (
               <p key={id} className={styles.success}>
                 {t('gameOver.unlocked', { name: getCharacter(id).name })}

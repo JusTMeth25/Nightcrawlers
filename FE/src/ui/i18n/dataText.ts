@@ -10,8 +10,18 @@ import {
 } from '@data'
 import enTexts from '@data/i18n/en.json'
 import esTexts from '@data/i18n/es.json'
-import type { CharacterId, CyberwareId, EnemyId, Locale, RipperdocUpgradeId, SkillId, WeaponId } from '@shared/types'
+import type {
+  CharacterId,
+  CyberwareId,
+  EnemyId,
+  Locale,
+  RipperdocUpgradeId,
+  SkillId,
+  UnlockRule,
+  WeaponId,
+} from '@shared/types'
 import { getLocale } from './locale'
+import { formatNumber } from './number'
 
 // Game data texts in the current locale. The data JSON is Italian (source and fallback);
 // en/es come from FE/src/data/i18n (completeness checked by data/i18n.test.ts).
@@ -32,8 +42,27 @@ export const cyberwareDescription = (id: CyberwareId) => dt(`cyberware.${id}.des
 export const ripperdocName = (id: RipperdocUpgradeId) => dt(`ripperdoc.${id}.name`, getRipperdoc(id).name)
 export const enemyName = (id: EnemyId) => dt(`enemy.${id}.name`, getEnemy(id).name)
 
-/** Text of the unlock requirement of a character ('' when it has none). */
+function ruleValues(rule: UnlockRule): Record<string, string> {
+  switch (rule.type) {
+    case 'survive':
+    case 'survive_with':
+      return { minutes: formatNumber(rule.seconds / 60) }
+    case 'kills':
+      return { count: formatNumber(rule.count) }
+    case 'eurodollars_total':
+      return { amount: formatNumber(rule.amount) }
+    case 'distinct_characters':
+      return { minutes: formatNumber(rule.seconds / 60), count: formatNumber(rule.count) }
+  }
+}
+
+/**
+ * Text of the unlock requirement of a character ('' when it has none). The en/es texts take
+ * {minutes}/{count}/{amount} from the rule; the Italian fallback is the data text as written.
+ */
 export function unlockText(characterId: CharacterId): string {
   const unlock = unlocks.find((u) => u.characterId === characterId)
-  return unlock ? dt(`unlock.${characterId}`, unlock.description) : ''
+  if (!unlock) return ''
+  const values = ruleValues(unlock.rule)
+  return dt(`unlock.${characterId}`, unlock.description).replace(/\{(\w+)\}/g, (m, name: string) => values[name] ?? m)
 }

@@ -4,6 +4,7 @@ import type { CharacterDef, CharacterId, StatModifier, UnlockDef, UnlockRule } f
 import { formatTime } from '../hud/format'
 import { t, type TextKey } from '../i18n/it'
 import { getLocale } from '../i18n/locale'
+import { formatNumber } from '../i18n/number'
 
 export type CardState = 'available' | 'locked' | 'encrypted'
 
@@ -48,7 +49,7 @@ export function unlockProgress(rule: UnlockRule, save: SaveDto): { current: numb
 /** Progress values as text: times as mm:ss, the rest as numbers. */
 export function progressText(rule: UnlockRule, p: { current: number; target: number }): string {
   const timed = rule.type === 'survive' || rule.type === 'survive_with'
-  const fmt = (n: number) => (timed ? formatTime(n) : n.toLocaleString(getLocale()))
+  const fmt = (n: number) => (timed ? formatTime(n) : formatNumber(n))
   return t('select.progress', { current: fmt(p.current), target: fmt(p.target) })
 }
 

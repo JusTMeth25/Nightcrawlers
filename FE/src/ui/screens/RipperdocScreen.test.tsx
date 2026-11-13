@@ -72,6 +72,17 @@ describe('RipperdocScreen', () => {
     expect(within(r).getByRole('button', { name: /^Install Muscle Booster for \d+ €\$$/ })).toBeEnabled()
   })
 
+  it('formats balance and costs in Spanish', async () => {
+    setLocale('es')
+    await loginDemo(12500)
+    renderRipperdoc()
+    expect(screen.getByText('Saldo: 12.500 €$')).toBeInTheDocument()
+    const r = row('Potenciador muscular')
+    expect(within(r).getByText('Rango 2 / 5')).toBeInTheDocument()
+    const cost = ripperdocCost(getRipperdoc('might'), 2)
+    expect(within(r).getByRole('button', { name: `Instalar Potenciador muscular por ${cost.toLocaleString('es', { useGrouping: 'always' })} €$` })).toBeEnabled()
+  })
+
   it('disables the purchase when the €$ are not enough', async () => {
     await loginDemo(10)
     renderRipperdoc()
@@ -87,7 +98,7 @@ describe('RipperdocScreen', () => {
     const cost = ripperdocCost(def, 0)
     await userEvent.setup().click(within(row(def.name)).getByRole('button', { name: /Installa/ }))
     expect(buy).toHaveBeenCalledWith('armor')
-    expect(await screen.findByText(`Saldo: ${2500 - cost} €$`)).toBeInTheDocument()
+    expect(await screen.findByText(`Saldo: ${(2500 - cost).toLocaleString('it', { useGrouping: 'always' })} €$`)).toBeInTheDocument()
     expect(within(row(def.name)).getByText('Grado 1 / 3')).toBeInTheDocument()
     expect(useSession.getState().save?.ripperdoc.armor).toBe(1)
   })

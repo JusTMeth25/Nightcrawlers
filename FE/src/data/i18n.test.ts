@@ -21,6 +21,10 @@ describe.each([
     expect(Object.keys(texts).sort()).toEqual(expectedKeys)
   })
 
+  it('unlock texts take their numbers from {placeholders}, formatted by the UI', () => {
+    for (const u of unlocks) expect(texts[`unlock.${u.characterId}`], u.characterId).not.toMatch(/\d/)
+  })
+
   it('has no empty text', () => {
     for (const [key, value] of Object.entries(texts)) expect(value.trim(), key).not.toBe('')
   })

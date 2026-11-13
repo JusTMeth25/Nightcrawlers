@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { gameBus } from '@shared/events'
 import type { HudState } from '@shared/types'
+import { setLocale } from '../i18n/locale'
 import { formatTime } from './format'
 import { Hud } from './Hud'
 
@@ -33,7 +34,18 @@ function update(patch: Partial<HudState> = {}) {
 }
 
 afterEach(() => {
+  setLocale('it')
   vi.restoreAllMocks()
+})
+
+describe('Hud numbers', () => {
+  it('groups kills and €$ thousands in the current locale', () => {
+    setLocale('en')
+    render(<Hud />)
+    update({ kills: 12345, eurodollars: 6789 })
+    expect(screen.getByText('12,345')).toBeInTheDocument()
+    expect(screen.getByText('6,789')).toBeInTheDocument()
+  })
 })
 
 describe('formatTime', () => {
