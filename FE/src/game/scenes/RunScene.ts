@@ -20,6 +20,7 @@ import { Chests } from '../entities/Chest'
 import { formationPositions, scatterPoint, type Point } from '../entities/formations'
 import { EnemyPool, type EnemyShot } from '../entities/EnemyPool'
 import { Player } from '../entities/Player'
+import { WeaponRig } from '../entities/WeaponRig'
 import {
   PICKUP_EMP,
   PICKUP_EURO,
@@ -57,7 +58,7 @@ import { SpatialGrid } from '../systems/spatialGrid'
 import { collectModifiers, computeStats } from '../systems/stats'
 import { addXp, xpToNext } from '../systems/xp'
 import { implementedWeapons } from '../weapons/offerPool'
-import { WeaponSystem } from '../weapons/WeaponSystem'
+import { WEAPON_COLORS, WeaponSystem } from '../weapons/WeaponSystem'
 import { SkillSystem } from '../skills/SkillSystem'
 import type { SkillHost } from '../skills/types'
 import { aimDirection, type Vec } from '../weapons/targeting'
@@ -105,6 +106,7 @@ export class RunScene extends Phaser.Scene implements SkillHost {
   enemies!: EnemyPool
   projectiles!: ProjectilePool
   weapons!: WeaponSystem
+  private weaponRig!: WeaponRig
   damageNumbers!: DamageNumbers
   runStats = new RunStats()
   session!: GameSession
@@ -195,6 +197,8 @@ export class RunScene extends Phaser.Scene implements SkillHost {
     this.grenades = new Grenades(this)
     this.characterColor = Number.parseInt(character.color.replace('#', ''), 16) || 0xffffff
     this.weapons = new WeaponSystem(this, character.color)
+    this.weaponRig = new WeaponRig(this, this.player, WEAPON_COLORS)
+    this.weapons.onFire = (id, dir) => this.weaponRig.onFire(id, dir)
     this.syncWeapons()
     this.skills = new SkillSystem(this, getSkill(character.skill))
     this.bosses = new BossController(this)
@@ -267,6 +271,7 @@ export class RunScene extends Phaser.Scene implements SkillHost {
   /** Re-reads inventory and stats into the weapon system (after cards and evolutions). */
   syncWeapons(): void {
     this.weapons.sync(this.inventory, this.stats)
+    this.weaponRig?.sync(this.inventory.weapons)
     for (const w of this.inventory.weapons) this.runStats.seeWeapon(w.id)
   }
 
@@ -430,6 +435,8 @@ export class RunScene extends Phaser.Scene implements SkillHost {
       if (this.frame % RELOCATE_EVERY_FRAMES === 0) this.relocateFarEnemies()
       this.projectiles.update(dt, this.enemies.slow)
       this.weapons.update(dt, this.input0)
+      const aiming = this.input0.aimActive
+      this.weaponRig.update(dt, aiming ? this.input0.aimX : this.player.faceX, aiming ? this.input0.aimY : this.player.faceY)
       this.grenades.update(dt, this)
       this.vfx.update(dt)
       this.damageNumbers.update(dt)
@@ -686,6 +693,7 @@ export class RunScene extends Phaser.Scene implements SkillHost {
     this.scale.off(Phaser.Scale.Events.RESIZE, this.applyZoom, this)
     this.controls?.destroy()
     this.weapons?.destroy()
+    this.weaponRig?.destroy()
     this.audio?.dispose()
     this.audio = null
     this.skills?.destroy()
