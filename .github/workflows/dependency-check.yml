@@ -35,13 +35,18 @@ jobs:
           path: ~/.m2/repository/org/owasp/dependency-check-data
           key: nvd-${{ runner.os }}-${{ github.run_id }}
           restore-keys: nvd-${{ runner.os }}-
-      # NVD_API_KEY (secret, optional) avoids the slow public rate limit.
+      # NVD_API_KEY (repository secret) is required by dependency-check 13: without it the
+      # job is skipped with a warning instead of failing on an empty key.
       # OSS Index now requires an account: disabled, NVD is the source.
       - name: dependency-check
         working-directory: BE
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: |
+          if [ -z "$NVD_API_KEY" ]; then
+            echo "::warning title=NVD_API_KEY missing::Set the NVD_API_KEY repository secret (free key: https://nvd.nist.gov/developers/request-an-api-key). Dependency check skipped."
+            exit 0
+          fi
           chmod +x mvnw
           ./mvnw -B -ntp "org.owasp:dependency-check-maven:${DEPENDENCY_CHECK_VERSION}:check" \
             -DfailBuildOnCVSS=7 -DossindexAnalyzerEnabled=false -DretireJsAnalyzerEnabled=false \
