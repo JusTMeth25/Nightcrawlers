@@ -21,6 +21,7 @@ import { formationPositions, scatterPoint, type Point } from '../entities/format
 import { EnemyPool, type EnemyShot } from '../entities/EnemyPool'
 import { Player } from '../entities/Player'
 import { WeaponRig } from '../entities/WeaponRig'
+import { debugOverlayEnabled } from '../run/debugOverlay'
 import {
   PICKUP_EMP,
   PICKUP_EURO,
@@ -673,8 +674,8 @@ export class RunScene extends Phaser.Scene implements SkillHost {
   }
 
   private debugLine(): string | null {
-    const fps = this.run.options.showFps || this.dev.stress ? `FPS ${Math.round(this.fps)}  ` : ''
-    if (!fps && !import.meta.env.DEV) return null
+    if (!debugOverlayEnabled({ dev: import.meta.env.DEV, stress: Boolean(this.dev.stress) })) return null
+    const fps = `FPS ${Math.round(this.fps)}  `
     const p = this.player
     const t = Math.floor(this.clock)
     const time = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`
