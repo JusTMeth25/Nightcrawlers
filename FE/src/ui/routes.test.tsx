@@ -10,7 +10,7 @@ vi.mock('@game/GameCanvas', () => ({ default: () => <div data-testid="game-canva
 
 const initialRun = useRun.getState()
 
-const user = { id: 'u1', username: 'demo', email: 'demo@x.it', emailVerified: true, createdAt: '2026-01-01T00:00:00Z' }
+const user = { id: 'u1', username: 'demo', email: 'demo@x.it', emailVerified: true, createdAt: '2026-01-01T00:00:00Z', locale: 'it' as const }
 
 function at(path: string) {
   const router = createMemoryRouter(routes, { initialEntries: [path] })

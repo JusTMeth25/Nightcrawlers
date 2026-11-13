@@ -1,10 +1,12 @@
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 import { gameBus } from '@shared/events'
-import { DEFAULT_OPTIONS, type GameOptions } from '@shared/types'
+import { DEFAULT_OPTIONS, type GameOptions, type Locale } from '@shared/types'
+import { browserLocale, isLocale } from '../i18n/locale'
 
 export const OPTIONS_KEY = 'nc-options'
-const VERSION = 1
+// 2: adds locale (version 1 options are migrated keeping their values)
+const VERSION = 2
 
 export interface OptionsState {
   options: GameOptions
@@ -18,10 +20,14 @@ function flag(v: unknown, fallback: boolean) {
   return typeof v === 'boolean' ? v : fallback
 }
 
-/** Anything read from localStorage goes through here: wrong types become the defaults. */
-export function sanitizeOptions(value: unknown): GameOptions {
+/**
+ * Anything read from localStorage goes through here: wrong types become the defaults,
+ * a missing or unsupported locale becomes `fallbackLocale` (the browser's by default).
+ */
+export function sanitizeOptions(value: unknown, fallbackLocale: Locale = browserLocale()): GameOptions {
   const o = value && typeof value === 'object' ? (value as Record<string, unknown>) : {}
   return {
+    locale: isLocale(o.locale) ? o.locale : fallbackLocale,
     autoAim: flag(o.autoAim, DEFAULT_OPTIONS.autoAim),
     musicVolume: volume(o.musicVolume, DEFAULT_OPTIONS.musicVolume),
     sfxVolume: volume(o.sfxVolume, DEFAULT_OPTIONS.sfxVolume),
@@ -35,7 +41,7 @@ export function createOptionsStore() {
   return create<OptionsState>()(
     persist(
       (set, get) => ({
-        options: { ...DEFAULT_OPTIONS },
+        options: { ...DEFAULT_OPTIONS, locale: browserLocale() },
         set(patch) {
           const options = sanitizeOptions({ ...get().options, ...patch })
           set({ options })
@@ -47,7 +53,7 @@ export function createOptionsStore() {
         version: VERSION,
         storage: createJSONStorage(() => localStorage),
         partialize: (s) => ({ options: s.options }),
-        // unknown versions and corrupted values both end up as sanitized options
+        // version 1 (no locale), unknown versions and corrupted values all end up as sanitized options
         migrate: (persisted) => ({ options: sanitizeOptions((persisted as { options?: unknown } | null)?.options) }),
         merge: (persisted, current) => ({
           ...current,

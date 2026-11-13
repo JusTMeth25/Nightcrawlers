@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { useSession } from '../store/session'
 import TitleScreen from './TitleScreen'
 
-const user = { id: 'u1', username: 'demo', email: 'demo@x.it', emailVerified: true, createdAt: '2026-01-01T00:00:00Z' }
+const user = { id: 'u1', username: 'demo', email: 'demo@x.it', emailVerified: true, createdAt: '2026-01-01T00:00:00Z', locale: 'it' as const }
 
 function renderTitle() {
   return render(

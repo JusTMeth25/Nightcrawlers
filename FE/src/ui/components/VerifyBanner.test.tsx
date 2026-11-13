@@ -6,7 +6,7 @@ import { useSession } from '../store/session'
 
 vi.mock('@game/GameCanvas', () => ({ default: () => <div data-testid="game-canvas" /> }))
 
-const user = { id: 'u1', username: 'rookie', email: 'r@x.it', emailVerified: false, createdAt: '2026-01-01T00:00:00Z' }
+const user = { id: 'u1', username: 'rookie', email: 'r@x.it', emailVerified: false, createdAt: '2026-01-01T00:00:00Z', locale: 'it' as const }
 
 function at(path: string) {
   render(<RouterProvider router={createMemoryRouter(routes, { initialEntries: [path] })} />)

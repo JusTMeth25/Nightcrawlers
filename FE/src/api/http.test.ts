@@ -4,6 +4,7 @@ import { createRealApi } from './ApiClient'
 import { createAuthBridge } from './auth'
 import { ApiError } from './errors'
 import { createHttp } from './http'
+import { setLocale } from '../ui/i18n/locale'
 
 type Handler = (url: string, init: RequestInit) => Response | Promise<Response>
 
@@ -48,6 +49,7 @@ function setup(handler: Handler, refreshImpl?: () => Promise<string | null>) {
 }
 
 afterEach(() => {
+  setLocale('it')
   document.cookie = 'XSRF-TOKEN=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/'
 })
 
@@ -60,6 +62,21 @@ describe('http', () => {
     expect(header(init, 'Authorization')).toBe('Bearer old')
     expect(header(init, 'Content-Type')).toBe('application/json')
     expect(init.body).toBe('{"a":1}')
+  })
+
+  it('sends Accept-Language with the current locale on every request, also on the retry', async () => {
+    const { http, fetchImpl } = setup((_url, init) =>
+      header(init, 'Authorization') === 'Bearer old' ? problem(401, 'Unauthorized') : json(200, {}),
+    )
+    setLocale('es')
+    await http.request('/api/x', { auth: true })
+    await http.request('/api/y', { method: 'POST', body: {} })
+    const sent = fetchImpl.mock.calls.map((c) => header(c[1] as RequestInit, 'Accept-Language'))
+    expect(sent.length).toBeGreaterThanOrEqual(3)
+    expect(sent.every((v) => v === 'es')).toBe(true)
+    setLocale('en')
+    await http.request('/api/z')
+    expect(header(fetchImpl.mock.calls.at(-1)![1] as RequestInit, 'Accept-Language')).toBe('en')
   })
 
   it('keeps the errorId of a 500 problem detail', async () => {
@@ -223,7 +240,7 @@ describe('http', () => {
 })
 
 describe('real ApiClient', () => {
-  const user = { id: 'u1', username: 'demo', email: 'd@x.it', emailVerified: true, createdAt: '2026-01-01T00:00:00Z' }
+  const user = { id: 'u1', username: 'demo', email: 'd@x.it', emailVerified: true, createdAt: '2026-01-01T00:00:00Z', locale: 'it' as const }
   const auth: AuthResponse = { accessToken: 'tok-2', expiresInSec: 900, user }
 
   it('sends CSRF on refresh and logout and stores the refreshed token', async () => {

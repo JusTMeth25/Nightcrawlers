@@ -8,7 +8,7 @@ import { useRun } from '../store/run'
 import { useSession } from '../store/session'
 import GameOverScreen from './GameOverScreen'
 
-const user = { id: 'u1', username: 'demo', email: 'demo@x.it', emailVerified: true, createdAt: '2026-01-01T00:00:00Z' }
+const user = { id: 'u1', username: 'demo', email: 'demo@x.it', emailVerified: true, createdAt: '2026-01-01T00:00:00Z', locale: 'it' as const }
 const save: SaveDto = {
   eurodollars: 900,
   totalEurodollarsEarned: 900,

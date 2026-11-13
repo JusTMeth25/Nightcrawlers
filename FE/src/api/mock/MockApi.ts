@@ -133,6 +133,7 @@ export class MockApi implements ApiClient {
       email,
       emailVerified: verified,
       createdAt: new Date().toISOString(),
+      locale: 'it',
     }
     const entry: MockUser = { user, password, save, runs: [] }
     this.users.set(user.id, entry)
