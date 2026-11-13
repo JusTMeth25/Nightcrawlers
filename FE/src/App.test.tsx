@@ -72,6 +72,8 @@ describe('App language', () => {
     await u.click(screen.getByRole('link', { name: 'Opzioni' }))
     await u.selectOptions(screen.getByRole('combobox', { name: 'Lingua' }), 'en')
     expect(await screen.findByRole('combobox', { name: 'Language' })).toHaveValue('en')
+    // the remount keeps the focus on the language control, so keyboard and gamepad can keep going
+    expect(screen.getByRole('combobox', { name: 'Language' })).toHaveFocus()
     expect(document.documentElement.lang).toBe('en')
     await u.click(screen.getByRole('link', { name: 'Back' }))
     expect(screen.getByRole('link', { name: 'Play' })).toBeInTheDocument()

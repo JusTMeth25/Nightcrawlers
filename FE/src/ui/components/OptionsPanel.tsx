@@ -1,4 +1,4 @@
-import { useId } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import { SUPPORTED_LOCALES, type GameOptions, type Locale } from '@shared/types'
 import { t, type TextKey } from '../i18n/it'
 import { isLocale } from '../i18n/locale'
@@ -57,6 +57,9 @@ function Flag({ name, label, hint }: { name: FlagKey; label: TextKey; hint?: Tex
 // each language by its own name, never translated
 const LANGUAGE_NAMES: Record<Locale, string> = { it: 'Italiano', en: 'English', es: 'Español' }
 
+// set by a language change: the selector mounted by the remount (App key) takes the focus back
+let refocusLanguage = false
+
 /**
  * Changing language remounts the interface (App key), so during a run the selector is disabled.
  * The choice is saved on this device and, when logged in, on the account (emails).
@@ -66,10 +69,20 @@ function Language({ inRun }: { inRun: boolean }) {
   const noteId = useId()
   const value = useOptions((s) => s.options.locale)
   const set = useOptions((s) => s.set)
+  const selectRef = useRef<HTMLSelectElement | null>(null)
+
+  // runs on the remounted selector, or on the same one when nothing remounts: the flag never lingers
+  useEffect(() => {
+    if (!refocusLanguage) return
+    refocusLanguage = false
+    selectRef.current?.focus()
+  }, [value])
+
   return (
     <div className={styles.option}>
       <label htmlFor={id}>{t('options.language')}</label>
       <select
+        ref={selectRef}
         id={id}
         data-nav
         value={value}
@@ -78,6 +91,7 @@ function Language({ inRun }: { inRun: boolean }) {
         onChange={(e) => {
           const locale = e.target.value
           if (inRun || !isLocale(locale) || locale === value) return
+          refocusLanguage = true
           set({ locale })
           void useSession.getState().updateLocale(locale)
         }}
