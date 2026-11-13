@@ -9,6 +9,7 @@ import { Panel } from '../components/Panel'
 import { ResendVerification } from '../components/ResendVerification'
 import { apiErrorText } from '../i18n/apiErrorText'
 import { t } from '../i18n/it'
+import { getLocale } from '../i18n/locale'
 import { useGamepadNav } from '../nav/useGamepadNav'
 import { useSession } from '../store/session'
 import { required } from './auth/validation'
@@ -137,7 +138,7 @@ export default function AccountScreen() {
             {user.emailVerified ? t('account.verified') : t('account.notVerified')}
           </dd>
           <dt>{t('account.since')}</dt>
-          <dd>{new Date(user.createdAt).toLocaleDateString('it-IT')}</dd>
+          <dd>{new Date(user.createdAt).toLocaleDateString(getLocale())}</dd>
         </dl>
         {!user.emailVerified && <ResendVerification />}
 

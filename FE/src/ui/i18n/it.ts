@@ -1,4 +1,10 @@
-// All UI texts (Italian). Placeholders use {name} and are filled by t().
+import type { Locale } from '@shared/types'
+import { en } from './en'
+import { es } from './es'
+import { getLocale } from './locale'
+
+// All UI texts (Italian, the source of the keys). Placeholders use {name} and are filled by t().
+// en.ts and es.ts are Record<TextKey, string>: a missing or extra key fails the typecheck.
 export const it = {
   'app.title': 'NIGHTCRAWLERS',
   'app.tagline': 'Sopravvivi alla notte di Night City',
@@ -299,8 +305,11 @@ export const it = {
 
 export type TextKey = keyof typeof it
 
+const dictionaries: Record<Locale, Record<TextKey, string>> = { it, en, es }
+
+/** Text of `key` in the current locale (ui/i18n/locale.ts), with {placeholders} filled from `vars`. */
 export function t(key: TextKey, vars?: Record<string, string | number>): string {
-  const text: string = it[key]
+  const text: string = dictionaries[getLocale()][key] ?? it[key]
   if (!vars) return text
   return text.replace(/\{(\w+)\}/g, (match, name: string) => (name in vars ? String(vars[name]) : match))
 }

@@ -3,6 +3,7 @@ import { enemies, weapons } from '@data'
 import { NeonLink } from '../components/NeonButton'
 import { Panel } from '../components/Panel'
 import { t } from '../i18n/it'
+import { getLocale } from '../i18n/locale'
 import { useGamepadNav } from '../nav/useGamepadNav'
 import { useRun } from '../store/run'
 import { useSession } from '../store/session'
@@ -44,7 +45,7 @@ export default function CodexScreen() {
                     {t('codex.enemyStats', { hp: e.hp, speed: e.speed, damage: e.damage })}
                   </div>
                   {kills[e.id] !== undefined && (
-                    <div>{t('codex.kills', { count: (kills[e.id] ?? 0).toLocaleString('it-IT') })}</div>
+                    <div>{t('codex.kills', { count: (kills[e.id] ?? 0).toLocaleString(getLocale()) })}</div>
                   )}
                 </>
               ) : (
@@ -65,7 +66,7 @@ export default function CodexScreen() {
                   <div className={styles.muted}>
                     {t('codex.weaponStats', {
                       damage: w.levels[0].damage,
-                      cooldown: w.levels[0].cooldownSec.toLocaleString('it-IT'),
+                      cooldown: w.levels[0].cooldownSec.toLocaleString(getLocale()),
                     })}
                   </div>
                   <div className={styles.muted}>{t('codex.evolution', { name: w.evolution.name })}</div>

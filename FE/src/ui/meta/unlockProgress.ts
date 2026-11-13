@@ -3,6 +3,7 @@ import type { SaveDto } from '@shared/api-contract'
 import type { CharacterDef, CharacterId, StatModifier, UnlockDef, UnlockRule } from '@shared/types'
 import { formatTime } from '../hud/format'
 import { t, type TextKey } from '../i18n/it'
+import { getLocale } from '../i18n/locale'
 
 export type CardState = 'available' | 'locked' | 'encrypted'
 
@@ -47,12 +48,12 @@ export function unlockProgress(rule: UnlockRule, save: SaveDto): { current: numb
 /** Progress values as text: times as mm:ss, the rest as numbers. */
 export function progressText(rule: UnlockRule, p: { current: number; target: number }): string {
   const timed = rule.type === 'survive' || rule.type === 'survive_with'
-  const fmt = (n: number) => (timed ? formatTime(n) : n.toLocaleString('it-IT'))
+  const fmt = (n: number) => (timed ? formatTime(n) : n.toLocaleString(getLocale()))
   return t('select.progress', { current: fmt(p.current), target: fmt(p.target) })
 }
 
 function number(n: number) {
-  return n.toLocaleString('it-IT', { maximumFractionDigits: 2 })
+  return n.toLocaleString(getLocale(), { maximumFractionDigits: 2 })
 }
 
 /** '+10% velocità', '-10 PV max', '+0,1 rigenerazione PV/s'. */
