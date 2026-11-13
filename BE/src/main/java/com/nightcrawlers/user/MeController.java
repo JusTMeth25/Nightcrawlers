@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -34,6 +35,13 @@ public class MeController {
     @GetMapping
     public UserDto me(Authentication authentication) {
         return accounts.profile(CurrentUser.id(authentication));
+    }
+
+    @PutMapping("/locale")
+    public ResponseEntity<Void> updateLocale(@Valid @RequestBody UpdateLocaleRequest request,
+            Authentication authentication) {
+        accounts.updateLocale(CurrentUser.id(authentication), request.locale());
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/export")

@@ -15,12 +15,12 @@ public final class CurrentUser {
     /** The user id from the access token subject. */
     public static UUID id(Authentication authentication) {
         if (authentication == null || authentication.getName() == null) {
-            throw new ApiException(HttpStatus.UNAUTHORIZED, "Non autenticato");
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "error.notAuthenticated");
         }
         try {
             return UUID.fromString(authentication.getName());
         } catch (IllegalArgumentException e) {
-            throw new ApiException(HttpStatus.UNAUTHORIZED, "Non autenticato");
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "error.notAuthenticated");
         }
     }
 }

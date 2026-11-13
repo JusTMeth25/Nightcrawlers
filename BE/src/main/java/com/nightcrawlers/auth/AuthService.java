@@ -4,10 +4,12 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -20,6 +22,7 @@ import com.nightcrawlers.auth.dto.RegisterRequest;
 import com.nightcrawlers.common.ApiException;
 import com.nightcrawlers.common.AppProperties;
 import com.nightcrawlers.common.SecureTokens;
+import com.nightcrawlers.common.SupportedLocales;
 import com.nightcrawlers.common.audit.AuditEvent;
 import com.nightcrawlers.common.audit.AuditService;
 import com.nightcrawlers.mail.MailOutbox;
@@ -36,7 +39,6 @@ import jakarta.servlet.http.HttpServletRequest;
 public class AuthService {
 
     static final Duration EMAIL_TOKEN_TTL = Duration.ofMinutes(30);
-    static final String INVALID_CREDENTIALS = "Credenziali non valide";
     static final int FREE_FAILURES = 4;
 
     /** Result of a successful login or refresh. */
@@ -87,8 +89,8 @@ public class AuthService {
         String email = request.email();
         requireValidPassword(request.password(), request.username(), email);
         if (users.existsByUsernameIgnoreCase(request.username())) {
-            throw new ApiException(HttpStatus.CONFLICT, "Username già in uso", "Scegli un altro username.")
-                    .withError("username", "Username già in uso.");
+            throw new ApiException(HttpStatus.CONFLICT, "error.usernameTaken")
+                    .withError("username", "field.usernameTaken");
         }
         Optional<User> existing = users.findByEmail(email);
         String hash = passwordEncoder.encode(request.password()); // same cost on both paths
@@ -97,10 +99,23 @@ public class AuthService {
             return;
         }
         Instant now = clock.instant();
-        User user = users.saveAndFlush(new User(request.username(), email, hash, now));
+        User user = users.saveAndFlush(new User(request.username(), email, hash, now, emailLocale(request)));
         saveInitializer.createFor(user.getId(), now);
         sendVerification(user);
         audit.record(AuditEvent.REGISTER, user.getId(), http);
+    }
+
+    /**
+     * The language of the body when given (unsupported values fall back to Italian), otherwise the
+     * language of the request, already narrowed to a supported one by the locale resolver.
+     */
+    static String emailLocale(RegisterRequest request) {
+        if (request.locale() != null) {
+            return SupportedLocales.isSupported(request.locale()) ? request.locale()
+                    : SupportedLocales.DEFAULT_CODE;
+        }
+        String fromRequest = SupportedLocales.codeOf(LocaleContextHolder.getLocale());
+        return fromRequest != null ? fromRequest : SupportedLocales.DEFAULT_CODE;
     }
 
     @Transactional
@@ -146,10 +161,7 @@ public class AuthService {
     public void forgotPassword(String normalizedEmail) {
         users.findByEmail(normalizedEmail).ifPresent(user -> {
             String token = emailTokens.issue(user, EmailToken.Purpose.RESET, EMAIL_TOKEN_TTL);
-            RenderedMail body = templates.render("reset-password", Map.of(
-                    "username", user.getUsername(),
-                    "link", props.frontendUrl() + "/reset-password?token=" + token));
-            mail.queue(user.getEmail(), "Reimposta la password - Nightcrawlers", body);
+            send(user, "reset-password", props.frontendUrl() + "/reset-password?token=" + token);
         });
     }
 
@@ -197,8 +209,7 @@ public class AuthService {
     public static void requireNotLocked(User user, Instant now) {
         if (user.getLockedUntil() != null && user.getLockedUntil().isAfter(now)) {
             long seconds = Math.max(1, (Duration.between(now, user.getLockedUntil()).toMillis() + 999) / 1000);
-            throw new ApiException(HttpStatus.LOCKED, "Account temporaneamente bloccato",
-                    "Troppi tentativi falliti. Riprova tra " + seconds + " secondi.")
+            throw new ApiException(HttpStatus.LOCKED, "error.accountLocked", seconds)
                     .withHeader(HttpHeaders.RETRY_AFTER, Long.toString(seconds));
         }
     }
@@ -222,30 +233,31 @@ public class AuthService {
     }
 
     private static ApiException invalidCredentials() {
-        return new ApiException(HttpStatus.UNAUTHORIZED, INVALID_CREDENTIALS,
-                "Username, email o password non corretti.");
+        return new ApiException(HttpStatus.UNAUTHORIZED, "error.invalidCredentials");
     }
 
     void requireValidPassword(String password, String username, String email) {
-        List<String> errors = passwordPolicy.validate(password, username, email);
-        if (!errors.isEmpty()) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Dati non validi", "La password non rispetta i requisiti.")
-                    .withError("password", String.join(" ", errors));
+        List<PasswordPolicy.Violation> violations = passwordPolicy.validate(password, username, email);
+        if (!violations.isEmpty()) {
+            ApiException error = new ApiException(HttpStatus.BAD_REQUEST, "error.invalidPassword");
+            violations.forEach(v -> error.withError("password", v.key(), v.args()));
+            throw error;
         }
     }
 
     void sendVerification(User user) {
         String token = emailTokens.issue(user, EmailToken.Purpose.VERIFY, EMAIL_TOKEN_TTL);
-        RenderedMail body = templates.render("verify-email", Map.of(
-                "username", user.getUsername(),
-                "link", props.frontendUrl() + "/verify-email?token=" + token));
-        mail.queue(user.getEmail(), "Conferma il tuo indirizzo email - Nightcrawlers", body);
+        send(user, "verify-email", props.frontendUrl() + "/verify-email?token=" + token);
     }
 
     private void sendAlreadyRegistered(User user) {
-        RenderedMail body = templates.render("already-registered", Map.of(
-                "username", user.getUsername(),
-                "link", props.frontendUrl() + "/forgot-password"));
-        mail.queue(user.getEmail(), "Tentativo di registrazione - Nightcrawlers", body);
+        send(user, "already-registered", props.frontendUrl() + "/forgot-password");
+    }
+
+    /** Every email goes out in the recipient's language, never in the language of the request. */
+    private void send(User user, String template, String link) {
+        Locale locale = user.emailLocale();
+        RenderedMail body = templates.render(template, locale, Map.of("username", user.getUsername(), "link", link));
+        mail.queue(user.getEmail(), templates.subject(template, locale), body);
     }
 }

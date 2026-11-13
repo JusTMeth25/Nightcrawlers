@@ -177,4 +177,40 @@ class RegistrationIT {
     void unknownTokenIsRejected() throws Exception {
         verify("does-not-exist").andExpect(status().isBadRequest());
     }
+
+    ResultActions registerWithLocale(String username, String email, String bodyLocale, String acceptLanguage)
+            throws Exception {
+        String locale = bodyLocale == null ? "" : ",\"locale\":\"" + bodyLocale + "\"";
+        String body = """
+                {"username":"%s","email":"%s","password":"%s"%s}""".formatted(username, email, PASSWORD, locale);
+        var request = post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body);
+        if (acceptLanguage != null) {
+            request.header("Accept-Language", acceptLanguage);
+        }
+        return mvc.perform(request);
+    }
+
+    String storedLocale(String bodyLocale, String acceptLanguage) throws Exception {
+        String name = unique();
+        String email = name + "@mail.it";
+        registerWithLocale(name, email, bodyLocale, acceptLanguage).andExpect(status().isAccepted());
+        return users.findByEmail(email).orElseThrow().getLocale();
+    }
+
+    @Test
+    void registrationStoresTheLocaleOfTheBody() throws Exception {
+        assertThat(storedLocale("es", "en")).isEqualTo("es");
+    }
+
+    @Test
+    void registrationWithoutLocaleStoresTheRequestLanguage() throws Exception {
+        assertThat(storedLocale(null, "en-US,en;q=0.9")).isEqualTo("en");
+        assertThat(storedLocale(null, null)).isEqualTo("it");
+    }
+
+    @Test
+    void unsupportedLanguagesFallBackToItalian() throws Exception {
+        assertThat(storedLocale(null, "fr-FR,fr;q=0.9")).isEqualTo("it");
+        assertThat(storedLocale("fr", null)).isEqualTo("it");
+    }
 }

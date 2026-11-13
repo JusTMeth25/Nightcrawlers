@@ -41,7 +41,7 @@ public class SecurityConfig {
             throws Exception {
         AuthenticationEntryPoint unauthorized = (req, res, ex) -> {
             res.setHeader(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
-            problems.write(req, res, HttpStatus.UNAUTHORIZED, "Non autenticato", "Accesso richiesto o sessione scaduta.");
+            problems.write(req, res, HttpStatus.UNAUTHORIZED, "error.notAuthenticated");
         };
         http
                 // Bearer tokens are not sent automatically by browsers; the two cookie endpoints
@@ -70,7 +70,7 @@ public class SecurityConfig {
                 .exceptionHandling(e -> e
                         .authenticationEntryPoint(unauthorized)
                         .accessDeniedHandler((req, res, ex) -> problems.write(req, res, HttpStatus.FORBIDDEN,
-                                "Accesso negato", null)));
+                                "error.accessDenied")));
         return http.build();
     }
 
@@ -88,8 +88,8 @@ public class SecurityConfig {
     CorsConfigurationSource corsConfigurationSource(AppProperties props) {
         CorsConfiguration cors = new CorsConfiguration();
         cors.setAllowedOrigins(props.cors().allowedOrigins());
-        cors.setAllowedMethods(List.of("GET", "POST", "DELETE", "OPTIONS"));
-        cors.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-CSRF-Token"));
+        cors.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        cors.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-CSRF-Token", "Accept-Language"));
         cors.setAllowCredentials(true);
         cors.setMaxAge(3600L);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

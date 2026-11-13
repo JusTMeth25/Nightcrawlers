@@ -42,8 +42,7 @@ public class CsrfDoubleSubmitFilter extends OncePerRequestFilter {
         String header = request.getHeader(AuthCookies.CSRF_HEADER);
         String cookie = cookie(request, AuthCookies.CSRF);
         if (header == null || header.isEmpty() || !SecureTokens.constantTimeEquals(header, cookie)) {
-            problems.write(request, response, HttpStatus.FORBIDDEN, "Verifica CSRF non riuscita",
-                    "Intestazione X-CSRF-Token mancante o non valida.");
+            problems.write(request, response, HttpStatus.FORBIDDEN, "error.csrf");
             return;
         }
         chain.doFilter(request, response);

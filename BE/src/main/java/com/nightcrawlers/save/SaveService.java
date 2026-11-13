@@ -44,7 +44,7 @@ public class SaveService {
     @Transactional(readOnly = true)
     public SaveDto load(UUID userId) {
         PlayerSave save = saves.findById(userId)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Salvataggio non trovato"));
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "error.saveNotFound"));
 
         Map<String, Integer> ripperdoc = new LinkedHashMap<>();
         upgrades.findByUserId(userId).stream()

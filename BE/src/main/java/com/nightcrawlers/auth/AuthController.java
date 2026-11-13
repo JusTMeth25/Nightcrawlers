@@ -16,6 +16,7 @@ import com.nightcrawlers.auth.dto.ForgotPasswordRequest;
 import com.nightcrawlers.auth.dto.ResetPasswordRequest;
 import com.nightcrawlers.auth.dto.LoginRequest;
 import com.nightcrawlers.auth.dto.MessageResponse;
+import com.nightcrawlers.common.Messages;
 import com.nightcrawlers.auth.dto.RegisterRequest;
 import com.nightcrawlers.auth.dto.VerifyEmailRequest;
 
@@ -30,25 +31,26 @@ import jakarta.validation.Valid;
 @RequestMapping("/api/auth")
 public class AuthController {
 
-    static final MessageResponse FORGOT = new MessageResponse("Se l'indirizzo è registrato, riceverai un'email.");
-    static final MessageResponse REGISTERED = new MessageResponse(
-            "Registrazione ricevuta: controlla la tua email per confermare l'account.");
+    static final String FORGOT = "message.forgotPassword";
+    static final String REGISTERED = "message.registered";
 
     private final AuthService auth;
     private final AuthCookies cookies;
     private final JwtService jwt;
+    private final Messages messages;
 
-    public AuthController(AuthService auth, AuthCookies cookies, JwtService jwt) {
+    public AuthController(AuthService auth, AuthCookies cookies, JwtService jwt, Messages messages) {
         this.auth = auth;
         this.cookies = cookies;
         this.jwt = jwt;
+        this.messages = messages;
     }
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.ACCEPTED)
     public MessageResponse register(@Valid @RequestBody RegisterRequest request, HttpServletRequest http) {
         auth.register(request, http);
-        return REGISTERED;
+        return new MessageResponse(messages.get(REGISTERED));
     }
 
     @PostMapping("/verify-email")
@@ -91,7 +93,7 @@ public class AuthController {
     @ResponseStatus(HttpStatus.ACCEPTED)
     public MessageResponse forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         auth.forgotPassword(request.email());
-        return FORGOT;
+        return new MessageResponse(messages.get(FORGOT));
     }
 
     @PostMapping("/reset-password")

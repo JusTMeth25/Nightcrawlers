@@ -146,4 +146,45 @@ class PasswordResetIT {
     void resendVerificationRequiresBearer() throws Exception {
         mvc.perform(post("/api/auth/resend-verification")).andExpect(status().isUnauthorized());
     }
+
+    @Test
+    void resetEmailUsesTheAccountLanguageNotTheRequestOne() throws Exception {
+        String name = TestApi.uniqueName();
+        String email = name + "@mail.it";
+        mvc.perform(post("/api/auth/register").header("Accept-Language", "it")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"%s\",\"email\":\"%s\",\"password\":\"%s\",\"locale\":\"en\"}"
+                                .formatted(name, email, TestApi.PASSWORD)))
+                .andExpect(status().isAccepted());
+        CapturingMailService.Mail verification = mail.lastTo(email);
+        assertThat(verification.subject()).isEqualTo("Confirm your email address - Nightcrawlers");
+        assertThat(verification.html()).contains("Confirm your email");
+
+        mvc.perform(post("/api/auth/forgot-password").header("Accept-Language", "es")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"email\":\"" + email + "\"}"))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.message").value("Si la dirección está registrada, recibirás un correo."));
+
+        CapturingMailService.Mail reset = mail.lastTo(email);
+        assertThat(reset.subject()).isEqualTo("Reset your password - Nightcrawlers");
+        assertThat(reset.html()).contains("Reset your password").doesNotContain("Restablece");
+        assertThat(reset.text()).contains("Hi " + name).doesNotContain("Hola");
+    }
+
+    @Test
+    void alreadyRegisteredEmailUsesTheExistingAccountLanguage() throws Exception {
+        String name = TestApi.uniqueName();
+        String email = name + "@mail.it";
+        String body = "{\"username\":\"%s\",\"email\":\"%s\",\"password\":\"%s\",\"locale\":\"%s\"}";
+        mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
+                .content(body.formatted(name, email, TestApi.PASSWORD, "es"))).andExpect(status().isAccepted());
+        assertThat(mail.lastTo(email).subject()).isEqualTo("Confirma tu dirección de correo - Nightcrawlers");
+
+        mvc.perform(post("/api/auth/register").header("Accept-Language", "en").contentType(MediaType.APPLICATION_JSON)
+                .content(body.formatted(TestApi.uniqueName(), email, TestApi.PASSWORD, "en")))
+                .andExpect(status().isAccepted());
+        CapturingMailService.Mail attempt = mail.lastTo(email);
+        assertThat(attempt.subject()).isEqualTo("Intento de registro - Nightcrawlers");
+        assertThat(attempt.text()).contains("Hola " + name);
+    }
 }

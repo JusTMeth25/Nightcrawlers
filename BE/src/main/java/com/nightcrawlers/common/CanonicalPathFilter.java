@@ -26,8 +26,7 @@ public class CanonicalPathFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
         if (RequestPaths.path(request).startsWith("/api/") && !RequestPaths.isCanonical(request)) {
-            problems.write(request, response, HttpStatus.BAD_REQUEST, "Richiesta non valida",
-                    "Percorso della richiesta non valido.");
+            problems.write(request, response, HttpStatus.BAD_REQUEST, "error.invalidPath");
             return;
         }
         chain.doFilter(request, response);

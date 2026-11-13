@@ -5,8 +5,8 @@ import jakarta.validation.constraints.Size;
 
 /** {@code login} is a username or an email. */
 public record LoginRequest(
-        @NotBlank(message = "Inserisci username o email.") @Size(max = 254, message = "Valore troppo lungo.") String login,
-        @NotBlank(message = "Inserisci la password.") @Size(max = 128, message = "Password troppo lunga.") String password) {
+        @NotBlank(message = "{validation.login.required}") @Size(max = 254, message = "{validation.login.tooLong}") String login,
+        @NotBlank(message = "{validation.password.enter}") @Size(max = 128, message = "{validation.password.tooLong}") String password) {
 
     public LoginRequest {
         login = login == null ? null : login.trim();

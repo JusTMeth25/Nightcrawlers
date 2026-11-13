@@ -2,12 +2,15 @@ package com.nightcrawlers.common;
 
 import java.net.URI;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.hibernate.exception.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.dao.PessimisticLockingFailureException;
@@ -30,33 +33,49 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
     private static final URI BLANK_TYPE = URI.create("about:blank");
 
+    private final Messages messages;
+
+    public GlobalExceptionHandler(Messages messages) {
+        this.messages = messages;
+    }
+
     /** The contract requires {@code type}; Spring 7 leaves it unset unless given. */
     @Override
     protected ResponseEntity<Object> createResponseEntity(Object body, HttpHeaders headers, HttpStatusCode statusCode,
             WebRequest request) {
         if (body instanceof ProblemDetail problem) {
             withType(problem);
-            italianize(problem, statusCode);
+            localize(problem, statusCode);
         }
         return super.createResponseEntity(body, headers, statusCode, request);
     }
 
-    /** Spring's built-in errors carry English reason phrases; the UI shows titles to Italian users. */
-    private static final Map<Integer, String[]> ITALIAN = Map.of(
-            400, new String[] { "Richiesta non valida", "La richiesta non è leggibile o non è valida." },
-            404, new String[] { "Risorsa non trovata", "La risorsa richiesta non esiste." },
-            405, new String[] { "Metodo non consentito", "Metodo HTTP non supportato per questa risorsa." },
-            406, new String[] { "Formato non accettabile", "Formato di risposta non disponibile." },
-            413, new String[] { "Richiesta troppo grande", "Il corpo della richiesta è troppo grande." },
-            415, new String[] { "Formato non supportato", "Tipo di contenuto non supportato." });
-
-    private static void italianize(ProblemDetail problem, HttpStatusCode statusCode) {
-        String[] text = ITALIAN.get(statusCode.value());
+    /**
+     * Spring's built-in errors carry English reason phrases; they are replaced by
+     * {@code error.http<status>.title/detail} in the language of the request.
+     */
+    private void localize(ProblemDetail problem, HttpStatusCode statusCode) {
         HttpStatus status = HttpStatus.resolve(statusCode.value());
-        if (text != null && status != null && status.getReasonPhrase().equals(problem.getTitle())) {
-            problem.setTitle(text[0]);
-            problem.setDetail(text[1]);
+        if (status == null || !status.getReasonPhrase().equals(problem.getTitle())) {
+            return;
         }
+        Locale locale = LocaleContextHolder.getLocale();
+        String title = messages.optional("error.http" + status.value() + ".title", locale);
+        if (title != null) {
+            problem.setTitle(title);
+            problem.setDetail(messages.optional("error.http" + status.value() + ".detail", locale));
+        }
+    }
+
+    private ProblemDetail problem(HttpStatus status, String code, Object... args) {
+        Locale locale = LocaleContextHolder.getLocale();
+        ProblemDetail problem = ProblemDetail.forStatus(status);
+        problem.setTitle(messages.get(code + ".title", locale));
+        String detail = messages.optional(code + ".detail", locale, args);
+        if (detail != null) {
+            problem.setDetail(detail);
+        }
+        return withType(problem);
     }
 
     private static ProblemDetail withType(ProblemDetail problem) {
@@ -73,26 +92,25 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         for (FieldError error : ex.getBindingResult().getFieldErrors()) {
             errors.putIfAbsent(error.getField(), error.getDefaultMessage());
         }
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,
-                "Uno o più campi non sono validi.");
-        problem.setTitle("Dati non validi");
+        ProblemDetail problem = problem(HttpStatus.BAD_REQUEST, "error.invalidData");
         problem.setProperty("errors", errors);
-        return ResponseEntity.badRequest().headers(headers).body(withType(problem));
+        return ResponseEntity.badRequest().headers(headers).body(problem);
     }
 
     @ExceptionHandler(ApiException.class)
     ResponseEntity<ProblemDetail> handleApi(ApiException ex) {
-        ProblemDetail problem = ProblemDetail.forStatus(ex.getStatus());
-        problem.setTitle(ex.getTitle());
-        if (ex.getDetail() != null) {
-            problem.setDetail(ex.getDetail());
-        }
+        Locale locale = LocaleContextHolder.getLocale();
+        ProblemDetail problem = problem(ex.getStatus(), ex.getCode(), ex.getDetailArgs());
         if (!ex.getErrors().isEmpty()) {
-            problem.setProperty("errors", ex.getErrors());
+            Map<String, String> errors = new LinkedHashMap<>();
+            ex.getErrors().forEach((field, list) -> errors.put(field, list.stream()
+                    .map(m -> messages.get(m.key(), locale, m.args()))
+                    .collect(Collectors.joining(" "))));
+            problem.setProperty("errors", errors);
         }
         ResponseEntity.BodyBuilder builder = ResponseEntity.status(ex.getStatus());
         ex.getHeaders().forEach(builder::header);
-        return builder.body(withType(problem));
+        return builder.body(problem);
     }
 
     /** Unique-constraint race between the existence check and the insert. */
@@ -100,10 +118,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     ResponseEntity<ProblemDetail> handleConflict(DataIntegrityViolationException ex) {
         // Only the constraint name: the database message can contain personal data (emails).
         log.info("Data integrity violation on constraint {}", constraintName(ex));
-        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONFLICT);
-        problem.setTitle("Conflitto");
-        problem.setDetail("La richiesta è in conflitto con dati esistenti.");
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(withType(problem));
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(problem(HttpStatus.CONFLICT, "error.conflict"));
     }
 
     static String constraintName(Throwable ex) {
@@ -122,10 +137,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler({ OptimisticLockingFailureException.class, PessimisticLockingFailureException.class })
     ResponseEntity<ProblemDetail> handleStale(Exception ex) {
         log.info("Lock conflict: {}", ex.getClass().getSimpleName());
-        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONFLICT);
-        problem.setTitle("Conflitto");
-        problem.setDetail("I dati sono stati modificati da un'altra richiesta. Riprova.");
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(withType(problem));
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(problem(HttpStatus.CONFLICT, "error.staleData"));
     }
 
     /**
@@ -137,11 +149,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     ResponseEntity<ProblemDetail> handleUnexpected(Exception ex) {
         String errorId = UUID.randomUUID().toString();
         log.error("Unhandled exception [errorId={}]: {} at {}", errorId, classChain(ex), location(ex));
-        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.INTERNAL_SERVER_ERROR);
-        problem.setTitle("Errore interno");
-        problem.setDetail("Si è verificato un errore imprevisto.");
+        ProblemDetail problem = problem(HttpStatus.INTERNAL_SERVER_ERROR, "error.internal");
         problem.setProperty("errorId", errorId);
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(withType(problem));
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(problem);
     }
 
     /** {@code Outer <- Cause <- RootCause}, class names only. */
