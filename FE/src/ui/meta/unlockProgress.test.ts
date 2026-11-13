@@ -33,9 +33,11 @@ describe('characterState', () => {
 
   it('a character without sprite is encrypted even when unlocked', () => {
     const s = save({ unlockedCharacters: ['david', 'lucy', 'rebecca', 'kiwi'] })
-    expect(getCharacter('kiwi').spriteKey).toBeNull()
-    expect(characterState(getCharacter('kiwi'), s)).toBe('encrypted')
-    expect(characterState(getCharacter('kiwi'), null)).toBe('encrypted')
+    // every shipped character has a sprite now: a future one without art stays encrypted
+    const noArt = { ...getCharacter('kiwi'), spriteKey: null }
+    expect(characterState(noArt, s)).toBe('encrypted')
+    expect(characterState(noArt, null)).toBe('encrypted')
+    expect(characterState(getCharacter('kiwi'), s)).toBe('available')
   })
 })
 

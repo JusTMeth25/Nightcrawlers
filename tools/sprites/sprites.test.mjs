@@ -209,3 +209,30 @@ test('weapons atlas has base and evolved frames for every weapon, scaled down to
   const rifle = json.frames.weapon_heavy_rifle_base.frame
   assert.ok(rifle.w > pistol.w * 2.5, `rifle ${rifle.w} vs pistol ${pistol.w}`)
 })
+
+test('heroes atlas has the full grid animation set for all 8 characters', async () => {
+  const { readFileSync } = await import('node:fs')
+  const root = new URL('../../', import.meta.url)
+  const json = JSON.parse(readFileSync(new URL('FE/public/assets/atlas/heroes.json', root), 'utf8'))
+  const names = new Set(Object.keys(json.frames))
+  const expected = { idle: 2, walk: 4, hurt: 1, death: 1 }
+  for (const id of ['david', 'lucy', 'rebecca', 'maine', 'kiwi', 'pilar', 'dorio', 'falco']) {
+    for (const dir of ['down', 'side', 'up']) {
+      for (const [action, count] of Object.entries(expected)) {
+        for (let n = 0; n < count; n++) assert.ok(names.has(`${id}_${dir}_${action}_${n}`), `${id}_${dir}_${action}_${n}`)
+        assert.ok(!names.has(`${id}_${dir}_${action}_${count}`), `extra ${id}_${dir}_${action}_${count}`)
+      }
+    }
+  }
+})
+
+test('rowBands splits a sheet at the empty horizontal gaps between rows', async () => {
+  const { rowBands } = await import('./detect.mjs')
+  const w = 40, h = 100
+  const buf = rgba(w, h)
+  square(buf, w, 5, 10, 20)
+  square(buf, w, 5, 60, 20)
+  // a faint speck in the gap must not merge the rows
+  setPx(buf, w, 30, 45, [255, 255, 255, 10])
+  assert.deepEqual(rowBands(buf, w, h, { alpha: 25 }), [[0, 45], [45, 100]])
+})

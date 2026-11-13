@@ -165,3 +165,25 @@ function growOverEdge(rgba, w, f, { minX, maxX, minY, maxY, edgeAlpha }) {
   }
   return { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 }
 }
+
+/**
+ * Row bands of a regular grid sheet: occupied runs of rows (alpha >= `alpha`) found from the empty
+ * horizontal gaps, split halfway between consecutive runs. @returns {[number, number][]}
+ */
+export function rowBands(rgba, w, h, { alpha = 25 } = {}) {
+  const runs = []
+  let start = -1
+  for (let y = 0; y <= h; y++) {
+    let filled = false
+    if (y < h) for (let x = 0; x < w && !filled; x++) filled = rgba[(y * w + x) * 4 + 3] >= alpha
+    if (filled && start < 0) start = y
+    if (!filled && start >= 0) {
+      runs.push([start, y - 1])
+      start = -1
+    }
+  }
+  return runs.map((r, i) => [
+    i === 0 ? 0 : Math.floor((runs[i - 1][1] + r[0]) / 2) + 1,
+    i === runs.length - 1 ? h : Math.floor((r[1] + runs[i + 1][0]) / 2) + 1,
+  ])
+}
