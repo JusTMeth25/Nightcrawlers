@@ -4,7 +4,7 @@ import Phaser from 'phaser'
 import { animConfig, actionOf, groupFrames } from '../render/animations'
 
 export const PRELOAD_SCENE_KEY = 'Preload'
-export const ATLASES = ['heroes', 'enemies'] as const
+export const ATLASES = ['heroes', 'enemies', 'weapons'] as const
 /** registry key of the Set<string> of animation keys that exist */
 export const ANIMS_KEY = 'animKeys'
 

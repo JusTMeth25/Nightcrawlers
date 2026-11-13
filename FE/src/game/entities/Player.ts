@@ -53,6 +53,16 @@ export class Player {
     }
   }
 
+  /** Body facing used by the animations (weapons are mounted accordingly). */
+  get facing(): Dir {
+    return this.dir
+  }
+
+  /** True when the side-facing sprite is mirrored (facing left). */
+  get flipped(): boolean {
+    return this.sprite.flipX
+  }
+
   get bodyY(): number {
     return this.y - BODY_OFFSET
   }

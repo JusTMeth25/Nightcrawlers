@@ -61,7 +61,7 @@ describe('CharacterSelectScreen', () => {
     expect(screen.getByRole('button', { name: 'Avvia' })).toBeEnabled()
   })
 
-  it('shows characters without sprite as "Segnale criptato" and never startable', async () => {
+  it('lets an unlocked Kiwi start now that every character has a sprite', async () => {
     useSession.setState({
       status: 'authenticated',
       user,
@@ -69,9 +69,9 @@ describe('CharacterSelectScreen', () => {
     })
     renderSelect()
     const kiwi = screen.getByRole('button', { name: /Kiwi/ })
-    expect(within(kiwi).getByText('Segnale criptato')).toBeInTheDocument()
+    expect(within(kiwi).queryByText('Segnale criptato')).not.toBeInTheDocument()
     await userEvent.setup().click(kiwi)
-    expect(screen.getByRole('button', { name: 'Avvia' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Avvia' })).toBeEnabled()
   })
 
   it('shows the unlock progress with a progress bar', async () => {

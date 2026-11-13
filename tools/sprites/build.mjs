@@ -5,7 +5,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import sharp from 'sharp'
-import { detectInRows } from './detect.mjs'
+import { detectInRows, rowBands } from './detect.mjs'
 import { loadSheet } from './load.mjs'
 import { feetPivot, shelfPack } from './pack.mjs'
 import { SHEETS } from './sheets.mjs'
@@ -19,8 +19,33 @@ function crop(rgba, w, rect) {
   return out
 }
 
+/** Frames of regular grid sheets: rows from the horizontal gaps, one named frame per column. */
+async function gridFrames(sheet) {
+  const { sources, dirs, columns } = sheet.grid
+  const expected = Math.max(...Object.values(columns).flat()) + 1
+  const frames = []
+  for (const { spriteKey, file, cuts = [] } of sources) {
+    const { rgba, w, h } = await loadSheet(file, sheet.mode, sheet.clean)
+    const bands = rowBands(rgba, w, h, { alpha: sheet.detect.maskAlpha })
+    if (bands.length !== dirs.length) throw new Error(`${file}: ${bands.length} rows found, ${dirs.length} expected`)
+    const rows = detectInRows(rgba, w, h, { rows: bands, cuts: bands.map(() => cuts), ...sheet.detect })
+    rows.forEach((detected, ri) => {
+      if (detected.length !== expected) throw new Error(`${file} row ${ri}: ${detected.length} frames, ${expected} expected`)
+      for (const [action, indices] of Object.entries(columns)) {
+        indices.forEach((index, n) => {
+          const rect = detected[index]
+          const pixels = crop(rgba, w, rect)
+          frames.push({ name: `${spriteKey}_${dirs[ri]}_${action}_${n}`, rect, pixels, pivot: feetPivot(pixels, rect.w, rect.h, sheet.detect.maskAlpha) })
+        })
+      }
+    })
+  }
+  return frames
+}
+
 export async function buildSheet(name) {
   const sheet = SHEETS[name]
+  if (sheet.grid) return writeAtlas(name, sheet, await gridFrames(sheet))
   const ov = JSON.parse(readFileSync(sheet.overrides, 'utf8'))
   const { rgba, w, h } = await loadSheet(sheet.source, sheet.mode, sheet.clean)
   const rows = detectInRows(rgba, w, h, {
@@ -34,7 +59,13 @@ export async function buildSheet(name) {
   const frames = []
   const fxCount = {}
   rows.forEach((detected, ri) => {
-    const { spriteKey, dir, actions } = ov.rows[ri]
+    const { spriteKey, dir, actions = {}, names } = ov.rows[ri]
+    // static images (weapons): one explicit name per detected frame, centered pivot
+    names?.forEach((frameName, index) => {
+      const rect = detected[index]
+      if (!rect) throw new Error(`${name} row ${ri}: no frame ${index} for ${frameName}`)
+      frames.push({ name: frameName, rect, pixels: crop(rgba, w, rect), pivot: { x: 0.5, y: 0.5 } })
+    })
     for (const [action, indices] of Object.entries(actions)) {
       indices.forEach((index, n) => {
         const rect = detected[index]
@@ -46,6 +77,23 @@ export async function buildSheet(name) {
       })
     }
   })
+
+  return writeAtlas(name, sheet, frames)
+}
+
+async function writeAtlas(name, sheet, frames) {
+  if (sheet.scale && sheet.scale !== 1) {
+    // pixel art stays crisp with nearest-neighbour downscaling
+    for (const f of frames) {
+      const tw = Math.max(1, Math.round(f.rect.w * sheet.scale))
+      const th = Math.max(1, Math.round(f.rect.h * sheet.scale))
+      f.pixels = await sharp(f.pixels, { raw: { width: f.rect.w, height: f.rect.h, channels: 4 } })
+        .resize(tw, th, { kernel: 'nearest' })
+        .raw()
+        .toBuffer()
+      f.rect = { ...f.rect, w: tw, h: th }
+    }
+  }
 
   const { positions, width, height } = shelfPack(frames.map((f) => f.rect), { maxWidth: 2048, padding: 2 })
   const atlas = Buffer.alloc(width * height * 4)

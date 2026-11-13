@@ -5,6 +5,8 @@ import type { WeaponLevelStats } from '@shared/types'
 import { OWNER_PLAYER } from '../../entities/ProjectilePool'
 import { LAYER, layerDepth } from '../../render/depth'
 import { TEX_DRONE } from '../../scenes/BootScene'
+import { WEAPON_SCALE } from '../../render/weaponSlots'
+import { SPRITE_SCALE } from '../../world/view'
 import type { Behavior, CombatHost, FireContext, WeaponRuntime } from '../types'
 
 const MAX_DRONES = 8
@@ -22,10 +24,16 @@ export interface DroneBehavior extends Behavior {
 }
 
 export function createDroneBehavior(scene: Phaser.Scene, phase = 0): DroneBehavior {
+  // the drone sprite from the weapons atlas when available, the neon placeholder otherwise
+  const art = scene.textures.exists('weapons')
   const sprites: Phaser.GameObjects.Image[] = []
   for (let i = 0; i < MAX_DRONES; i++) {
-    sprites.push(scene.add.image(0, 0, TEX_DRONE).setVisible(false).setDepth(layerDepth(LAYER.fx)).setBlendMode('ADD'))
+    const img = art
+      ? scene.add.image(0, 0, 'weapons', 'weapon_drone_base').setScale(SPRITE_SCALE * WEAPON_SCALE.drone)
+      : scene.add.image(0, 0, TEX_DRONE).setBlendMode('ADD')
+    sprites.push(img.setVisible(false).setDepth(layerDepth(LAYER.fx)))
   }
+  let evolvedFrame = false
   const dx = new Float32Array(MAX_DRONES)
   const dy = new Float32Array(MAX_DRONES)
   let angle = phase
@@ -37,6 +45,10 @@ export function createDroneBehavior(scene: Phaser.Scene, phase = 0): DroneBehavi
 
     update(host: CombatHost, weapon: WeaponRuntime, stats: WeaponLevelStats, dt: number): void {
       count = Math.min(MAX_DRONES, stats.projectiles + behavior.extra)
+      if (art && weapon.owned.evolved !== evolvedFrame) {
+        evolvedFrame = weapon.owned.evolved
+        for (const d of sprites) d.setFrame(evolvedFrame ? 'weapon_drone_evo' : 'weapon_drone_base')
+      }
       angle += ORBIT_SPEED * dt
       time += dt
       const p = host.player
@@ -49,7 +61,8 @@ export function createDroneBehavior(scene: Phaser.Scene, phase = 0): DroneBehavi
         const a = angle + (k / count) * Math.PI * 2
         dx[k] = p.x + Math.cos(a) * ORBIT_RADIUS
         dy[k] = p.bodyY - 10 + Math.sin(a) * ORBIT_RADIUS * 0.6 + Math.sin(time * 5 + k) * BOB
-        s.setPosition(dx[k], dy[k]).setTint(weapon.color).setVisible(true)
+        if (art) s.setPosition(dx[k], dy[k]).setVisible(true)
+        else s.setPosition(dx[k], dy[k]).setTint(weapon.color).setVisible(true)
       }
     },
 

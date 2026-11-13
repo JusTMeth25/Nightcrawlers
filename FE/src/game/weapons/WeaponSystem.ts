@@ -17,7 +17,7 @@ import type { Behavior, CombatHost, WeaponRuntime } from './types'
 
 const NEAREST_RANGE = 420
 const PROJECTILE_KNOCK = 60
-const WEAPON_COLORS: Partial<Record<WeaponId, number>> = {
+export const WEAPON_COLORS: Partial<Record<WeaponId, number>> = {
   pistol: 0xfff3a0,
   shotgun: 0xffa040,
   minigun: 0xffd166,
@@ -36,6 +36,8 @@ interface Slot extends WeaponRuntime {
 }
 
 export class WeaponSystem {
+  /** Notified after every shot (visual weapons: recoil, hand swap, aim). `dir` is reused: copy it. */
+  onFire: ((id: WeaponId, dir: Vec | null) => void) | null = null
   private readonly host: CombatHost
   private readonly characterColor: number
   private readonly slots: Slot[] = []
@@ -101,6 +103,7 @@ export class WeaponSystem {
       const dir = aimDirection(slot.def.aim, input, this.playerPos, nearest, this.lastMove, this.aimOut)
       if (slot.behavior.fire({ host, weapon: slot, stats: slot.stats, dir, input })) {
         slot.cooldownLeft = slot.stats.cooldownSec
+        this.onFire?.(slot.def.id, dir)
       } else {
         slot.cooldownLeft = 0
       }
