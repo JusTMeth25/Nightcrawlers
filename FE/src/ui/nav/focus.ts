@@ -35,6 +35,27 @@ export function adjustRange(el: Element | null, direction: NavDirection): boolea
   return true
 }
 
+/**
+ * Left/right on a focused <select> picks the previous/next enabled option (wrapping): a gamepad
+ * cannot open the native list, and A only clicks.
+ */
+export function adjustSelect(el: Element | null, direction: NavDirection): boolean {
+  if (!(el instanceof HTMLSelectElement) || el.disabled) return false
+  if (direction !== 'left' && direction !== 'right') return false
+  const count = el.options.length
+  if (count === 0) return true
+  const step = direction === 'right' ? 1 : -1
+  let index = el.selectedIndex
+  for (let i = 0; i < count; i++) {
+    index = (index + step + count) % count
+    if (!el.options[index].disabled) break
+  }
+  if (index === el.selectedIndex) return true
+  el.selectedIndex = index
+  el.dispatchEvent(new Event('change', { bubbles: true }))
+  return true
+}
+
 /** Focuses the first navigable element of the container, unless the focus is already inside. */
 export function focusFirst(container: HTMLElement | null) {
   if (!container) return
