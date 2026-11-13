@@ -55,6 +55,27 @@ export function createSessionStore(deps: { api: ApiClient; auth: AuthBridge }) {
     }
   }
 
+  // account locale sync (PUT /me/locale): latest device choice not yet sent, and the running loop
+  let wantedLocale: Locale | null = null
+  let localeSync: Promise<void> | null = null
+
+  async function syncLocale() {
+    while (wantedLocale !== null) {
+      const target = wantedLocale
+      wantedLocale = null
+      const { status, user } = store.getState()
+      if (status !== 'authenticated' || !user) return
+      if (user.locale === target) continue
+      try {
+        await api.updateLocale({ locale: target })
+        const current = store.getState().user
+        if (current?.id === user.id) store.setState({ user: { ...current, locale: target } })
+      } catch {
+        // best effort: the device keeps the new language; the account is updated at the next change
+      }
+    }
+  }
+
   const store = create<SessionState>()((set, get) => ({
     status: 'unknown',
     user: null,
@@ -111,16 +132,14 @@ export function createSessionStore(deps: { api: ApiClient; auth: AuthBridge }) {
       set({ save })
     },
 
-    async updateLocale(locale) {
-      const { status, user } = get()
-      if (status !== 'authenticated' || !user || user.locale === locale) return
-      try {
-        await api.updateLocale({ locale })
-        const current = get().user
-        if (current?.id === user.id) set({ user: { ...current, locale } })
-      } catch {
-        // the device keeps the new language; the account is updated at the next change
-      }
+    updateLocale(locale) {
+      if (get().status !== 'authenticated') return Promise.resolve()
+      // one request at a time; whatever the device chose last is sent when the current one ends
+      wantedLocale = locale
+      localeSync ??= syncLocale().finally(() => {
+        localeSync = null
+      })
+      return localeSync
     },
 
     clearExpired: () => set({ sessionExpired: false }),

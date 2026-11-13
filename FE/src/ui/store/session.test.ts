@@ -191,4 +191,56 @@ describe('session locale', () => {
     await expect(store.getState().updateLocale('en')).resolves.toBeUndefined()
     expect(store.getState().status).toBe('authenticated')
   })
+
+  // a fake server whose PUT /me/locale answers only when the test resolves it
+  function slowServer(store: ReturnType<typeof setup>['store'], mock: MockApi) {
+    let server: string = 'it'
+    let inFlight = 0
+    let maxInFlight = 0
+    const pending: (() => void)[] = []
+    const sent: string[] = []
+    vi.spyOn(mock, 'updateLocale').mockImplementation(async ({ locale }) => {
+      sent.push(locale)
+      inFlight++
+      maxInFlight = Math.max(maxInFlight, inFlight)
+      await new Promise<void>((resolve) => pending.push(resolve))
+      server = locale
+      inFlight--
+    })
+    const flush = async () => {
+      while (pending.length > 0) {
+        // answer the most recent request first (worst case for ordering)
+        pending.pop()!()
+        await new Promise((r) => setTimeout(r, 0))
+      }
+    }
+    return { sent, flush, server: () => server, maxInFlight: () => maxInFlight, store }
+  }
+
+  it('rapid it -> en -> it ends with the account in Italian', async () => {
+    const { store, mock } = setup()
+    await store.getState().login({ login: DEMO_LOGIN, password: DEMO_PASSWORD })
+    const s = slowServer(store, mock)
+    const a = store.getState().updateLocale('en')
+    const b = store.getState().updateLocale('it')
+    await s.flush()
+    await Promise.all([a, b])
+    expect(s.server()).toBe('it')
+    expect(store.getState().user?.locale).toBe('it')
+  })
+
+  it('it -> en -> es with answers out of order ends with the account in Spanish', async () => {
+    const { store, mock } = setup()
+    await store.getState().login({ login: DEMO_LOGIN, password: DEMO_PASSWORD })
+    const s = slowServer(store, mock)
+    const a = store.getState().updateLocale('en')
+    const b = store.getState().updateLocale('es')
+    await s.flush()
+    await Promise.all([a, b])
+    expect(s.server()).toBe('es')
+    expect(s.sent.at(-1)).toBe('es')
+    expect(s.maxInFlight()).toBe(1)
+    expect(store.getState().user?.locale).toBe('es')
+  })
 })
+
