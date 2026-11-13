@@ -83,6 +83,18 @@ describe('Hud', () => {
     expect(screen.getByText('58 FPS')).toBeInTheDocument()
   })
 
+  it('shows FPS in a readable status pill colored by performance', () => {
+    render(<Hud />)
+    update({ fps: 58 })
+    const pill = screen.getByRole('status', { name: 'FPS' })
+    expect(pill).toHaveTextContent('58 FPS')
+    expect(pill).toHaveAttribute('data-level', 'ok')
+    update({ fps: 40 })
+    expect(screen.getByRole('status', { name: 'FPS' })).toHaveAttribute('data-level', 'warn')
+    update({ fps: 22 })
+    expect(screen.getByRole('status', { name: 'FPS' })).toHaveAttribute('data-level', 'bad')
+  })
+
   it('the pause button emits the pause command', async () => {
     const onPause = vi.fn()
     const off = gameBus.on('pause', onPause)

@@ -90,8 +90,26 @@
 }
 
 .fps {
-  color: var(--nc-muted);
+  padding: 0.15rem 0.55rem;
+  border: 1px solid var(--nc-cyan);
+  border-radius: 999px;
+  background: rgb(5 1 13 / 85%);
+  color: #e8fffb;
+  font-size: 0.8rem;
+  font-weight: bold;
   font-variant-numeric: tabular-nums;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.fps[data-level='warn'] {
+  border-color: var(--nc-yellow);
+  color: var(--nc-yellow);
+}
+
+.fps[data-level='bad'] {
+  border-color: var(--nc-magenta);
+  color: var(--nc-magenta);
 }
 
 .alert {

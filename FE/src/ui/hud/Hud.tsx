@@ -57,7 +57,11 @@ export function Hud({ characterId, controls }: { characterId?: CharacterId; cont
         </>
       )}
       <div className={styles.topRight}>
-        {hud?.fps != null && <span className={styles.fps}>{t('hud.fps', { fps: Math.round(hud.fps) })}</span>}
+        {hud?.fps != null && (
+          <span className={styles.fps} role="status" aria-label="FPS" data-level={fpsLevel(hud.fps)}>
+            {t('hud.fps', { fps: Math.round(hud.fps) })}
+          </span>
+        )}
         {controls}
         <button
           type="button"
@@ -74,4 +78,11 @@ export function Hud({ characterId, controls }: { characterId?: CharacterId; cont
       </div>
     </div>
   )
+}
+
+/** FPS pill color: fine from 45, warning below, bad below 30. */
+function fpsLevel(fps: number): 'ok' | 'warn' | 'bad' {
+  if (fps < 30) return 'bad'
+  if (fps < 45) return 'warn'
+  return 'ok'
 }
