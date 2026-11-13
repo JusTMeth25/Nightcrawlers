@@ -88,6 +88,23 @@ class LocalizedErrorsIT {
     }
 
     @Test
+    void oversizedOrPathologicalHeadersOnTheRealServerAreItalianNotA500() {
+        RawHttp http = new RawHttp(port);
+        String manyRanges = String.join(",", java.util.Collections.nCopies(880, "fr;q=0.5"));
+        String large = "x".repeat(8 * 1024);
+        for (String header : new String[] { manyRanges, large, "en;q=NaN", "en;q=0", "es;q=0,fr" }) {
+            HttpResponse<String> response = http.post("/api/auth/login",
+                    RawHttp.loginBody("nobody_" + TestApi.uniqueName(), "Wrong-password-1"),
+                    "Accept-Language", header);
+            String as = header.substring(0, Math.min(40, header.length()));
+            assertThat(response.statusCode()).as(as).isBetween(200, 499);
+            if (response.statusCode() == 401) {
+                assertThat(response.body()).as(as).contains("Credenziali non valide");
+            }
+        }
+    }
+
+    @Test
     void beanValidationAndPasswordRulesAreLocalized() throws Exception {
         String name = TestApi.uniqueName();
         mvc.perform(post("/api/auth/register").header("Accept-Language", "es")

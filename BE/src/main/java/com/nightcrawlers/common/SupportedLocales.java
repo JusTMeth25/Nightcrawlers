@@ -42,6 +42,9 @@ public final class SupportedLocales {
         }
         try {
             for (Locale.LanguageRange range : Locale.LanguageRange.parse(header)) {
+                if (range.getWeight() <= 0) {
+                    continue; // q=0: explicitly "not acceptable" (RFC 9110)
+                }
                 String tag = range.getRange();
                 int dash = tag.indexOf('-');
                 String language = (dash < 0 ? tag : tag.substring(0, dash)).toLowerCase(Locale.ROOT);
