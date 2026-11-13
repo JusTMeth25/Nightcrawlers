@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -160,10 +161,7 @@ public class AuthService {
     public void forgotPassword(String normalizedEmail) {
         users.findByEmail(normalizedEmail).ifPresent(user -> {
             String token = emailTokens.issue(user, EmailToken.Purpose.RESET, EMAIL_TOKEN_TTL);
-            RenderedMail body = templates.render("reset-password", Map.of(
-                    "username", user.getUsername(),
-                    "link", props.frontendUrl() + "/reset-password?token=" + token));
-            mail.queue(user.getEmail(), "Reimposta la password - Nightcrawlers", body);
+            send(user, "reset-password", props.frontendUrl() + "/reset-password?token=" + token);
         });
     }
 
@@ -249,16 +247,17 @@ public class AuthService {
 
     void sendVerification(User user) {
         String token = emailTokens.issue(user, EmailToken.Purpose.VERIFY, EMAIL_TOKEN_TTL);
-        RenderedMail body = templates.render("verify-email", Map.of(
-                "username", user.getUsername(),
-                "link", props.frontendUrl() + "/verify-email?token=" + token));
-        mail.queue(user.getEmail(), "Conferma il tuo indirizzo email - Nightcrawlers", body);
+        send(user, "verify-email", props.frontendUrl() + "/verify-email?token=" + token);
     }
 
     private void sendAlreadyRegistered(User user) {
-        RenderedMail body = templates.render("already-registered", Map.of(
-                "username", user.getUsername(),
-                "link", props.frontendUrl() + "/forgot-password"));
-        mail.queue(user.getEmail(), "Tentativo di registrazione - Nightcrawlers", body);
+        send(user, "already-registered", props.frontendUrl() + "/forgot-password");
+    }
+
+    /** Every email goes out in the recipient's language, never in the language of the request. */
+    private void send(User user, String template, String link) {
+        Locale locale = user.emailLocale();
+        RenderedMail body = templates.render(template, locale, Map.of("username", user.getUsername(), "link", link));
+        mail.queue(user.getEmail(), templates.subject(template, locale), body);
     }
 }

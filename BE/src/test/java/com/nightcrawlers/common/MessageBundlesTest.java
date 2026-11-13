@@ -39,7 +39,7 @@ class MessageBundlesTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = { "i18n/messages" })
+    @ValueSource(strings = { "i18n/messages", "mail/messages" })
     void everyLanguageHasTheSameKeysAsItalian(String basename) {
         Properties italian = load(basename + "_it.properties");
         assertThat(italian).isNotEmpty();

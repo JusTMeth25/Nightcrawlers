@@ -1,16 +1,18 @@
 NIGHTCRAWLERS
-// trasmissione criptata
+[(#{layout.tagline})]
 
-Ciao [[${username}]],
+[(#{verify-email.heading})]
 
-il tuo profilo è quasi pronto. Conferma l'indirizzo email per salvare sul server
-i progressi delle tue run, gli eurodollari e i personaggi sbloccati.
+[(#{mail.hi})] [[${username}]],
 
-Conferma email:
+[(#{verify-email.body})]
+
+[(#{verify-email.cta})]:
 [[${link}]]
 
-Il link scade tra 30 minuti. Se non hai creato un account su Nightcrawlers, ignora questo messaggio.
+[(#{verify-email.footnote})]
 
 --
-Nightcrawlers - gioco fan non ufficiale e non commerciale.
-Non affiliato a CD Projekt né a Studio Trigger.
+Nightcrawlers
+[(#{layout.disclaimer.fan})]
+[(#{layout.disclaimer.affiliation})]

@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!--/* Shared email layout. Email clients need tables and inline styles: no external CSS, fonts or images. */-->
-<html lang="it" xmlns:th="http://www.thymeleaf.org"
+<html lang="it" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org"
       th:fragment="mail(preheader, heading, content, cta, footnote)">
 <head>
   <meta charset="UTF-8">
@@ -21,7 +21,7 @@
         </tr>
         <tr>
           <td style="background-color:#0e0720;border:1px solid #2a1650;border-top:0;border-bottom:0;padding:28px 28px 8px 28px;font-family:'Courier New',Courier,monospace;">
-            <p style="margin:0 0 6px 0;color:#52e0c4;font-size:12px;letter-spacing:3px;text-transform:uppercase;">// trasmissione criptata</p>
+            <p style="margin:0 0 6px 0;color:#52e0c4;font-size:12px;letter-spacing:3px;text-transform:uppercase;" th:text="#{layout.tagline}">// trasmissione criptata</p>
             <h1 style="margin:0;color:#f5e663;font-size:30px;line-height:36px;letter-spacing:6px;font-weight:bold;text-shadow:2px 0 0 #ff2a6d,-2px 0 0 #52e0c4;">NIGHTCRAWLERS</h1>
             <p style="margin:4px 0 24px 0;color:#8f7ab8;font-size:11px;letter-spacing:2px;">ROGUE NETRUNNING &middot; SURVIVE THE NIGHT</p>
             <h2 style="margin:0 0 16px 0;color:#ff2a6d;font-size:18px;letter-spacing:1px;" th:text="${heading}">Heading</h2>
@@ -43,7 +43,7 @@
         </tr>
         <tr>
           <td style="background-color:#0e0720;border:1px solid #2a1650;border-top:0;padding:16px 28px 28px 28px;font-family:Arial,Helvetica,sans-serif;">
-            <p style="margin:0 0 6px 0;color:#8f7ab8;font-size:12px;line-height:18px;">Se il pulsante non funziona, copia questo indirizzo nel browser:</p>
+            <p style="margin:0 0 6px 0;color:#8f7ab8;font-size:12px;line-height:18px;" th:text="#{layout.buttonHelp}">Se il pulsante non funziona, copia questo indirizzo nel browser:</p>
             <p style="margin:0 0 18px 0;font-size:12px;line-height:18px;word-break:break-all;">
               <a th:href="${link}" href="#" style="color:#52e0c4;text-decoration:underline;" th:text="${link}">link</a>
             </p>
@@ -55,8 +55,9 @@
         </tr>
         <tr>
           <td align="center" style="padding:18px 12px 0 12px;font-family:Arial,Helvetica,sans-serif;color:#6b5f88;font-size:11px;line-height:17px;">
-            Gioco fan non ufficiale e non commerciale. Non affiliato a CD Projekt n&eacute; a Studio Trigger.<br>
-            Hai ricevuto questa email per un&rsquo;azione legata al tuo account Nightcrawlers.
+            <span th:text="#{layout.disclaimer.fan}">Gioco fan non ufficiale e non commerciale.</span>
+            <span th:text="#{layout.disclaimer.affiliation}">Non affiliato a CD Projekt n&eacute; a Studio Trigger.</span><br>
+            <span th:text="#{layout.reason}">Hai ricevuto questa email per un&rsquo;azione legata al tuo account Nightcrawlers.</span>
           </td>
         </tr>
       </table>
