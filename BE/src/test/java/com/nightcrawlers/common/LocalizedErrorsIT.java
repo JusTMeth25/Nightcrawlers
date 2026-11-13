@@ -122,7 +122,7 @@ class LocalizedErrorsIT {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Invalid data"))
                 .andExpect(jsonPath("$.detail").value("One or more fields are invalid."))
-                .andExpect(jsonPath("$.errors.username").value("The username must have 3 to 20 characters among letters, numbers and _."))
+                .andExpect(jsonPath("$.errors.username").value("The username must be 3 to 20 characters long and use only letters, numbers and _."))
                 .andExpect(jsonPath("$.errors.email").value("The email is not valid."));
 
         mvc.perform(post("/api/auth/register").header("Accept-Language", "it")

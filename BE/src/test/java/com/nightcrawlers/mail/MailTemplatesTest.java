@@ -45,12 +45,19 @@ class MailTemplatesTest {
         RenderedMail en = render("verify-email", EN);
         assertThat(en.html()).contains("Confirm your email").contains("<html lang=\"en\"")
                 .contains("Unofficial, non-commercial fan game").doesNotContain("Conferma");
-        assertThat(en.text()).contains("Confirm your email").contains("Hi Aki").doesNotContain("Ciao");
+        assertThat(en.text()).contains("Confirm your email").contains("Hi Aki,")
+                .contains("Your profile is almost ready.").doesNotContain("Ciao");
+        assertThat(en.html()).contains("Your profile is almost ready.");
 
         RenderedMail es = render("verify-email", ES);
         assertThat(es.html()).contains("Confirma tu correo").contains("<html lang=\"es\"")
-                .contains("Juego fan no oficial y sin ánimo de lucro");
-        assertThat(es.text()).contains("Confirma tu correo").contains("Hola Aki");
+                .contains("Juego fan no oficial y sin fines comerciales.")
+                .contains("No afiliado a CD Projekt ni a Studio Trigger.");
+        assertThat(es.text()).contains("Confirma tu correo").contains("Hola Aki,")
+                .contains("Tu perfil está casi listo.").contains("No afiliado a CD Projekt ni a Studio Trigger.");
+        assertThat(render("reset-password", EN).text()).contains("We received a request")
+                .contains("all open sessions will be signed out for security.");
+        assertThat(render("already-registered", ES).text()).contains("Alguien ha intentado");
     }
 
     @Test
