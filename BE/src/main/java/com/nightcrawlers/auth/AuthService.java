@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -20,6 +21,7 @@ import com.nightcrawlers.auth.dto.RegisterRequest;
 import com.nightcrawlers.common.ApiException;
 import com.nightcrawlers.common.AppProperties;
 import com.nightcrawlers.common.SecureTokens;
+import com.nightcrawlers.common.SupportedLocales;
 import com.nightcrawlers.common.audit.AuditEvent;
 import com.nightcrawlers.common.audit.AuditService;
 import com.nightcrawlers.mail.MailOutbox;
@@ -97,10 +99,23 @@ public class AuthService {
             return;
         }
         Instant now = clock.instant();
-        User user = users.saveAndFlush(new User(request.username(), email, hash, now));
+        User user = users.saveAndFlush(new User(request.username(), email, hash, now, emailLocale(request)));
         saveInitializer.createFor(user.getId(), now);
         sendVerification(user);
         audit.record(AuditEvent.REGISTER, user.getId(), http);
+    }
+
+    /**
+     * The language of the body when given (unsupported values fall back to Italian), otherwise the
+     * language of the request, already narrowed to a supported one by the locale resolver.
+     */
+    static String emailLocale(RegisterRequest request) {
+        if (request.locale() != null) {
+            return SupportedLocales.isSupported(request.locale()) ? request.locale()
+                    : SupportedLocales.DEFAULT_CODE;
+        }
+        String fromRequest = SupportedLocales.codeOf(LocaleContextHolder.getLocale());
+        return fromRequest != null ? fromRequest : SupportedLocales.DEFAULT_CODE;
     }
 
     @Transactional

@@ -88,8 +88,8 @@ public class SecurityConfig {
     CorsConfigurationSource corsConfigurationSource(AppProperties props) {
         CorsConfiguration cors = new CorsConfiguration();
         cors.setAllowedOrigins(props.cors().allowedOrigins());
-        cors.setAllowedMethods(List.of("GET", "POST", "DELETE", "OPTIONS"));
-        cors.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-CSRF-Token"));
+        cors.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        cors.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-CSRF-Token", "Accept-Language"));
         cors.setAllowCredentials(true);
         cors.setMaxAge(3600L);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

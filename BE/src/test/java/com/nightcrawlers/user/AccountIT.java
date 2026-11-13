@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -301,5 +303,61 @@ class AccountIT {
         api.login(player.account().username(), player.account().password()).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/me").header("Authorization", player.session().bearer()))
                 .andExpect(status().isUnauthorized());
+    }
+
+    private ResultActions putLocale(Session session, String locale) throws Exception {
+        var request = put("/api/me/locale").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"locale\":\"" + locale + "\"}");
+        if (session != null) {
+            request.header("Authorization", session.bearer());
+        }
+        return mvc.perform(request);
+    }
+
+    @Test
+    void localeColumnDefaultsToItalianAndAcceptsOnlySupportedLanguages() {
+        String name = TestApi.uniqueName();
+        UUID id = UUID.randomUUID();
+        jdbc.update("INSERT INTO users (id, username, email, password_hash, email_verified, created_at, failed_logins)"
+                + " VALUES (?, ?, ?, 'x', false, now(), 0)", id, name, name + "@mail.it");
+        assertThat(jdbc.queryForObject("SELECT locale FROM users WHERE id = ?", String.class, id)).isEqualTo("it");
+
+        assertThatThrownBy(() -> jdbc.update("UPDATE users SET locale = 'fr' WHERE id = ?", id))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+        jdbc.update("DELETE FROM users WHERE id = ?", id);
+    }
+
+    @Test
+    void updateLocaleChangesTheProfileAndTheExport() throws Exception {
+        Account account = api.registerVerified();
+        Session session = api.loginSession(account);
+        mvc.perform(get("/api/me").header("Authorization", session.bearer()))
+                .andExpect(jsonPath("$.locale").value("it"));
+
+        putLocale(session, "en").andExpect(status().isNoContent());
+
+        mvc.perform(get("/api/me").header("Authorization", session.bearer()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.locale").value("en"));
+        mvc.perform(get("/api/me/export").header("Authorization", session.bearer()))
+                .andExpect(jsonPath("$.profile.locale").value("en"));
+        assertThat(users.findByEmail(account.email()).orElseThrow().getLocale()).isEqualTo("en");
+    }
+
+    @Test
+    void updateLocaleRejectsUnsupportedLanguages() throws Exception {
+        Account account = api.registerVerified();
+        Session session = api.loginSession(account);
+
+        putLocale(session, "fr")
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.errors.locale").isString());
+        assertThat(users.findByEmail(account.email()).orElseThrow().getLocale()).isEqualTo("it");
+    }
+
+    @Test
+    void updateLocaleRequiresAuthentication() throws Exception {
+        putLocale(null, "en").andExpect(status().isUnauthorized());
     }
 }

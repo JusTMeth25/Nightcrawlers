@@ -18,7 +18,9 @@ public record RegisterRequest(
         @Size(max = 254, message = "L'email può avere al massimo 254 caratteri.")
         String email,
         @NotNull(message = "La password è obbligatoria.")
-        String password) {
+        String password,
+        /** Optional email language; unsupported values fall back to Italian. */
+        String locale) {
 
     /** Normalized before Bean Validation runs. */
     public RegisterRequest {

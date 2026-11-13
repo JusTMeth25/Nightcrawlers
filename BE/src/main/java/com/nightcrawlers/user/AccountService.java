@@ -69,6 +69,14 @@ public class AccountService {
         return UserDto.from(user(userId));
     }
 
+    /** Changes the language of the emails; the code is already validated as supported. */
+    @Transactional
+    public void updateLocale(UUID userId, String locale) {
+        User user = user(userId);
+        user.setLocale(locale);
+        users.save(user);
+    }
+
     @Transactional(readOnly = true)
     public AccountExport export(UUID userId) {
         Instant now = clock.instant();

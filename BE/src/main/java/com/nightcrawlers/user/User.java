@@ -3,6 +3,8 @@ package com.nightcrawlers.user;
 import java.time.Instant;
 import java.util.UUID;
 
+import com.nightcrawlers.common.SupportedLocales;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -44,11 +46,25 @@ public class User {
     @Column(name = "locked_until")
     private Instant lockedUntil;
 
+    /** Language of the emails: one of {@link com.nightcrawlers.common.SupportedLocales#CODES}. */
+    @Column(nullable = false, length = 5)
+    private String locale = SupportedLocales.DEFAULT_CODE;
+
     public User(String username, String email, String passwordHash, Instant createdAt) {
         this.id = UUID.randomUUID();
         this.username = username;
         this.email = email;
         this.passwordHash = passwordHash;
         this.createdAt = createdAt;
+    }
+
+    public User(String username, String email, String passwordHash, Instant createdAt, String locale) {
+        this(username, email, passwordHash, createdAt);
+        this.locale = locale;
+    }
+
+    /** The email language as a {@link java.util.Locale}. */
+    public java.util.Locale emailLocale() {
+        return SupportedLocales.toLocale(locale);
     }
 }
