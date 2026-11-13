@@ -34,7 +34,13 @@ export async function buildSheet(name) {
   const frames = []
   const fxCount = {}
   rows.forEach((detected, ri) => {
-    const { spriteKey, dir, actions } = ov.rows[ri]
+    const { spriteKey, dir, actions = {}, names } = ov.rows[ri]
+    // static images (weapons): one explicit name per detected frame, centered pivot
+    names?.forEach((frameName, index) => {
+      const rect = detected[index]
+      if (!rect) throw new Error(`${name} row ${ri}: no frame ${index} for ${frameName}`)
+      frames.push({ name: frameName, rect, pixels: crop(rgba, w, rect), pivot: { x: 0.5, y: 0.5 } })
+    })
     for (const [action, indices] of Object.entries(actions)) {
       indices.forEach((index, n) => {
         const rect = detected[index]
@@ -46,6 +52,19 @@ export async function buildSheet(name) {
       })
     }
   })
+
+  if (sheet.scale && sheet.scale !== 1) {
+    // pixel art stays crisp with nearest-neighbour downscaling
+    for (const f of frames) {
+      const tw = Math.max(1, Math.round(f.rect.w * sheet.scale))
+      const th = Math.max(1, Math.round(f.rect.h * sheet.scale))
+      f.pixels = await sharp(f.pixels, { raw: { width: f.rect.w, height: f.rect.h, channels: 4 } })
+        .resize(tw, th, { kernel: 'nearest' })
+        .raw()
+        .toBuffer()
+      f.rect = { ...f.rect, w: tw, h: th }
+    }
+  }
 
   const { positions, width, height } = shelfPack(frames.map((f) => f.rect), { maxWidth: 2048, padding: 2 })
   const atlas = Buffer.alloc(width * height * 4)

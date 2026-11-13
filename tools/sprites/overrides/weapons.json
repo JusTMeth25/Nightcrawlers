@@ -1,0 +1,137 @@
+{
+ "maskAlpha": 180,
+ "minArea": 300,
+ "mergeGap": 6,
+ "rows": [
+  {
+   "band": [
+    0,
+    187
+   ],
+   "cuts": [
+    512
+   ],
+   "names": [
+    "weapon_pistol_base",
+    "weapon_pistol_evo"
+   ]
+  },
+  {
+   "band": [
+    187,
+    327
+   ],
+   "cuts": [
+    512
+   ],
+   "names": [
+    "weapon_shotgun_base",
+    "weapon_shotgun_evo"
+   ]
+  },
+  {
+   "band": [
+    327,
+    513
+   ],
+   "cuts": [
+    512
+   ],
+   "names": [
+    "weapon_minigun_base",
+    "weapon_minigun_evo"
+   ]
+  },
+  {
+   "band": [
+    513,
+    648
+   ],
+   "cuts": [
+    512
+   ],
+   "names": [
+    "weapon_monowire_base",
+    "weapon_monowire_evo"
+   ]
+  },
+  {
+   "band": [
+    648,
+    809
+   ],
+   "cuts": [
+    512
+   ],
+   "names": [
+    "weapon_smart_pistol_base",
+    "weapon_smart_pistol_evo"
+   ]
+  },
+  {
+   "band": [
+    809,
+    981
+   ],
+   "cuts": [
+    512
+   ],
+   "names": [
+    "weapon_grenade_launcher_base",
+    "weapon_grenade_launcher_evo"
+   ]
+  },
+  {
+   "band": [
+    981,
+    1097
+   ],
+   "cuts": [
+    512
+   ],
+   "names": [
+    "weapon_mantis_blades_base",
+    "weapon_mantis_blades_evo"
+   ]
+  },
+  {
+   "band": [
+    1097,
+    1216
+   ],
+   "cuts": [
+    512
+   ],
+   "names": [
+    "weapon_mantis_blades_open_base",
+    "weapon_mantis_blades_open_evo"
+   ]
+  },
+  {
+   "band": [
+    1216,
+    1364
+   ],
+   "cuts": [
+    512
+   ],
+   "names": [
+    "weapon_drone_base",
+    "weapon_drone_evo"
+   ]
+  },
+  {
+   "band": [
+    1364,
+    1536
+   ],
+   "cuts": [
+    512
+   ],
+   "names": [
+    "weapon_heavy_rifle_base",
+    "weapon_heavy_rifle_evo"
+   ]
+  }
+ ]
+}

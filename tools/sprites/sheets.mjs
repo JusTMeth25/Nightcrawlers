@@ -20,4 +20,14 @@ export const SHEETS = {
     overrides: `${root}tools/sprites/overrides/enemies.json`,
     out: `${root}FE/public/assets/atlas/enemies`,
   },
+  weapons: {
+    source: `${root}assets-src/sprites/weapons.png`,
+    mode: 'alpha',
+    clean: { minAlpha: 25, minLuma: 18 },
+    detect: { minArea: 200, mergeGap: 3 },
+    // the sheet is drawn ~4x bigger than the characters' pixel scale
+    scale: 0.25,
+    overrides: `${root}tools/sprites/overrides/weapons.json`,
+    out: `${root}FE/public/assets/atlas/weapons`,
+  },
 }

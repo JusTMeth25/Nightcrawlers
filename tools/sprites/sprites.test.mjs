@@ -194,3 +194,18 @@ test('soft edge growth stops halfway to the neighbouring frame', async () => {
   assert.equal(a.x + a.w - 1, 34)
   assert.equal(b.x, 35)
 })
+
+test('weapons atlas has base and evolved frames for every weapon, scaled down to game size', async () => {
+  const { readFileSync } = await import('node:fs')
+  const root = new URL('../../', import.meta.url)
+  const ids = JSON.parse(readFileSync(new URL('FE/src/data/weapons.json', root), 'utf8')).map((w) => w.id)
+  const json = JSON.parse(readFileSync(new URL('FE/public/assets/atlas/weapons.json', root), 'utf8'))
+  const names = Object.keys(json.frames)
+  for (const id of [...ids, 'mantis_blades_open']) {
+    for (const v of ['base', 'evo']) assert.ok(names.includes(`weapon_${id}_${v}`), `weapon_${id}_${v}`)
+  }
+  const pistol = json.frames.weapon_pistol_base.frame
+  assert.ok(pistol.w >= 24 && pistol.w <= 48, `pistol width ${pistol.w}`)
+  const rifle = json.frames.weapon_heavy_rifle_base.frame
+  assert.ok(rifle.w > pistol.w * 2.5, `rifle ${rifle.w} vs pistol ${pistol.w}`)
+})
