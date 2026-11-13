@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it } from 'vitest'
+import { setLocale } from '../i18n/locale'
 import { useSession } from '../store/session'
 import TitleScreen from './TitleScreen'
 
@@ -15,6 +16,7 @@ function renderTitle() {
 }
 
 afterEach(() => {
+  setLocale('it')
   useSession.setState({ status: 'unknown', user: null, save: null, accessToken: null })
 })
 
@@ -27,6 +29,18 @@ describe('TitleScreen', () => {
       expect(screen.getByRole('link', { name })).toBeInTheDocument()
     }
     expect(screen.getByText(/non affiliato a CD Projekt/i)).toBeInTheDocument()
+  })
+
+  it.each([
+    ['en', ['Play', 'Log in', 'Ripperdoc', 'Codex', 'Options'], /not affiliated with CD Projekt/],
+    ['es', ['Jugar', 'Iniciar sesión', 'Ripperdoc', 'Codex', 'Opciones'], /no afiliado a CD Projekt/],
+  ] as const)('renders menu and disclaimer in %s', (locale, links, disclaimer) => {
+    setLocale(locale)
+    useSession.setState({ status: 'guest' })
+    renderTitle()
+    expect(screen.getByRole('heading', { name: 'NIGHTCRAWLERS' })).toBeInTheDocument()
+    for (const name of links) expect(screen.getByRole('link', { name })).toBeInTheDocument()
+    expect(screen.getByText(disclaimer)).toBeInTheDocument()
   })
 
   it('offers "Accedi" to a guest', () => {

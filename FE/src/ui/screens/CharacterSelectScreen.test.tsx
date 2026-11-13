@@ -77,6 +77,19 @@ describe('CharacterSelectScreen', () => {
     expect(screen.getByRole('button', { name: 'Start' })).toBeDisabled()
   })
 
+  it('shows weapon, skill and requirement in Spanish', async () => {
+    setLocale('es')
+    useSession.setState({ status: 'authenticated', user, save })
+    renderSelect()
+    expect(screen.getByRole('heading', { name: 'Elige a tu edgerunner' })).toBeInTheDocument()
+    await userEvent.setup().click(screen.getByRole('button', { name: /Pilar/ }))
+    expect(screen.getByText('Lanzagranadas')).toBeInTheDocument()
+    expect(screen.getByText('Granada de racimo')).toBeInTheDocument()
+    expect(screen.getByText('Reúne 5.000 €$ en total')).toBeInTheDocument()
+    expect(screen.getByText('Progreso: 0 / 5.000')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Empezar' })).toBeDisabled()
+  })
+
   it('lets an unlocked Kiwi start now that every character has a sprite', async () => {
     useSession.setState({
       status: 'authenticated',
