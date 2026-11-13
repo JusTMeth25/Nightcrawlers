@@ -1,6 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { getCyberware, getWeapon } from '@data'
-import { cardBadge, cardText } from './cardText'
+import { setLocale } from '../i18n/locale'
+import { cardBadge, cardText, evolutionName } from './cardText'
+
+afterEach(() => setLocale('it'))
 
 describe('cardText', () => {
   it('weapon_up: weapon name and level', () => {
@@ -28,6 +31,18 @@ describe('cardText', () => {
   it('heal and eurodollars fallback cards', () => {
     expect(cardText({ kind: 'heal', amount: 30 })).toEqual({ title: 'Kit medico', subtitle: '+30 PV' })
     expect(cardText({ kind: 'eurodollars', amount: 50 })).toEqual({ title: 'Sacca di €$', subtitle: '+50 €$' })
+  })
+
+  it('uses the data texts of the current locale', () => {
+    setLocale('en')
+    expect(cardText({ kind: 'weapon_up', id: 'pistol', level: 3 })).toEqual({ title: 'Pistol', subtitle: 'Level 3' })
+    expect(cardText({ kind: 'cyber_new', id: 'kerenzikov' })).toEqual({
+      title: 'Kerenzikov Reflexes',
+      subtitle: '-8% weapon cooldown per level.',
+    })
+    expect(evolutionName('drone', 'drone_evo')).toBe('Drone Swarm')
+    setLocale('es')
+    expect(cardText({ kind: 'weapon_new', id: 'shotgun' }).title).toBe('Escopeta')
   })
 
   it('cardBadge marks new items', () => {

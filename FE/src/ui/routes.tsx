@@ -1,5 +1,4 @@
 import type { RouteObject } from 'react-router'
-import { t } from './i18n/it'
 import { AppShell, RequireAuth } from './layout/AppShell'
 import ForgotPasswordScreen from './screens/auth/ForgotPasswordScreen'
 import LoginScreen from './screens/auth/LoginScreen'
@@ -39,7 +38,7 @@ export const routes: RouteObject[] = [
         element: <RequireAuth />,
         children: [{ path: '/account', element: <AccountScreen /> }],
       },
-      { path: '*', element: <PlaceholderScreen title={t('app.notFound')} /> },
+      { path: '*', element: <PlaceholderScreen titleKey="app.notFound" /> },
     ],
   },
 ]

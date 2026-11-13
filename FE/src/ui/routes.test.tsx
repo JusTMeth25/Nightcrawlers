@@ -2,6 +2,7 @@ import { act, render, screen } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_OPTIONS } from '@shared/types'
+import { setLocale } from './i18n/locale'
 import { routes } from './routes'
 import { useRun } from './store/run'
 import { useSession } from './store/session'
@@ -10,7 +11,7 @@ vi.mock('@game/GameCanvas', () => ({ default: () => <div data-testid="game-canva
 
 const initialRun = useRun.getState()
 
-const user = { id: 'u1', username: 'demo', email: 'demo@x.it', emailVerified: true, createdAt: '2026-01-01T00:00:00Z' }
+const user = { id: 'u1', username: 'demo', email: 'demo@x.it', emailVerified: true, createdAt: '2026-01-01T00:00:00Z', locale: 'it' as const }
 
 function at(path: string) {
   const router = createMemoryRouter(routes, { initialEntries: [path] })
@@ -19,6 +20,7 @@ function at(path: string) {
 }
 
 afterEach(() => {
+  setLocale('it')
   useRun.setState(initialRun, true)
   useSession.setState({ status: 'unknown', user: null, save: null, accessToken: null, sessionExpired: false })
 })
@@ -41,6 +43,14 @@ describe('routes', () => {
     useSession.setState({ status: 'authenticated', user })
     const router = at('/account')
     expect(router.state.location.pathname).toBe('/account')
+  })
+
+  it('the not-found page and the footer follow the current locale', () => {
+    useSession.setState({ status: 'guest' })
+    setLocale('en')
+    at('/nowhere')
+    expect(screen.getByRole('heading', { name: 'Page not found.' })).toBeInTheDocument()
+    expect(screen.getByRole('contentinfo')).toHaveTextContent(/not affiliated with CD Projekt/i)
   })
 
   it('shows the disclaimer in the footer', () => {

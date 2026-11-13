@@ -1,8 +1,10 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { getCharacter, getSkill } from '@data'
+import { getCharacter } from '@data'
 import { gameBus } from '@shared/events'
 import type { CharacterId, HudState } from '@shared/types'
+import { skillName as skillText } from '../i18n/dataText'
 import { t } from '../i18n/it'
+import { formatNumber } from '../i18n/number'
 import { BossBar } from './BossBar'
 import { HpBar } from './HpBar'
 import styles from './Hud.module.css'
@@ -18,7 +20,7 @@ export function Hud({ characterId, controls }: { characterId?: CharacterId; cont
 
   useEffect(() => gameBus.on('hud:update', setHud), [])
 
-  const skillName = characterId ? getSkill(getCharacter(characterId).skill).name : undefined
+  const skillName = characterId ? skillText(getCharacter(characterId).skill) : undefined
 
   return (
     <div className={styles.hud}>
@@ -34,11 +36,11 @@ export function Hud({ characterId, controls }: { characterId?: CharacterId; cont
             <div className={styles.counters}>
               <span>
                 <span className={styles.counterLabel}>{t('hud.kills')}</span>
-                <span>{hud.kills}</span>
+                <span>{formatNumber(hud.kills)}</span>
               </span>
               <span>
                 <span className={styles.counterLabel}>{t('hud.eurodollars')}</span>
-                <span>{hud.eurodollars}</span>
+                <span>{formatNumber(hud.eurodollars)}</span>
               </span>
             </div>
             {hud.maxtacAlert && (

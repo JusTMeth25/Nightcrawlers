@@ -15,10 +15,18 @@ import type {
   SaveDto,
   StartRunRequest,
   StartRunResponse,
+  UpdateLocaleRequest,
   UserDto,
   VerifyEmailRequest,
 } from '@shared/api-contract'
-import { STARTER_CHARACTERS, type CharacterId, type RipperdocUpgradeId, type UnlockRule } from '@shared/types'
+import {
+  STARTER_CHARACTERS,
+  SUPPORTED_LOCALES,
+  type CharacterId,
+  type Locale,
+  type RipperdocUpgradeId,
+  type UnlockRule,
+} from '@shared/types'
 import { balance, getRipperdoc, ripperdocCost, unlocks } from '@data'
 import type { ApiClient } from '../ApiClient'
 import type { AuthBridge } from '../auth'
@@ -126,13 +134,14 @@ export class MockApi implements ApiClient {
     this.addUser(UNVERIFIED_LOGIN, 'rookie@nightcrawlers.test', DEMO_PASSWORD, false, emptySave())
   }
 
-  private addUser(username: string, email: string, password: string, verified: boolean, save: SaveDto) {
+  private addUser(username: string, email: string, password: string, verified: boolean, save: SaveDto, locale: Locale = 'it') {
     const user: UserDto = {
       id: crypto.randomUUID(),
       username,
       email,
       emailVerified: verified,
       createdAt: new Date().toISOString(),
+      locale,
     }
     const entry: MockUser = { user, password, save, runs: [] }
     this.users.set(user.id, entry)
@@ -209,7 +218,9 @@ export class MockApi implements ApiClient {
       this.log(`informative email sent to ${email} (already registered)`)
       return ACCEPTED
     }
-    const entry = this.addUser(r.username, email, r.password, false, emptySave())
+    // the real server falls back to Accept-Language, then Italian; the mock only to Italian
+    const locale = r.locale && SUPPORTED_LOCALES.includes(r.locale) ? r.locale : 'it'
+    const entry = this.addUser(r.username, email, r.password, false, emptySave(), locale)
     this.mailLink(entry.user.id, 'verify')
     return ACCEPTED
   }
@@ -283,6 +294,13 @@ export class MockApi implements ApiClient {
   async me(): Promise<UserDto> {
     await this.delay()
     return { ...this.current().user }
+  }
+
+  async updateLocale(r: UpdateLocaleRequest): Promise<void> {
+    await this.delay()
+    const entry = this.current()
+    if (!SUPPORTED_LOCALES.includes(r.locale)) throw problemError(400, 'Lingua non supportata', { locale: 'Lingua non supportata' })
+    entry.user.locale = r.locale
   }
 
   async exportData(): Promise<Blob> {

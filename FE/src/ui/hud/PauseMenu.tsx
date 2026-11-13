@@ -94,7 +94,7 @@ export function PauseMenu() {
         )}
         {view === 'options' && (
           <Panel title={t('pause.options')}>
-            <OptionsPanel />
+            <OptionsPanel inRun />
             <NeonButton onClick={() => setView('main')}>{t('app.back')}</NeonButton>
           </Panel>
         )}

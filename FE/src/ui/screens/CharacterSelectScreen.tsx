@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
-import { characters, getCharacter, getSkill, getWeapon } from '@data'
+import { characters, getCharacter } from '@data'
 import type { CharacterId } from '@shared/types'
 import { CharacterCard } from '../components/CharacterCard'
 import { ErrorBanner } from '../components/ErrorBanner'
 import { NeonButton, NeonLink } from '../components/NeonButton'
 import { Panel } from '../components/Panel'
+import { skillDescription, skillName, unlockText, weaponName } from '../i18n/dataText'
 import { t } from '../i18n/it'
 import { characterState, formatModifier, progressText, unlockFor, unlockProgress } from '../meta/unlockProgress'
 import { useGamepadNav } from '../nav/useGamepadNav'
@@ -76,11 +77,11 @@ export default function CharacterSelectScreen() {
           <h3 className={styles.detailsTitle}>{selected.name}</h3>
           <dl className={styles.facts}>
             <dt>{t('select.weapon')}</dt>
-            <dd>{getWeapon(selected.startingWeapon).name}</dd>
+            <dd>{weaponName(selected.startingWeapon)}</dd>
             <dt>{t('select.skill')}</dt>
             <dd>
-              <strong>{getSkill(selected.skill).name}</strong>
-              <span className={styles.muted}> — {getSkill(selected.skill).description}</span>
+              <strong>{skillName(selected.skill)}</strong>
+              <span className={styles.muted}> — {skillDescription(selected.skill)}</span>
             </dd>
             <dt>{t('select.bonus')}</dt>
             <dd>
@@ -94,12 +95,12 @@ export default function CharacterSelectScreen() {
               <>
                 <dt>{t('select.requirement')}</dt>
                 <dd>
-                  <span>{unlock.description}</span>
+                  <span>{unlockText(selected.id)}</span>
                   {progress && (
                     <span className={styles.progressRow}>
                       <progress
                         className={styles.progress}
-                        aria-label={unlock.description}
+                        aria-label={unlockText(selected.id)}
                         value={progress.current}
                         max={progress.target}
                         aria-valuenow={progress.current}

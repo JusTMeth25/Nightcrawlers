@@ -1,5 +1,7 @@
 import { act, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { OptionsPanel } from '../components/OptionsPanel'
+import { useOptions } from '../store/options'
 import { useGamepadNav } from './useGamepadNav'
 
 interface FakePad {
@@ -149,5 +151,35 @@ describe('useGamepadNav', () => {
     frames(50)
     expect(backB).toHaveBeenCalledTimes(1)
     expect(backA).not.toHaveBeenCalled()
+  })
+
+  it('left/right on the focused language selector cycle the locale', () => {
+    useOptions.getState().set({ locale: 'it' })
+    function Options() {
+      const ref = useGamepadNav()
+      return (
+        <div ref={ref}>
+          <OptionsPanel />
+        </div>
+      )
+    }
+    render(<Options />)
+    const select = screen.getByRole('combobox', { name: 'Lingua' })
+    select.focus()
+    frames(50)
+    press(15)
+    frames(32)
+    expect(useOptions.getState().options.locale).toBe('en')
+    press(15, false)
+    frames(32)
+    press(14)
+    frames(32)
+    press(14, false)
+    frames(32)
+    press(14)
+    frames(32)
+    expect(useOptions.getState().options.locale).toBe('es')
+    expect(select).toHaveFocus()
+    useOptions.getState().set({ locale: 'it' })
   })
 })

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react'
-import { adjustRange, moveFocus, type NavDirection } from './focus'
+import { adjustRange, adjustSelect, moveFocus, type NavDirection } from './focus'
 
 export const REPEAT_DELAY_MS = 250
 export const REPEAT_INTERVAL_MS = 150
@@ -48,7 +48,8 @@ function readPads(): PadSnapshot | null {
 
 /**
  * Gamepad navigation for React menus: stick/D-pad move the focus between [data-nav] elements
- * of the returned container (DOM order, repeat after 250 ms), A clicks the focused element,
+ * of the returned container (DOM order, repeat after 250 ms; left/right change a focused range
+ * or select instead), A clicks the focused element,
  * B calls onBack. One action per press: buttons already held when the menu appears are ignored.
  */
 export function useGamepadNav(opts: { onBack?: () => void; enabled?: boolean } = {}) {
@@ -110,7 +111,7 @@ export function useGamepadNav(opts: { onBack?: () => void; enabled?: boolean } =
     }
 
     const step = (dir: NavDirection) => {
-      if (adjustRange(document.activeElement, dir)) return
+      if (adjustRange(document.activeElement, dir) || adjustSelect(document.activeElement, dir)) return
       moveFocus(container(), dir)
     }
 

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { AuthResponse, LoginRequest, SaveDto, UserDto } from '@shared/api-contract'
+import type { Locale } from '@shared/types'
 import { api as defaultApi, authBridge as defaultAuth, type ApiClient, type AuthBridge } from '../../api'
 import { isApiError } from '../../api/errors'
 
@@ -22,6 +23,11 @@ export interface SessionState {
   setUser(u: UserDto): void
   playAsGuest(): void
   reloadSave(): Promise<void>
+  /**
+   * Saves a language chosen on this device on the account (emails), when authenticated.
+   * Best effort: never throws. Login and bootstrap never change the device language.
+   */
+  updateLocale(locale: Locale): Promise<void>
   clearExpired(): void
 }
 
@@ -46,6 +52,27 @@ export function createSessionStore(deps: { api: ApiClient; auth: AuthBridge }) {
       if (store.getState().accessToken === res.accessToken) store.setState({ save })
     } catch {
       // the screens that need the save call reloadSave()
+    }
+  }
+
+  // account locale sync (PUT /me/locale): latest device choice not yet sent, and the running loop
+  let wantedLocale: Locale | null = null
+  let localeSync: Promise<void> | null = null
+
+  async function syncLocale() {
+    while (wantedLocale !== null) {
+      const target = wantedLocale
+      wantedLocale = null
+      const { status, user } = store.getState()
+      if (status !== 'authenticated' || !user) return
+      if (user.locale === target) continue
+      try {
+        await api.updateLocale({ locale: target })
+        const current = store.getState().user
+        if (current?.id === user.id) store.setState({ user: { ...current, locale: target } })
+      } catch {
+        // best effort: the device keeps the new language; the account is updated at the next change
+      }
     }
   }
 
@@ -103,6 +130,16 @@ export function createSessionStore(deps: { api: ApiClient; auth: AuthBridge }) {
       if (get().status !== 'authenticated') return
       const save = await api.getSave()
       set({ save })
+    },
+
+    updateLocale(locale) {
+      if (get().status !== 'authenticated') return Promise.resolve()
+      // one request at a time; whatever the device chose last is sent when the current one ends
+      wantedLocale = locale
+      localeSync ??= syncLocale().finally(() => {
+        localeSync = null
+      })
+      return localeSync
     },
 
     clearExpired: () => set({ sessionExpired: false }),

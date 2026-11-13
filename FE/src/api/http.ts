@@ -1,4 +1,5 @@
 import { CSRF_HEADER, type ProblemDetail } from '@shared/api-contract'
+import { getLocale } from '../ui/i18n/locale'
 import { readCsrfToken } from './csrf'
 import { ApiError } from './errors'
 
@@ -11,7 +12,7 @@ export interface HttpOptions {
 }
 
 export interface RequestOptions {
-  method?: 'GET' | 'POST' | 'DELETE'
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
   body?: unknown
   /** Send the Bearer token; a 401 triggers one shared refresh and one retry. */
   auth?: boolean
@@ -82,7 +83,8 @@ export function createHttp(opts: HttpOptions): Http {
   }
 
   async function send(path: string, options: RequestOptions, token: string | null): Promise<Response> {
-    const headers = new Headers({ Accept: 'application/json, application/problem+json' })
+    // the server localizes its error messages with Accept-Language
+    const headers = new Headers({ Accept: 'application/json, application/problem+json', 'Accept-Language': getLocale() })
     let body: string | undefined
     if (options.body !== undefined) {
       headers.set('Content-Type', 'application/json')

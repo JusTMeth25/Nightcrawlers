@@ -4,6 +4,7 @@ import { createRealApi } from './ApiClient'
 import { createAuthBridge } from './auth'
 import { ApiError } from './errors'
 import { createHttp } from './http'
+import { setLocale } from '../ui/i18n/locale'
 
 type Handler = (url: string, init: RequestInit) => Response | Promise<Response>
 
@@ -48,6 +49,7 @@ function setup(handler: Handler, refreshImpl?: () => Promise<string | null>) {
 }
 
 afterEach(() => {
+  setLocale('it')
   document.cookie = 'XSRF-TOKEN=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/'
 })
 
@@ -60,6 +62,21 @@ describe('http', () => {
     expect(header(init, 'Authorization')).toBe('Bearer old')
     expect(header(init, 'Content-Type')).toBe('application/json')
     expect(init.body).toBe('{"a":1}')
+  })
+
+  it('sends Accept-Language with the current locale on every request, also on the retry', async () => {
+    const { http, fetchImpl } = setup((_url, init) =>
+      header(init, 'Authorization') === 'Bearer old' ? problem(401, 'Unauthorized') : json(200, {}),
+    )
+    setLocale('es')
+    await http.request('/api/x', { auth: true })
+    await http.request('/api/y', { method: 'POST', body: {} })
+    const sent = fetchImpl.mock.calls.map((c) => header(c[1] as RequestInit, 'Accept-Language'))
+    expect(sent.length).toBeGreaterThanOrEqual(3)
+    expect(sent.every((v) => v === 'es')).toBe(true)
+    setLocale('en')
+    await http.request('/api/z')
+    expect(header(fetchImpl.mock.calls.at(-1)![1] as RequestInit, 'Accept-Language')).toBe('en')
   })
 
   it('keeps the errorId of a 500 problem detail', async () => {
@@ -223,7 +240,7 @@ describe('http', () => {
 })
 
 describe('real ApiClient', () => {
-  const user = { id: 'u1', username: 'demo', email: 'd@x.it', emailVerified: true, createdAt: '2026-01-01T00:00:00Z' }
+  const user = { id: 'u1', username: 'demo', email: 'd@x.it', emailVerified: true, createdAt: '2026-01-01T00:00:00Z', locale: 'it' as const }
   const auth: AuthResponse = { accessToken: 'tok-2', expiresInSec: 900, user }
 
   it('sends CSRF on refresh and logout and stores the refreshed token', async () => {
@@ -281,6 +298,23 @@ describe('real ApiClient', () => {
     expect(lost).toHaveBeenCalledTimes(1)
     expect(bridge.getToken()).toBeNull()
   })
+  it('updateLocale sends PUT /api/me/locale with the bearer token and the locale', async () => {
+    const bridge = createAuthBridge()
+    bridge.setToken('valid')
+    const calls: { url: string; init: RequestInit }[] = []
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push({ url: String(input), init: init ?? {} })
+      return new Response(null, { status: 204 })
+    })
+    const api = createRealApi({ auth: bridge, fetchImpl: fetchImpl as typeof fetch })
+    await expect(api.updateLocale({ locale: 'en' })).resolves.toBeUndefined()
+    expect(calls).toHaveLength(1)
+    expect(calls[0].url).toBe(API.meLocale)
+    expect(calls[0].init.method).toBe('PUT')
+    expect(header(calls[0].init, 'Authorization')).toBe('Bearer valid')
+    expect(calls[0].init.body).toBe('{"locale":"en"}')
+  })
+
   it('DELETE /me with a wrong password (403) never refreshes and keeps the session', async () => {
     const bridge = createAuthBridge()
     bridge.setToken('valid')

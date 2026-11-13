@@ -3,6 +3,7 @@ import type { ApiClient } from '../../api/ApiClient'
 import { createAuthBridge } from '../../api/auth'
 import { ApiError } from '../../api/errors'
 import { DEMO_LOGIN, DEMO_PASSWORD, MockApi } from '../../api/mock/MockApi'
+import { getLocale, setLocale } from '../i18n/locale'
 import { createSessionStore } from './session'
 
 function setup(overrides: Partial<ApiClient> = {}) {
@@ -14,6 +15,7 @@ function setup(overrides: Partial<ApiClient> = {}) {
 }
 
 afterEach(() => {
+  setLocale('it')
   vi.restoreAllMocks()
 })
 
@@ -152,3 +154,93 @@ describe('session store', () => {
     expect(store.getState().save?.eurodollars).not.toBe(7)
   })
 })
+
+describe('session locale', () => {
+  // review focus 2: a second device with an English browser must not switch to the account's Italian
+  it('login and bootstrap keep the device locale and never update the account locale', async () => {
+    const { store, mock } = setup()
+    const update = vi.spyOn(mock, 'updateLocale')
+    setLocale('en')
+    await store.getState().login({ login: DEMO_LOGIN, password: DEMO_PASSWORD })
+    expect(store.getState().user?.locale).toBe('it')
+    expect(getLocale()).toBe('en')
+    await store.getState().bootstrap()
+    expect(getLocale()).toBe('en')
+    expect(update).not.toHaveBeenCalled()
+  })
+
+  it('updateLocale saves the choice on the account once when authenticated', async () => {
+    const { store, mock } = setup()
+    const update = vi.spyOn(mock, 'updateLocale')
+    await store.getState().login({ login: DEMO_LOGIN, password: DEMO_PASSWORD })
+    await store.getState().updateLocale('es')
+    expect(update).toHaveBeenCalledTimes(1)
+    expect(update).toHaveBeenCalledWith({ locale: 'es' })
+    expect(store.getState().user?.locale).toBe('es')
+  })
+
+  it('updateLocale does nothing for a guest and never throws', async () => {
+    const { store, mock } = setup()
+    const update = vi.spyOn(mock, 'updateLocale')
+    store.getState().playAsGuest()
+    await store.getState().updateLocale('en')
+    expect(update).not.toHaveBeenCalled()
+
+    await store.getState().login({ login: DEMO_LOGIN, password: DEMO_PASSWORD })
+    update.mockRejectedValueOnce(new ApiError(0, null, null))
+    await expect(store.getState().updateLocale('en')).resolves.toBeUndefined()
+    expect(store.getState().status).toBe('authenticated')
+  })
+
+  // a fake server whose PUT /me/locale answers only when the test resolves it
+  function slowServer(store: ReturnType<typeof setup>['store'], mock: MockApi) {
+    let server: string = 'it'
+    let inFlight = 0
+    let maxInFlight = 0
+    const pending: (() => void)[] = []
+    const sent: string[] = []
+    vi.spyOn(mock, 'updateLocale').mockImplementation(async ({ locale }) => {
+      sent.push(locale)
+      inFlight++
+      maxInFlight = Math.max(maxInFlight, inFlight)
+      await new Promise<void>((resolve) => pending.push(resolve))
+      server = locale
+      inFlight--
+    })
+    const flush = async () => {
+      while (pending.length > 0) {
+        // answer the most recent request first (worst case for ordering)
+        pending.pop()!()
+        await new Promise((r) => setTimeout(r, 0))
+      }
+    }
+    return { sent, flush, server: () => server, maxInFlight: () => maxInFlight, store }
+  }
+
+  it('rapid it -> en -> it ends with the account in Italian', async () => {
+    const { store, mock } = setup()
+    await store.getState().login({ login: DEMO_LOGIN, password: DEMO_PASSWORD })
+    const s = slowServer(store, mock)
+    const a = store.getState().updateLocale('en')
+    const b = store.getState().updateLocale('it')
+    await s.flush()
+    await Promise.all([a, b])
+    expect(s.server()).toBe('it')
+    expect(store.getState().user?.locale).toBe('it')
+  })
+
+  it('it -> en -> es with answers out of order ends with the account in Spanish', async () => {
+    const { store, mock } = setup()
+    await store.getState().login({ login: DEMO_LOGIN, password: DEMO_PASSWORD })
+    const s = slowServer(store, mock)
+    const a = store.getState().updateLocale('en')
+    const b = store.getState().updateLocale('es')
+    await s.flush()
+    await Promise.all([a, b])
+    expect(s.server()).toBe('es')
+    expect(s.sent.at(-1)).toBe('es')
+    expect(s.maxInFlight()).toBe(1)
+    expect(store.getState().user?.locale).toBe('es')
+  })
+})
+

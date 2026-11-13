@@ -8,6 +8,7 @@ import { NeonButton, NeonLink } from '../../components/NeonButton'
 import { Panel } from '../../components/Panel'
 import { apiErrorText, fieldErrors } from '../../i18n/apiErrorText'
 import { t } from '../../i18n/it'
+import { getLocale } from '../../i18n/locale'
 import { useGamepadNav } from '../../nav/useGamepadNav'
 import styles from './AuthScreen.module.css'
 import { validateEmail, validatePassword, validateUsername } from './validation'
@@ -40,7 +41,8 @@ export default function RegisterScreen() {
     setBusy(true)
     setError(null)
     try {
-      await api.register({ username, email, password: form.password })
+      // the verification email goes out in the language chosen on this device
+      await api.register({ username, email, password: form.password, locale: getLocale() })
       setDone(true)
     } catch (err) {
       const server = fieldErrors(err)
