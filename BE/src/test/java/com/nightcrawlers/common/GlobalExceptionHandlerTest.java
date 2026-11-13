@@ -35,7 +35,8 @@ import jakarta.validation.constraints.NotBlank;
 @ExtendWith(OutputCaptureExtension.class)
 @WebMvcTest(controllers = GlobalExceptionHandlerTest.ProbeController.class)
 @AutoConfigureMockMvc(addFilters = false)
-@Import({ GlobalExceptionHandler.class, GlobalExceptionHandlerTest.ProbeController.class })
+@Import({ GlobalExceptionHandler.class, GlobalExceptionHandlerTest.ProbeController.class, I18nConfig.class,
+        Messages.class })
 class GlobalExceptionHandlerTest {
 
     @Autowired
@@ -74,8 +75,26 @@ class GlobalExceptionHandlerTest {
                 .andExpect(status().isConflict())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.status").value(409))
-                .andExpect(jsonPath("$.title").value("Conflitto di prova"))
-                .andExpect(jsonPath("$.detail").value("dettaglio"));
+                .andExpect(jsonPath("$.title").value("Run non attiva"))
+                .andExpect(jsonPath("$.detail").value("La partita è già terminata."));
+    }
+
+    @Test
+    void apiExceptionAndSpringErrorsFollowAcceptLanguage() throws Exception {
+        mvc.perform(get("/probe/conflict").header("Accept-Language", "en"))
+                .andExpect(jsonPath("$.title").value("Run not active"))
+                .andExpect(jsonPath("$.detail").value("The run has already ended."));
+        mvc.perform(get("/probe/conflict").header("Accept-Language", "es"))
+                .andExpect(jsonPath("$.title").value("Partida no activa"));
+        mvc.perform(get("/probe/validate").header("Accept-Language", "es"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(jsonPath("$.title").value("Método no permitido"));
+        mvc.perform(get("/probe/boom").header("Accept-Language", "en"))
+                .andExpect(jsonPath("$.title").value("Internal error"));
+        mvc.perform(get("/probe/locked").header("Accept-Language", "en"))
+                .andExpect(jsonPath("$.detail").value("Too many failed attempts. Try again in 42 seconds."))
+                .andExpect(jsonPath("$.errors.password").value(
+                        "The password must be at least 12 characters long. The password is too common."));
     }
 
     @Test
@@ -141,7 +160,14 @@ class GlobalExceptionHandlerTest {
 
         @GetMapping("/probe/conflict")
         String conflict() {
-            throw new ApiException(HttpStatus.CONFLICT, "Conflitto di prova", "dettaglio");
+            throw new ApiException(HttpStatus.CONFLICT, "error.runNotActive");
+        }
+
+        @GetMapping("/probe/locked")
+        String locked() {
+            throw new ApiException(HttpStatus.LOCKED, "error.accountLocked", 42L)
+                    .withError("password", "password.tooShort", 12)
+                    .withError("password", "password.common");
         }
 
         @GetMapping("/probe/duplicate")

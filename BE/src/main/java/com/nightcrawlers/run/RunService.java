@@ -105,18 +105,16 @@ public class RunService {
     @Transactional
     public StartRunResponse start(UUID userId, String characterId, Instant now) {
         if (!gameData.isCharacter(characterId)) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Dati non validi", "Uno o più campi non sono validi.")
-                    .withError("characterId", "Personaggio sconosciuto.");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "error.invalidData")
+                    .withError("characterId", "field.unknownCharacter");
         }
         User user = users.findByIdForUpdate(userId)
-                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Non autenticato"));
+                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "error.notAuthenticated"));
         if (!user.isEmailVerified()) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "Email non verificata",
-                    "Conferma il tuo indirizzo email per salvare le partite.");
+            throw new ApiException(HttpStatus.FORBIDDEN, "error.emailNotVerifiedRuns");
         }
         if (!unlocked.existsById(new UnlockedCharacter.Key(userId, characterId))) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "Personaggio non sbloccato",
-                    "Questo personaggio non è ancora disponibile.");
+            throw new ApiException(HttpStatus.FORBIDDEN, "error.characterLocked");
         }
         Instant startedAt = now.truncatedTo(ChronoUnit.MICROS); // PostgreSQL precision
         runs.abandonActive(userId, startedAt);
@@ -137,8 +135,7 @@ public class RunService {
         long wait = antiCheat.checkpointWaitSeconds(run, previous, now);
         if (wait > 0 || checkpoints.countByRunId(runId) >= antiCheat.maxCheckpoints(run, now)) {
             // Flood protection only: nothing is stored and the run is not flagged.
-            throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "Checkpoint troppo frequente",
-                    "Invia un checkpoint al massimo ogni minuto di gioco.")
+            throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "error.checkpointTooFrequent")
                     .withHeader(HttpHeaders.RETRY_AFTER, Long.toString(Math.max(wait, 1)));
         }
         Verdict verdict = antiCheat.checkCheckpoint(run, previous, request, now);
@@ -147,8 +144,7 @@ public class RunService {
                 run.setFlagReason(verdict.reason());
             }
             log.info("Implausible checkpoint for run {}: {}", runId, verdict.reason());
-            throw new ApiException(HttpStatus.UNPROCESSABLE_CONTENT, "Checkpoint non plausibile",
-                    "Il progresso inviato non è coerente con la durata della partita.");
+            throw new ApiException(HttpStatus.UNPROCESSABLE_CONTENT, "error.checkpointImplausible");
         }
         checkpoints.save(new RunCheckpoint(runId, now, request.elapsedSec(), request.kills(), request.level(),
                 request.eurodollars()));
@@ -196,7 +192,7 @@ public class RunService {
         }
 
         PlayerSave save = saves.findForUpdate(userId)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Salvataggio non trovato"));
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "error.saveNotFound"));
         int greed = upgrades.findById(new RipperdocUpgrade.Key(userId, GREED)).map(RipperdocUpgrade::getRank)
                 .orElse(0);
         long award = rewards.compute(durationSec, request.kills(), greed);
@@ -238,7 +234,7 @@ public class RunService {
     }
 
     private static ApiException notActive() {
-        return new ApiException(HttpStatus.CONFLICT, "Run non attiva", "La partita è già terminata.");
+        return new ApiException(HttpStatus.CONFLICT, "error.runNotActive");
     }
 
     private static List<String> splitIds(String ids) {
@@ -246,7 +242,7 @@ public class RunService {
     }
 
     static ApiException notFound() {
-        return new ApiException(HttpStatus.NOT_FOUND, "Run non trovata", "La partita richiesta non esiste.");
+        return new ApiException(HttpStatus.NOT_FOUND, "error.runNotFound");
     }
 
     private void addKills(UUID userId, Map<String, Long> killsByEnemy) {

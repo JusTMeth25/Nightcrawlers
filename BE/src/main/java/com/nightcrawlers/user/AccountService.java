@@ -118,11 +118,11 @@ public class AccountService {
         AuthService.requireNotLocked(user, now);
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
             registerWrongPassword(userId, now, http);
-            throw new ApiException(HttpStatus.FORBIDDEN, "Password errata", "La password non è corretta.");
+            throw new ApiException(HttpStatus.FORBIDDEN, "error.wrongPassword");
         }
         // Lock order shared with start (user -> runs) and end/purchase (run -> save): no deadlock.
         User locked = users.findByIdForUpdate(userId).orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED,
-                "Non autenticato", "Accesso richiesto o sessione scaduta."));
+                "error.notAuthenticated"));
         runs.lockAllForUser(userId);
         saveRows.findForUpdate(userId);
         users.delete(locked);
@@ -146,8 +146,8 @@ public class AccountService {
     }
 
     private User user(UUID userId) {
-        return users.findById(userId).orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Non autenticato",
-                "Accesso richiesto o sessione scaduta."));
+        return users.findById(userId).orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED,
+                "error.notAuthenticated"));
     }
 
     private static CheckpointExport checkpoint(RunCheckpoint c) {

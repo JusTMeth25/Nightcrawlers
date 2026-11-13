@@ -37,31 +37,41 @@ public class PasswordPolicy {
         this.common = load();
     }
 
-    /** @return the violated rules as user-facing messages; empty when the password is valid */
-    public List<String> validate(String password, String username, String email) {
-        List<String> errors = new ArrayList<>();
+    /** A violated rule: a key of {@code i18n/messages_*.properties} with its arguments. */
+    public record Violation(String key, Object... args) {
+    }
+
+    static final String TOO_SHORT = "password.tooShort";
+    static final String TOO_LONG = "password.tooLong";
+    static final String COMMON = "password.common";
+    static final String CONTAINS_USERNAME = "password.containsUsername";
+    static final String CONTAINS_EMAIL = "password.containsEmail";
+
+    /** @return the violated rules as message keys; empty when the password is valid */
+    public List<Violation> validate(String password, String username, String email) {
+        List<Violation> errors = new ArrayList<>();
         if (password == null || password.isEmpty()) {
-            errors.add("La password deve avere minimo " + MIN_LENGTH + " caratteri.");
+            errors.add(new Violation(TOO_SHORT, MIN_LENGTH));
             return errors;
         }
         int length = password.codePointCount(0, password.length());
         if (length < MIN_LENGTH) {
-            errors.add("La password deve avere minimo " + MIN_LENGTH + " caratteri.");
+            errors.add(new Violation(TOO_SHORT, MIN_LENGTH));
         }
         if (length > MAX_LENGTH) {
-            errors.add("La password può avere al massimo " + MAX_LENGTH + " caratteri.");
+            errors.add(new Violation(TOO_LONG, MAX_LENGTH));
         }
         String lower = password.toLowerCase(Locale.ROOT);
         if (isCommon(lower)) {
-            errors.add("La password è una password troppo comune.");
+            errors.add(new Violation(COMMON));
         }
         if (username != null && username.length() >= MIN_IDENTITY_LENGTH
                 && lower.contains(username.toLowerCase(Locale.ROOT))) {
-            errors.add("La password non deve contenere lo username.");
+            errors.add(new Violation(CONTAINS_USERNAME));
         }
         String localPart = emailLocalPart(email);
         if (localPart != null && localPart.length() >= MIN_IDENTITY_LENGTH && lower.contains(localPart)) {
-            errors.add("La password non deve contenere l'email.");
+            errors.add(new Violation(CONTAINS_EMAIL));
         }
         return errors;
     }

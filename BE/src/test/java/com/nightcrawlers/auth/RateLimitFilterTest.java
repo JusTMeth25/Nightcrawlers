@@ -13,6 +13,8 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 
 import com.nightcrawlers.auth.RateLimitProperties.Limit;
+import com.nightcrawlers.common.I18nConfig;
+import com.nightcrawlers.common.Messages;
 import com.nightcrawlers.common.ProblemResponses;
 
 import tools.jackson.databind.json.JsonMapper;
@@ -25,7 +27,7 @@ class RateLimitFilterTest {
     final JsonMapper json = JsonMapper.builder().build();
 
     RateLimitFilter filter(long maxBuckets) {
-        return new RateLimitFilter(LIMITS, new ProblemResponses(json), json, mock(JwtDecoder.class), maxBuckets);
+        return new RateLimitFilter(LIMITS, new ProblemResponses(json, new Messages(new I18nConfig().messageSource())), json, mock(JwtDecoder.class), maxBuckets);
     }
 
     static MockHttpServletRequest login(String ip, String login) {

@@ -41,7 +41,7 @@ public class SecurityConfig {
             throws Exception {
         AuthenticationEntryPoint unauthorized = (req, res, ex) -> {
             res.setHeader(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
-            problems.write(req, res, HttpStatus.UNAUTHORIZED, "Non autenticato", "Accesso richiesto o sessione scaduta.");
+            problems.write(req, res, HttpStatus.UNAUTHORIZED, "error.notAuthenticated");
         };
         http
                 // Bearer tokens are not sent automatically by browsers; the two cookie endpoints
@@ -70,7 +70,7 @@ public class SecurityConfig {
                 .exceptionHandling(e -> e
                         .authenticationEntryPoint(unauthorized)
                         .accessDeniedHandler((req, res, ex) -> problems.write(req, res, HttpStatus.FORBIDDEN,
-                                "Accesso negato", null)));
+                                "error.accessDenied")));
         return http.build();
     }
 

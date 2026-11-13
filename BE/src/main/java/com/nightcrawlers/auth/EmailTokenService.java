@@ -17,7 +17,7 @@ import com.nightcrawlers.user.UserRepository;
 @Service
 public class EmailTokenService {
 
-    static final String INVALID_TITLE = "Token non valido o scaduto";
+    static final String INVALID = "error.invalidToken";
 
     private final EmailTokenRepository tokens;
     private final UserRepository users;
@@ -67,7 +67,6 @@ public class EmailTokenService {
     }
 
     private static ApiException invalid() {
-        return new ApiException(HttpStatus.BAD_REQUEST, INVALID_TITLE,
-                "Il link non è valido, è già stato usato o è scaduto.");
+        return new ApiException(HttpStatus.BAD_REQUEST, INVALID);
     }
 }

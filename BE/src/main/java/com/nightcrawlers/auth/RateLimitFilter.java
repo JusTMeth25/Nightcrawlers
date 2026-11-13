@@ -124,8 +124,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
             if (!probe.isConsumed()) {
                 long seconds = Math.max(1, (probe.getNanosToWaitForRefill() + 999_999_999L) / 1_000_000_000L);
                 response.setHeader(HttpHeaders.RETRY_AFTER, Long.toString(seconds));
-                problems.write(request, response, HttpStatus.TOO_MANY_REQUESTS, "Troppe richieste",
-                        "Hai fatto troppi tentativi. Riprova tra " + seconds + " secondi.");
+                problems.write(request, response, HttpStatus.TOO_MANY_REQUESTS, "error.tooManyRequests",
+                        seconds);
                 return;
             }
         }

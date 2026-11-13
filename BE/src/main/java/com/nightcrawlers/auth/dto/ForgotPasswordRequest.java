@@ -7,9 +7,9 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 public record ForgotPasswordRequest(
-        @NotBlank(message = "L'email è obbligatoria.")
-        @Email(message = "L'email non è valida.")
-        @Size(max = 254, message = "L'email può avere al massimo 254 caratteri.")
+        @NotBlank(message = "{validation.email.required}")
+        @Email(message = "{validation.email.invalid}")
+        @Size(max = 254, message = "{validation.email.tooLong}")
         String email) {
 
     public ForgotPasswordRequest {

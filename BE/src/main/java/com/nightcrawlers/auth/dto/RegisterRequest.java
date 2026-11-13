@@ -9,15 +9,15 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 public record RegisterRequest(
-        @NotBlank(message = "Lo username è obbligatorio.")
+        @NotBlank(message = "{validation.username.required}")
         @Pattern(regexp = "^[a-zA-Z0-9_]{3,20}$",
-                message = "Lo username deve avere da 3 a 20 caratteri tra lettere, numeri e _.")
+                message = "{validation.username.pattern}")
         String username,
-        @NotBlank(message = "L'email è obbligatoria.")
-        @Email(message = "L'email non è valida.")
-        @Size(max = 254, message = "L'email può avere al massimo 254 caratteri.")
+        @NotBlank(message = "{validation.email.required}")
+        @Email(message = "{validation.email.invalid}")
+        @Size(max = 254, message = "{validation.email.tooLong}")
         String email,
-        @NotNull(message = "La password è obbligatoria.")
+        @NotNull(message = "{validation.password.required}")
         String password,
         /** Optional email language; unsupported values fall back to Italian. */
         String locale) {

@@ -38,7 +38,6 @@ import jakarta.servlet.http.HttpServletRequest;
 public class AuthService {
 
     static final Duration EMAIL_TOKEN_TTL = Duration.ofMinutes(30);
-    static final String INVALID_CREDENTIALS = "Credenziali non valide";
     static final int FREE_FAILURES = 4;
 
     /** Result of a successful login or refresh. */
@@ -89,8 +88,8 @@ public class AuthService {
         String email = request.email();
         requireValidPassword(request.password(), request.username(), email);
         if (users.existsByUsernameIgnoreCase(request.username())) {
-            throw new ApiException(HttpStatus.CONFLICT, "Username già in uso", "Scegli un altro username.")
-                    .withError("username", "Username già in uso.");
+            throw new ApiException(HttpStatus.CONFLICT, "error.usernameTaken")
+                    .withError("username", "field.usernameTaken");
         }
         Optional<User> existing = users.findByEmail(email);
         String hash = passwordEncoder.encode(request.password()); // same cost on both paths
@@ -212,8 +211,7 @@ public class AuthService {
     public static void requireNotLocked(User user, Instant now) {
         if (user.getLockedUntil() != null && user.getLockedUntil().isAfter(now)) {
             long seconds = Math.max(1, (Duration.between(now, user.getLockedUntil()).toMillis() + 999) / 1000);
-            throw new ApiException(HttpStatus.LOCKED, "Account temporaneamente bloccato",
-                    "Troppi tentativi falliti. Riprova tra " + seconds + " secondi.")
+            throw new ApiException(HttpStatus.LOCKED, "error.accountLocked", seconds)
                     .withHeader(HttpHeaders.RETRY_AFTER, Long.toString(seconds));
         }
     }
@@ -237,15 +235,15 @@ public class AuthService {
     }
 
     private static ApiException invalidCredentials() {
-        return new ApiException(HttpStatus.UNAUTHORIZED, INVALID_CREDENTIALS,
-                "Username, email o password non corretti.");
+        return new ApiException(HttpStatus.UNAUTHORIZED, "error.invalidCredentials");
     }
 
     void requireValidPassword(String password, String username, String email) {
-        List<String> errors = passwordPolicy.validate(password, username, email);
-        if (!errors.isEmpty()) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Dati non validi", "La password non rispetta i requisiti.")
-                    .withError("password", String.join(" ", errors));
+        List<PasswordPolicy.Violation> violations = passwordPolicy.validate(password, username, email);
+        if (!violations.isEmpty()) {
+            ApiException error = new ApiException(HttpStatus.BAD_REQUEST, "error.invalidPassword");
+            violations.forEach(v -> error.withError("password", v.key(), v.args()));
+            throw error;
         }
     }
 

@@ -67,7 +67,7 @@ class EmailTokenServiceTest {
         assertThatThrownBy(() -> service.consume("nope", EmailToken.Purpose.VERIFY))
                 .isInstanceOfSatisfying(ApiException.class, e -> {
                     assertThat(e.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
-                    assertThat(e.getTitle()).isEqualTo("Token non valido o scaduto");
+                    assertThat(e.getCode()).isEqualTo("error.invalidToken");
                 });
 
         EmailToken stored = new EmailToken(UUID.randomUUID(), user.getId(), EmailToken.Purpose.VERIFY,

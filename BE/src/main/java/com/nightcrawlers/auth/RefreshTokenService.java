@@ -168,7 +168,6 @@ public class RefreshTokenService {
     }
 
     private static ApiException invalid() {
-        return new ApiException(HttpStatus.UNAUTHORIZED, "Sessione non valida",
-                "La sessione è scaduta o non è più valida. Accedi di nuovo.");
+        return new ApiException(HttpStatus.UNAUTHORIZED, "error.invalidSession");
     }
 }

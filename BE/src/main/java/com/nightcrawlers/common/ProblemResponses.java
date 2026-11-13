@@ -2,8 +2,10 @@ package com.nightcrawlers.common;
 
 import java.io.IOException;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -17,13 +19,22 @@ import tools.jackson.databind.json.JsonMapper;
 public class ProblemResponses {
 
     private final JsonMapper jsonMapper;
+    private final Messages messages;
 
-    public ProblemResponses(JsonMapper jsonMapper) {
+    public ProblemResponses(JsonMapper jsonMapper, Messages messages) {
         this.jsonMapper = jsonMapper;
+        this.messages = messages;
     }
 
-    public void write(HttpServletRequest request, HttpServletResponse response, HttpStatus status, String title,
-            String detail) throws IOException {
+    /**
+     * Writes the problem {@code <code>.title} / {@code <code>.detail} in the language of the
+     * request's {@code Accept-Language} (filters run before Spring MVC resolves it).
+     */
+    public void write(HttpServletRequest request, HttpServletResponse response, HttpStatus status, String code,
+            Object... detailArgs) throws IOException {
+        Locale locale = SupportedLocales.fromAcceptLanguage(request.getHeader(HttpHeaders.ACCEPT_LANGUAGE));
+        String title = messages.get(code + ".title", locale);
+        String detail = messages.optional(code + ".detail", locale, detailArgs);
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("type", "about:blank");
         body.put("title", title);

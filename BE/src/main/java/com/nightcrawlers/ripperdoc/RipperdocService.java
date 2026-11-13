@@ -59,7 +59,7 @@ public class RipperdocService {
 
     public SaveDto buy(UUID userId, String upgradeId, HttpServletRequest http) {
         RipperdocDef def = gameData.ripperdoc(upgradeId).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND,
-                "Potenziamento non trovato", "Il potenziamento richiesto non esiste."));
+                "error.upgradeNotFound"));
         try {
             return transaction.execute(status -> purchase(userId, def, http));
         } catch (OptimisticLockingFailureException | DataIntegrityViolationException firstConflict) {
@@ -67,31 +67,27 @@ public class RipperdocService {
             try {
                 return transaction.execute(status -> purchase(userId, def, http));
             } catch (OptimisticLockingFailureException | DataIntegrityViolationException secondConflict) {
-                throw new ApiException(HttpStatus.CONFLICT, "Acquisto non riuscito",
-                        "Il salvataggio è stato modificato da un'altra richiesta. Riprova.");
+                throw new ApiException(HttpStatus.CONFLICT, "error.purchaseFailed");
             }
         }
     }
 
     private SaveDto purchase(UUID userId, RipperdocDef def, HttpServletRequest http) {
         User user = users.findById(userId)
-                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Non autenticato"));
+                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "error.notAuthenticated"));
         if (!user.isEmailVerified()) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "Email non verificata",
-                    "Conferma il tuo indirizzo email per usare il Ripperdoc.");
+            throw new ApiException(HttpStatus.FORBIDDEN, "error.emailNotVerifiedRipperdoc");
         }
         PlayerSave save = saves.findById(userId)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Salvataggio non trovato"));
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "error.saveNotFound"));
         RipperdocUpgrade upgrade = upgrades.findById(new RipperdocUpgrade.Key(userId, def.id())).orElse(null);
         int rank = upgrade == null ? 0 : upgrade.getRank();
         if (rank >= def.maxRank()) {
-            throw new ApiException(HttpStatus.CONFLICT, "Grado massimo raggiunto",
-                    "Questo potenziamento è già al grado massimo.");
+            throw new ApiException(HttpStatus.CONFLICT, "error.maxRank");
         }
         long cost = gameData.ripperdocCost(def, rank);
         if (save.getEurodollars() < cost) {
-            throw new ApiException(HttpStatus.CONFLICT, "Eurodollari insufficienti",
-                    "Servono " + cost + " €$ per il prossimo grado.");
+            throw new ApiException(HttpStatus.CONFLICT, "error.insufficientEurodollars", cost);
         }
         save.setEurodollars(save.getEurodollars() - cost);
         // Version check first, so a concurrent purchase fails here, before touching the rank row.
