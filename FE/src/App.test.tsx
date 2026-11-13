@@ -102,7 +102,7 @@ describe('App language', () => {
     expect(document.documentElement.lang).toBe('en')
     await u.click(screen.getByRole('link', { name: 'Back' }))
     expect(screen.getByRole('link', { name: 'Play' })).toBeInTheDocument()
-    expect(screen.getByText('Survive the Night City night')).toBeInTheDocument()
+    expect(screen.getByText('Survive the night in Night City')).toBeInTheDocument()
   })
 
   // review focus 5: the language cannot change mid-run, so the play screen is never remounted

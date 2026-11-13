@@ -3,7 +3,7 @@ import type { TextKey } from './it'
 // English UI texts. Same keys and {placeholders} as it.ts (checked by the typecheck and dictionaries.test.ts).
 export const en: Record<TextKey, string> = {
   'app.title': 'NIGHTCRAWLERS',
-  'app.tagline': 'Survive the Night City night',
+  'app.tagline': 'Survive the night in Night City',
   'app.loading': 'Connecting…',
   'app.disclaimer':
     'Unofficial, non-commercial fan game, not affiliated with CD Projekt or Studio Trigger. Cyberpunk, Cyberpunk: Edgerunners and their characters belong to their respective owners.',
@@ -25,7 +25,7 @@ export const en: Record<TextKey, string> = {
   'menu.guest': 'Guest mode: progress is not saved',
 
   'screen.select': 'Character select',
-  'screen.play': 'Match',
+  'screen.play': 'Run',
   'screen.gameOver': 'Run over',
   'screen.ripperdoc': 'Ripperdoc',
   'screen.codex': 'Codex',
@@ -132,7 +132,7 @@ export const en: Record<TextKey, string> = {
   'pause.resume': 'Resume',
   'pause.options': 'Options',
   'pause.quit': 'Quit',
-  'pause.quitConfirm': 'Quit the run? Progress from this run will count up to now.',
+  'pause.quitConfirm': 'Quit the run? Your progress so far will still count.',
   'pause.quitYes': 'Yes, quit',
   'pause.quitNo': 'No, keep playing',
 
@@ -224,7 +224,7 @@ export const en: Record<TextKey, string> = {
   'codex.enemyStats': 'HP {hp} · speed {speed} · damage {damage}',
   'codex.weaponStats': 'Damage {damage} · cooldown {cooldown} s',
   'codex.evolution': 'Evolution: {name}',
-  'codex.guest': 'As a guest the Codex resets when the page is closed.',
+  'codex.guest': 'In guest mode, the Codex resets when you close the page.',
 
   'options.title': 'Options',
   'options.music': 'Music volume',
@@ -294,7 +294,7 @@ export const en: Record<TextKey, string> = {
   'privacy.cookies':
     'Technical cookies only: the session token (HttpOnly) and the anti-CSRF token. No profiling or third-party cookies. Game options stay in your browser.',
   'privacy.guestTitle': 'Guest mode',
-  'privacy.guest': 'As a guest we send no data to the server: everything stays in memory and is lost when you close the page.',
+  'privacy.guest': 'In guest mode we send no data to the server: everything stays in memory and is lost when you close the page.',
   'privacy.contactTitle': 'Contact',
   'privacy.contact': 'For privacy requests write to: {email}',
 }

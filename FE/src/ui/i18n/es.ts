@@ -133,9 +133,9 @@ export const es: Record<TextKey, string> = {
   'pause.resume': 'Reanudar',
   'pause.options': 'Opciones',
   'pause.quit': 'Abandonar',
-  'pause.quitConfirm': '¿Abandonar la partida? El progreso de esta partida contará hasta ahora.',
+  'pause.quitConfirm': '¿Abandonar la partida? Tu progreso hasta ahora seguirá contando.',
   'pause.quitYes': 'Sí, abandonar',
-  'pause.quitNo': 'No, seguir',
+  'pause.quitNo': 'No, seguir jugando',
 
   'stat.maxHp': 'PV máx.',
   'stat.regen': 'regeneración PV/s',
@@ -215,7 +215,7 @@ export const es: Record<TextKey, string> = {
   'ripperdoc.guest':
     'El Ripperdoc está reservado a los usuarios registrados: regístrate para guardar €$ y mejoras.',
   'ripperdoc.notVerified': 'Verifica tu correo para usar el Ripperdoc.',
-  'ripperdoc.loadFailed': 'No se pudo cargar la partida guardada.',
+  'ripperdoc.loadFailed': 'No se pudo cargar el progreso guardado.',
 
   'codex.title': 'Codex',
   'codex.intro': 'Enemigos y armas encontrados en tus partidas.',
@@ -227,7 +227,7 @@ export const es: Record<TextKey, string> = {
   'codex.enemyStats': 'PV {hp} · velocidad {speed} · daño {damage}',
   'codex.weaponStats': 'Daño {damage} · recarga {cooldown} s',
   'codex.evolution': 'Evolución: {name}',
-  'codex.guest': 'Como invitado el Codex se reinicia al cerrar la página.',
+  'codex.guest': 'En modo invitado, el Codex se reinicia al cerrar la página.',
 
   'options.title': 'Opciones',
   'options.music': 'Volumen de la música',
@@ -235,7 +235,7 @@ export const es: Record<TextKey, string> = {
   'options.autoAim': 'Apuntado automático',
   'options.autoAimHint': 'Las armas apuntan siempre al enemigo más cercano',
   'options.showFps': 'Mostrar FPS',
-  'options.screenShake': 'Vibración de pantalla',
+  'options.screenShake': 'Temblor de pantalla',
   'options.percent': '{value}%',
   'options.saved': 'Las opciones se guardan en este dispositivo.',
   'options.language': 'Idioma',
@@ -254,7 +254,7 @@ export const es: Record<TextKey, string> = {
   'account.exported': 'Exportación descargada.',
   'account.delete': 'Eliminar cuenta',
   'account.deleteWarning':
-    'La eliminación es definitiva: se borrarán la cuenta, la partida guardada y las partidas. Escribe la contraseña para confirmar.',
+    'La eliminación es definitiva: se borrarán la cuenta, el progreso guardado y el historial de partidas. Escribe la contraseña para confirmar.',
   'account.deleteConfirm': 'Eliminar definitivamente',
   'account.deleteCancel': 'Cancelar',
   'account.wrongPassword': 'Contraseña incorrecta',
@@ -267,7 +267,7 @@ export const es: Record<TextKey, string> = {
 
   'privacy.title': 'Privacidad',
   'privacy.intro':
-    'Nightcrawlers es un juego fan sin fines comerciales. Solo recopilamos los datos necesarios para que funcionen la cuenta y la partida guardada.',
+    'Nightcrawlers es un juego fan sin fines comerciales. Solo recopilamos los datos necesarios para que funcionen la cuenta y el progreso guardado.',
   'privacy.dataTitle': 'Datos recopilados',
   'privacy.data1': 'Nombre de usuario y correo electrónico, para el acceso y las comunicaciones sobre la cuenta.',
   'privacy.data2': 'Hash de la contraseña (Argon2id): la contraseña en texto plano nunca se guarda.',
@@ -280,7 +280,7 @@ export const es: Record<TextKey, string> = {
     'Gestionar la cuenta, guardar el progreso, proteger el servicio contra abusos (límites de intentos, control de las partidas).',
   'privacy.retentionTitle': 'Conservación',
   'privacy.retention':
-    'Los datos se conservan mientras exista la cuenta. Al eliminar la cuenta se borran la cuenta, la partida guardada y las partidas.',
+    'Los datos se conservan mientras exista la cuenta. Al eliminar la cuenta se borran la cuenta, el progreso guardado y el historial de partidas.',
   'privacy.retentionIp':
     'En los registros de seguridad la dirección IP se guarda solo como hash con salt, y el hash se borra a los 90 días.',
   'privacy.retentionLogs':
@@ -301,7 +301,7 @@ export const es: Record<TextKey, string> = {
     'Solo cookies técnicas: el token de sesión (HttpOnly) y el token anti-CSRF. Ninguna cookie de elaboración de perfiles ni de terceros. Las opciones del juego se quedan en tu navegador.',
   'privacy.guestTitle': 'Modo invitado',
   'privacy.guest':
-    'Como invitado no enviamos datos al servidor: todo se queda en memoria y se pierde al cerrar la página.',
+    'En modo invitado no enviamos datos al servidor: todo se queda en memoria y se pierde al cerrar la página.',
   'privacy.contactTitle': 'Contacto',
   'privacy.contact': 'Para solicitudes sobre privacidad escribe a: {email}',
 }
