@@ -14,6 +14,7 @@ import {
   type SaveDto,
   type StartRunRequest,
   type StartRunResponse,
+  type UpdateLocaleRequest,
   type UserDto,
   type VerifyEmailRequest,
 } from '@shared/api-contract'
@@ -34,6 +35,8 @@ export interface ApiClient {
   forgotPassword(r: ForgotPasswordRequest): Promise<MessageResponse>
   resetPassword(r: ResetPasswordRequest): Promise<void>
   me(): Promise<UserDto>
+  /** Language of the account's emails (PUT /me/locale, 204). */
+  updateLocale(r: UpdateLocaleRequest): Promise<void>
   exportData(): Promise<Blob>
   deleteAccount(r: DeleteAccountRequest): Promise<void>
   getSave(): Promise<SaveDto>
@@ -87,6 +90,7 @@ export function createRealApi(deps: { auth: AuthBridge; fetchImpl?: typeof fetch
     forgotPassword: (r) => http.request(API.forgotPassword, { method: 'POST', body: r }),
     resetPassword: (r) => http.request(API.resetPassword, { method: 'POST', body: r }),
     me: () => http.request(API.me, bearer),
+    updateLocale: (r) => http.request(API.meLocale, { method: 'PUT', auth: true, body: r }),
     exportData: () => http.request(API.meExport, { auth: true, responseType: 'blob' }),
     async deleteAccount(r) {
       await http.request(API.me, { method: 'DELETE', auth: true, body: r })

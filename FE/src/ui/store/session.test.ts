@@ -3,6 +3,7 @@ import type { ApiClient } from '../../api/ApiClient'
 import { createAuthBridge } from '../../api/auth'
 import { ApiError } from '../../api/errors'
 import { DEMO_LOGIN, DEMO_PASSWORD, MockApi } from '../../api/mock/MockApi'
+import { getLocale, setLocale } from '../i18n/locale'
 import { createSessionStore } from './session'
 
 function setup(overrides: Partial<ApiClient> = {}) {
@@ -14,6 +15,7 @@ function setup(overrides: Partial<ApiClient> = {}) {
 }
 
 afterEach(() => {
+  setLocale('it')
   vi.restoreAllMocks()
 })
 
@@ -150,5 +152,43 @@ describe('session store', () => {
     expect(store.getState().save?.eurodollars).toBe(7)
     await store.getState().reloadSave()
     expect(store.getState().save?.eurodollars).not.toBe(7)
+  })
+})
+
+describe('session locale', () => {
+  // review focus 2: a second device with an English browser must not switch to the account's Italian
+  it('login and bootstrap keep the device locale and never update the account locale', async () => {
+    const { store, mock } = setup()
+    const update = vi.spyOn(mock, 'updateLocale')
+    setLocale('en')
+    await store.getState().login({ login: DEMO_LOGIN, password: DEMO_PASSWORD })
+    expect(store.getState().user?.locale).toBe('it')
+    expect(getLocale()).toBe('en')
+    await store.getState().bootstrap()
+    expect(getLocale()).toBe('en')
+    expect(update).not.toHaveBeenCalled()
+  })
+
+  it('updateLocale saves the choice on the account once when authenticated', async () => {
+    const { store, mock } = setup()
+    const update = vi.spyOn(mock, 'updateLocale')
+    await store.getState().login({ login: DEMO_LOGIN, password: DEMO_PASSWORD })
+    await store.getState().updateLocale('es')
+    expect(update).toHaveBeenCalledTimes(1)
+    expect(update).toHaveBeenCalledWith({ locale: 'es' })
+    expect(store.getState().user?.locale).toBe('es')
+  })
+
+  it('updateLocale does nothing for a guest and never throws', async () => {
+    const { store, mock } = setup()
+    const update = vi.spyOn(mock, 'updateLocale')
+    store.getState().playAsGuest()
+    await store.getState().updateLocale('en')
+    expect(update).not.toHaveBeenCalled()
+
+    await store.getState().login({ login: DEMO_LOGIN, password: DEMO_PASSWORD })
+    update.mockRejectedValueOnce(new ApiError(0, null, null))
+    await expect(store.getState().updateLocale('en')).resolves.toBeUndefined()
+    expect(store.getState().status).toBe('authenticated')
   })
 })

@@ -238,6 +238,8 @@ export const es: Record<TextKey, string> = {
   'options.screenShake': 'Vibración de pantalla',
   'options.percent': '{value}%',
   'options.saved': 'Las opciones se guardan en este dispositivo.',
+  'options.language': 'Idioma',
+  'options.languageInRun': 'Cambia el idioma desde el menú principal',
 
   'account.title': 'Cuenta',
   'account.username': 'Nombre de usuario',

@@ -239,6 +239,8 @@ export const it = {
   'options.screenShake': 'Scuotimento schermo',
   'options.percent': '{value}%',
   'options.saved': 'Le opzioni sono salvate su questo dispositivo.',
+  'options.language': 'Lingua',
+  'options.languageInRun': 'Cambia lingua dal menu principale',
 
   'account.title': 'Account',
   'account.username': 'Username',

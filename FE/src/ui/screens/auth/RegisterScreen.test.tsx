@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { api } from '../../../api'
 import { problemError } from '../../../api/errors'
+import { setLocale } from '../../i18n/locale'
 import RegisterScreen from './RegisterScreen'
 
 vi.mock('../../../api', async () => {
@@ -37,10 +38,29 @@ async function fill(username: string, email: string, password: string) {
 }
 
 afterEach(() => {
+  setLocale('it')
   vi.restoreAllMocks()
 })
 
 describe('RegisterScreen', () => {
+  it('sends the current locale with the registration', async () => {
+    const register = vi.spyOn(api, 'register')
+    renderRegister()
+    const user = userEvent.setup()
+    await user.type(screen.getByLabelText('Username'), 'nuevo_user')
+    await user.type(screen.getByLabelText('Email'), 'nuevo@x.test')
+    await user.type(screen.getByLabelText('Password'), 'una-password-lunga')
+    // the locale at submit time is sent (labels stay as rendered until the next render)
+    setLocale('es')
+    await user.click(screen.getByRole('button', { name: 'Crea account' }))
+    expect(register).toHaveBeenCalledWith({
+      username: 'nuevo_user',
+      email: 'nuevo@x.test',
+      password: 'una-password-lunga',
+      locale: 'es',
+    })
+  })
+
   it('uses the right autocomplete attributes', () => {
     renderRegister()
     expect(screen.getByLabelText('Username')).toHaveAttribute('autocomplete', 'username')

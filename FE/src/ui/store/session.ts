@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { AuthResponse, LoginRequest, SaveDto, UserDto } from '@shared/api-contract'
+import type { Locale } from '@shared/types'
 import { api as defaultApi, authBridge as defaultAuth, type ApiClient, type AuthBridge } from '../../api'
 import { isApiError } from '../../api/errors'
 
@@ -22,6 +23,11 @@ export interface SessionState {
   setUser(u: UserDto): void
   playAsGuest(): void
   reloadSave(): Promise<void>
+  /**
+   * Saves a language chosen on this device on the account (emails), when authenticated.
+   * Best effort: never throws. Login and bootstrap never change the device language.
+   */
+  updateLocale(locale: Locale): Promise<void>
   clearExpired(): void
 }
 
@@ -103,6 +109,18 @@ export function createSessionStore(deps: { api: ApiClient; auth: AuthBridge }) {
       if (get().status !== 'authenticated') return
       const save = await api.getSave()
       set({ save })
+    },
+
+    async updateLocale(locale) {
+      const { status, user } = get()
+      if (status !== 'authenticated' || !user || user.locale === locale) return
+      try {
+        await api.updateLocale({ locale })
+        const current = get().user
+        if (current?.id === user.id) set({ user: { ...current, locale } })
+      } catch {
+        // the device keeps the new language; the account is updated at the next change
+      }
     },
 
     clearExpired: () => set({ sessionExpired: false }),

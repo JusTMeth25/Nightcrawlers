@@ -298,6 +298,23 @@ describe('real ApiClient', () => {
     expect(lost).toHaveBeenCalledTimes(1)
     expect(bridge.getToken()).toBeNull()
   })
+  it('updateLocale sends PUT /api/me/locale with the bearer token and the locale', async () => {
+    const bridge = createAuthBridge()
+    bridge.setToken('valid')
+    const calls: { url: string; init: RequestInit }[] = []
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push({ url: String(input), init: init ?? {} })
+      return new Response(null, { status: 204 })
+    })
+    const api = createRealApi({ auth: bridge, fetchImpl: fetchImpl as typeof fetch })
+    await expect(api.updateLocale({ locale: 'en' })).resolves.toBeUndefined()
+    expect(calls).toHaveLength(1)
+    expect(calls[0].url).toBe(API.meLocale)
+    expect(calls[0].init.method).toBe('PUT')
+    expect(header(calls[0].init, 'Authorization')).toBe('Bearer valid')
+    expect(calls[0].init.body).toBe('{"locale":"en"}')
+  })
+
   it('DELETE /me with a wrong password (403) never refreshes and keeps the session', async () => {
     const bridge = createAuthBridge()
     bridge.setToken('valid')

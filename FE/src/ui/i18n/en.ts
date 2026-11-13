@@ -235,6 +235,8 @@ export const en: Record<TextKey, string> = {
   'options.screenShake': 'Screen shake',
   'options.percent': '{value}%',
   'options.saved': 'Options are saved on this device.',
+  'options.language': 'Language',
+  'options.languageInRun': 'Change the language from the main menu',
 
   'account.title': 'Account',
   'account.username': 'Username',
