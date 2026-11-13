@@ -4,6 +4,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SaveDto } from '@shared/api-contract'
 import { DEFAULT_OPTIONS } from '@shared/types'
+import { setLocale } from '../i18n/locale'
 import { useRun } from '../store/run'
 import { useSession } from '../store/session'
 import CharacterSelectScreen from './CharacterSelectScreen'
@@ -42,6 +43,7 @@ beforeEach(() => {
 const initialRun = useRun.getState()
 
 afterEach(() => {
+  setLocale('it')
   vi.unstubAllGlobals()
   useRun.setState(initialRun, true)
   useSession.setState({ status: 'unknown', user: null, save: null, accessToken: null })
@@ -59,6 +61,20 @@ describe('CharacterSelectScreen', () => {
     expect(screen.getByText('Registrati per sbloccare nuovi personaggi.')).toBeInTheDocument()
     await u.click(screen.getByRole('button', { name: /Lucy/ }))
     expect(screen.getByRole('button', { name: 'Avvia' })).toBeEnabled()
+  })
+
+  it('shows weapon, skill and requirement in English', async () => {
+    setLocale('en')
+    useSession.setState({ status: 'authenticated', user, save })
+    renderSelect()
+    expect(screen.getByRole('heading', { name: 'Choose your edgerunner' })).toBeInTheDocument()
+    const u = userEvent.setup()
+    await u.click(screen.getByRole('button', { name: /Kiwi/ }))
+    expect(screen.getByText('Smart Pistol')).toBeInTheDocument()
+    expect(screen.getByText('Snipe')).toBeInTheDocument()
+    expect(screen.getByText(/A piercing shot with extreme damage\./)).toBeInTheDocument()
+    expect(screen.getByText('Kill 50 MaxTac agents in total')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Start' })).toBeDisabled()
   })
 
   it('lets an unlocked Kiwi start now that every character has a sprite', async () => {

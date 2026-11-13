@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
-import { getWeapon } from '@data'
 import { gameBus } from '@shared/events'
 import type { ChestReward } from '@shared/types'
 import { NeonButton } from '../components/NeonButton'
+import { weaponName } from '../i18n/dataText'
 import { t } from '../i18n/it'
 import { useGamepadNav } from '../nav/useGamepadNav'
 import { ARM_DELAY_MS, isRepeatedActivation } from './arm'
@@ -73,7 +73,7 @@ export function ChestModal({ armDelayMs = ARM_DELAY_MS }: { armDelayMs?: number 
             <p className={styles.evolution}>
               <span className="visually-hidden">{t('chest.evolution')}: </span>
               {t('chest.evolutionText', {
-                weapon: getWeapon(reward.evolution.weapon).name,
+                weapon: weaponName(reward.evolution.weapon),
                 into: evolutionName(reward.evolution.weapon, reward.evolution.into),
               })}
             </p>

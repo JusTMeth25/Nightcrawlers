@@ -9,6 +9,7 @@ import { NeonButton, NeonLink } from '../components/NeonButton'
 import { Panel } from '../components/Panel'
 import { Spinner } from '../components/Spinner'
 import { apiErrorText } from '../i18n/apiErrorText'
+import { ripperdocName } from '../i18n/dataText'
 import { t } from '../i18n/it'
 import { formatModifier } from '../meta/unlockProgress'
 import { useGamepadNav } from '../nav/useGamepadNav'
@@ -108,9 +109,9 @@ export default function RipperdocScreen() {
               const cost = ripperdocCost(def, rank)
               const canBuy = registered && verified && !!save && !maxed && balance >= cost && busy === null
               return (
-                <li key={def.id} className={styles.row} aria-label={def.name}>
+                <li key={def.id} className={styles.row} aria-label={ripperdocName(def.id)}>
                   <div>
-                    <div className={styles.rowTitle}>{def.name}</div>
+                    <div className={styles.rowTitle}>{ripperdocName(def.id)}</div>
                     <div>{t('ripperdoc.perRank', { effect: formatModifier(def.perRank) })}</div>
                     <div className={styles.muted}>{t('ripperdoc.rank', { rank, max: def.maxRank })}</div>
                   </div>
@@ -120,8 +121,8 @@ export default function RipperdocScreen() {
                     <NeonButton
                       variant="primary"
                       disabled={!canBuy}
-                      aria-label={t('ripperdoc.buyLabel', { name: def.name, cost })}
-                      onClick={() => void buy(def.id, def.name)}
+                      aria-label={t('ripperdoc.buyLabel', { name: ripperdocName(def.id), cost })}
+                      onClick={() => void buy(def.id, ripperdocName(def.id))}
                     >
                       {t('ripperdoc.buy', { cost })}
                     </NeonButton>

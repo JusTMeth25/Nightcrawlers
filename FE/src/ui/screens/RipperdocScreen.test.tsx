@@ -6,6 +6,7 @@ import { getRipperdoc, ripperdocCost } from '@data'
 import { api } from '../../api'
 import { problemError } from '../../api/errors'
 import { DEMO_LOGIN, DEMO_PASSWORD } from '../../api/mock/MockApi'
+import { setLocale } from '../i18n/locale'
 import { useSession } from '../store/session'
 import RipperdocScreen from './RipperdocScreen'
 
@@ -45,6 +46,7 @@ async function loginDemo(eurodollars: number) {
 }
 
 afterEach(async () => {
+  setLocale('it')
   vi.restoreAllMocks()
   await useSession.getState().logout()
 })
@@ -58,6 +60,16 @@ describe('RipperdocScreen', () => {
     expect(within(r).getByText('Grado 2 / 5')).toBeInTheDocument()
     expect(within(r).getByText('+5% potenza per grado')).toBeInTheDocument()
     expect(within(r).getByRole('button', { name: `Installa ${might.name} per ${ripperdocCost(might, 2)} €$` })).toBeEnabled()
+  })
+
+  it('shows names and effects in English', async () => {
+    setLocale('en')
+    await loginDemo(2500)
+    renderRipperdoc()
+    const r = row('Muscle Booster')
+    expect(within(r).getByText('Rank 2 / 5')).toBeInTheDocument()
+    expect(within(r).getByText('+5% might per rank')).toBeInTheDocument()
+    expect(within(r).getByRole('button', { name: /^Install Muscle Booster for \d+ €\$$/ })).toBeEnabled()
   })
 
   it('disables the purchase when the €$ are not enough', async () => {

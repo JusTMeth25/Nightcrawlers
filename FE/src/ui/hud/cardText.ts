@@ -1,21 +1,18 @@
-import { getCyberware, getWeapon } from '@data'
+import { getWeapon } from '@data'
 import type { LevelUpCard, WeaponId } from '@shared/types'
+import { cyberwareDescription, cyberwareName, evolutionName as evoName, weaponDescription, weaponName } from '../i18n/dataText'
 import { t } from '../i18n/it'
 
 export function cardText(card: LevelUpCard): { title: string; subtitle: string } {
   switch (card.kind) {
-    case 'weapon_new': {
-      const w = getWeapon(card.id)
-      return { title: w.name, subtitle: w.description }
-    }
+    case 'weapon_new':
+      return { title: weaponName(card.id), subtitle: weaponDescription(card.id) }
     case 'weapon_up':
-      return { title: getWeapon(card.id).name, subtitle: t('card.level', { level: card.level }) }
-    case 'cyber_new': {
-      const c = getCyberware(card.id)
-      return { title: c.name, subtitle: c.description }
-    }
+      return { title: weaponName(card.id), subtitle: t('card.level', { level: card.level }) }
+    case 'cyber_new':
+      return { title: cyberwareName(card.id), subtitle: cyberwareDescription(card.id) }
     case 'cyber_up':
-      return { title: getCyberware(card.id).name, subtitle: t('card.level', { level: card.level }) }
+      return { title: cyberwareName(card.id), subtitle: t('card.level', { level: card.level }) }
     case 'heal':
       return { title: t('card.heal'), subtitle: t('card.healAmount', { amount: card.amount }) }
     case 'eurodollars':
@@ -31,6 +28,5 @@ export function cardBadge(card: LevelUpCard): string | null {
 
 /** Evolution name from its id; unknown values (already a name) are shown as they are. */
 export function evolutionName(weapon: WeaponId, into: string): string {
-  const evo = getWeapon(weapon).evolution
-  return into === evo.id ? evo.name : into
+  return into === getWeapon(weapon).evolution.id ? evoName(weapon) : into
 }

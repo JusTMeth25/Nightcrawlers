@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router'
 import { enemies, weapons } from '@data'
 import { NeonLink } from '../components/NeonButton'
 import { Panel } from '../components/Panel'
+import { enemyName, evolutionName, weaponDescription, weaponName } from '../i18n/dataText'
 import { t } from '../i18n/it'
 import { getLocale } from '../i18n/locale'
 import { useGamepadNav } from '../nav/useGamepadNav'
@@ -40,7 +41,7 @@ export default function CodexScreen() {
             <li key={e.id} className={styles.codexEntry}>
               {codex.enemies.includes(e.id) ? (
                 <>
-                  <div className={styles.rowTitle}>{e.name}</div>
+                  <div className={styles.rowTitle}>{enemyName(e.id)}</div>
                   <div className={styles.muted}>
                     {t('codex.enemyStats', { hp: e.hp, speed: e.speed, damage: e.damage })}
                   </div>
@@ -61,15 +62,15 @@ export default function CodexScreen() {
             <li key={w.id} className={styles.codexEntry}>
               {codex.weapons.includes(w.id) ? (
                 <>
-                  <div className={styles.rowTitle}>{w.name}</div>
-                  <div>{w.description}</div>
+                  <div className={styles.rowTitle}>{weaponName(w.id)}</div>
+                  <div>{weaponDescription(w.id)}</div>
                   <div className={styles.muted}>
                     {t('codex.weaponStats', {
                       damage: w.levels[0].damage,
                       cooldown: w.levels[0].cooldownSec.toLocaleString(getLocale()),
                     })}
                   </div>
-                  <div className={styles.muted}>{t('codex.evolution', { name: w.evolution.name })}</div>
+                  <div className={styles.muted}>{t('codex.evolution', { name: evolutionName(w.id) })}</div>
                 </>
               ) : (
                 <Unknown />

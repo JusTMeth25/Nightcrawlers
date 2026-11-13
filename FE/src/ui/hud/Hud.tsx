@@ -1,7 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { getCharacter, getSkill } from '@data'
+import { getCharacter } from '@data'
 import { gameBus } from '@shared/events'
 import type { CharacterId, HudState } from '@shared/types'
+import { skillName as skillText } from '../i18n/dataText'
 import { t } from '../i18n/it'
 import { BossBar } from './BossBar'
 import { HpBar } from './HpBar'
@@ -18,7 +19,7 @@ export function Hud({ characterId, controls }: { characterId?: CharacterId; cont
 
   useEffect(() => gameBus.on('hud:update', setHud), [])
 
-  const skillName = characterId ? getSkill(getCharacter(characterId).skill).name : undefined
+  const skillName = characterId ? skillText(getCharacter(characterId).skill) : undefined
 
   return (
     <div className={styles.hud}>

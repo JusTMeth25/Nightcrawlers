@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { gameBus } from '@shared/events'
 import type { LevelUpCard } from '@shared/types'
+import { setLocale } from '../i18n/locale'
 import { LevelUpModal } from './LevelUpModal'
 
 const cards: LevelUpCard[] = [
@@ -24,6 +25,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  setLocale('it')
   off()
   vi.useRealTimers()
 })
@@ -36,6 +38,16 @@ describe('LevelUpModal', () => {
     expect(screen.getByRole('dialog', { name: 'Level up!' })).toBeInTheDocument()
     expect(screen.getAllByRole('button')).toHaveLength(3)
     expect(screen.getByRole('button', { name: /Pistola/ })).toHaveFocus()
+  })
+
+  it('renders title and cards in Spanish', () => {
+    setLocale('es')
+    render(<LevelUpModal armDelayMs={0} />)
+    offer()
+    expect(screen.getByRole('dialog', { name: '¡Subes de nivel!' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Pistola.*Nivel 3/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Escopeta/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Reflejos Kerenzikov/ })).toBeInTheDocument()
   })
 
   it('a click on the second card emits levelup:choose {index:1} once, even with a fast double click', async () => {
